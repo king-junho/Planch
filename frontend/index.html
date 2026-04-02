@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planch</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <p class="eyebrow">Planch</p>
+        <h1>함께 만드는 여행 플랜</h1>
+        <p class="hero-copy">
+          백엔드와 바로 연결되는 최소 화면입니다. 여행방 생성과 여행방 조회를 여기서 바로 확인할 수 있습니다.
+        </p>
+      </header>
+
+      <main class="grid">
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>서버 상태</h2>
+            <button id="healthButton" class="secondary" type="button">새로고침</button>
+          </div>
+          <p id="healthStatus">확인 중...</p>
+        </section>
+
+        <section class="panel">
+          <h2>여행방 생성</h2>
+          <form id="createRoomForm" class="stack">
+            <label>
+              <span>방 제목</span>
+              <input id="title" name="title" placeholder="예: 제주 2박 3일" required />
+            </label>
+            <label>
+              <span>시작일</span>
+              <input id="startDate" name="startDate" type="date" />
+            </label>
+            <label>
+              <span>종료일</span>
+              <input id="endDate" name="endDate" type="date" />
+            </label>
+            <label>
+              <span>호스트 유저 ID</span>
+              <input id="hostUserId" name="hostUserId" type="number" min="1" value="1" required />
+            </label>
+            <button type="submit">여행방 만들기</button>
+          </form>
+          <pre id="createRoomResult" class="result">아직 생성한 데이터가 없습니다.</pre>
+        </section>
+
+        <section class="panel">
+          <h2>여행방 조회</h2>
+          <form id="loadRoomForm" class="inline-form">
+            <input id="tripRoomId" name="tripRoomId" type="number" min="1" value="1" required />
+            <button type="submit">불러오기</button>
+          </form>
+          <div id="roomSummary" class="summary-card">
+            <p>여행방 데이터를 불러오면 핵심 정보가 여기에 표시됩니다.</p>
+          </div>
+          <pre id="roomDetail" class="result">아직 조회한 데이터가 없습니다.</pre>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.db.js" defer></script>
+  </body>
+</html>
