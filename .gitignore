@@ -1,0 +1,26 @@
+# node
+node_modules/
+npm-debug.log*
+
+# env
+.env
+.env.local
+.env.development
+.env.production
+
+# build
+dist/
+build/
+
+# mac
+.DS_Store
+
+# prisma generated
+backend/src/generated/prisma/
+
+# logs
+*.log
+
+# editor
+.vscode/
+.idea/
