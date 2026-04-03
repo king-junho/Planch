@@ -44,6 +44,13 @@ enum VoteType {
   disagree
 }
 
+enum ProposalSource{
+  user
+  ai
+}
+
+
+
 model User {
   id           Int                @id @default(autoincrement())
   email        String             @unique
@@ -144,18 +151,20 @@ model Place {
 }
 
 model PlaceProposal {
-  id                Int            @id @default(autoincrement())
-  tripRoomId        Int            @map("trip_room_id")
-  proposerUserId    Int            @map("proposer_user_id")
-  placeId           Int            @map("place_id")
-  estimatedCost     Int?           @map("estimated_cost")
-  estimatedDuration Int?           @map("estimated_duration")
+  id                Int             @id @default(autoincrement())
+  tripRoomId        Int             @map("trip_room_id")
+  proposerUserId    Int?            @map("proposer_user_id")
+  placeId           Int             @map("place_id")
+  estimatedCost     Int?            @map("estimated_cost")
+  estimatedDuration Int?            @map("estimated_duration")
   comment           String?
-  status            ProposalStatus @default(pending)
-  createdAt         DateTime       @default(now()) @map("created_at")
+  aiReason          String?         @map("ai_reason")
+  source            ProposalSource  @default(user)
+  status            ProposalStatus  @default(pending)
+  createdAt         DateTime        @default(now()) @map("created_at")
 
   tripRoom     TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
-  proposerUser User          @relation("ProposalAuthor", fields: [proposerUserId], references: [id], onDelete: Cascade)
+  proposerUser User?         @relation("ProposalAuthor", fields: [proposerUserId], references: [id], onDelete: SetNull)
   place        Place         @relation(fields: [placeId], references: [id], onDelete: Cascade)
   branchPlaces BranchPlace[]
 
