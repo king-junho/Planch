@@ -67,5 +67,18 @@ export const createProposalService = async ({
     source: "user",
     status: "pending",
   },
+  select:{
+    id: true,
+    tripRoomId:true,
+    proposerUserId:true,
+    placeId:true,
+    estimatedCost:true,
+    estimatedDuration:true,
+    comment:true,
+    aiReason:true,
+    source:true,
+    status:true,
+    createdAt:true,
+  },
 });
 };
