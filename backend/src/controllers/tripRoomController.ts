@@ -3,7 +3,23 @@ import {
   getTripRoomDetailService,
   createTripRoomService,
   saveMyPreferenceService,
+  getPreferenceListService,
 } from "../services/tripRoomService";
+
+export const getPreferenceList = async (req:Request, res:Response) => {
+  try{
+    const tripRoomId = Number(req.params.tripRoomId);
+
+    if(Number.isNaN(tripRoomId)){
+      return res.status(400).json({message:"유효하지 않은 tripRoomId입니다."});
+    }
+    const preferences = await getPreferenceListService(tripRoomId);
+    return res.status(200).json(preferences);
+  }catch(error){
+    console.error("getPreferenceList error:",error);
+    return res.status(500).json({message:"선호 목록 조회 중 서버 오류가 발생했습니다."});
+  }
+};
 
 export const saveMyPreference = async (req: Request, res: Response) => {
   try {

@@ -2,8 +2,25 @@ import { Request, Response } from "express";
 import {
   getProposalListService,
   createProposalService,
+  generateAiProposalsService,
 } from "../services/proposalService";
 
+export const generateAiProposals = async(req:Request, res:Response)=> {
+  try{
+    const tripRoomId = Number(req.params.tripRoomId);
+    const { count=2} = req.body;
+    
+    if(Number.isNaN(tripRoomId)){
+      return res.status(400).json({message:"유효하지 않은 tripRoomId입니다."});
+    }
+    const result = await generateAiProposalsService(tripRoomId, count);
+    
+    return res.status(201).json(result); 
+  }catch(error){
+    console.error("generateAiProposals error:",error);
+    return res.status(500).json({message:"AI 제안 생성 중 서버 오류가 발생했습니다."});
+  }
+};
 export const getProposalList = async (req: Request, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);

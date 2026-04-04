@@ -18,6 +18,34 @@ interface SaveMyPreferenceInput{
   availableTime?: string[];
 }
 
+export const getPreferenceListService = async(tripRoomId:number) => {
+  return prisma.memberPreference.findMany({
+    where : {tripRoomId},
+    select:{
+      id:true,
+      tripRoomId:true,
+      userId:true,
+      budgetMin:true,
+      budgetMax:true,
+      styles:true,
+      mustVisit:true,
+      avoid:true,
+      availableTime:true,
+      updatedAt:true,
+      user:{
+        select:{
+          id:true,
+          name:true,
+          email:true,
+        },
+      },
+    },
+    orderBy:{
+      updatedAt:"desc",
+    },
+  });
+};
+
 export const saveMyPreferenceService = async({
   tripRoomId,
   userId,

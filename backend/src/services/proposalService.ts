@@ -9,6 +9,43 @@ interface CreateProposalInput {
   comment?: string;
 }
 
+export const generateAiProposalsService = async(tripRoomId: number, count:number) => {
+  const places = await prisma.place.findMany({
+    take : count,
+    orderBy:{id:"desc"},
+  });
+  const created = [];
+
+  for (const place of places){
+    const proposal = await prisma.placeProposal.create({
+      data:{
+        tripRoomId,
+        proposerUserId:null,
+        placeId:place.id,
+        estimatedCost:10000,
+        estimatedDuration:60,
+        comment:"AI가 추천한 제안입니다.",
+        aiReason: "선호 입력과 이동 동선을 기준으로 추천했습니다.",
+        source:"ai",
+        status : "pending",
+      },
+      select:{
+        id:true,
+        tripRoomId:true,
+        placeId:true,
+        source:true,
+        aiReason:true,
+        status:true,
+      },
+    });
+    created.push(proposal);
+  }
+  return {
+    generated:true,
+    count:created.length,
+    proposals:created,
+  };
+};
 export const getProposalListService = async (tripRoomId: number) => {
   return prisma.placeProposal.findMany({
   where: { tripRoomId },
