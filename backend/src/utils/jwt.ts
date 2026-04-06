@@ -14,3 +14,14 @@ export const signAccessToken = (userId: number,email : string) =>{
     );
 };
 
+interface AccessTokenPayload {
+    sub: number | string;
+    email: string;
+    iat?: number;
+    exp?: number;
+}
+
+export const verifyAccessToken = (token: string): AccessTokenPayload => {
+    return jwt.verify(token, JWT_SECRET) as AccessTokenPayload;
+};
+

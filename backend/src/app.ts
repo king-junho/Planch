@@ -2,10 +2,11 @@ import path from "path";
 import express from "express";
 import cors from "cors";
 import tripRoomRoutes from "./routes/tripRoomRoutes";
+import tripRoomBranchRoutes from "./routes/tripRoomBranchRoutes";
 import proposalRoutes from "./routes/proposalRoutes";
+import branchRoutes from "./routes/branchRoutes";
 import authRoutes from "./routes/authRoutes";
 import prisma from "./lib/prisma";
-
 
 const app = express();
 const frontendDir = path.resolve(__dirname, "../../frontend");
@@ -37,12 +38,11 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
-//회원가입, 로그인 routes
 app.use("/auth", authRoutes);
-//여행방 routes
 app.use("/trip-rooms", tripRoomRoutes);
-//장소 제안 routes
+app.use("/trip-rooms", tripRoomBranchRoutes);
 app.use("/trip-rooms", proposalRoutes);
+app.use("/branches", branchRoutes);
 
 app.get("/{*path}", (_req, res) => {
   res.sendFile(path.join(frontendDir, "index.html"));

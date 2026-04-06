@@ -18,6 +18,60 @@ interface SaveMyPreferenceInput{
   availableTime?: string[];
 }
 
+export const finalizeTripRoomService = async (tripRoomId: number, branchId: number, userId: number) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: { id: tripRoomId },
+    select: {
+      id: true,
+      hostUserId: true,
+      status: true,
+    },
+  });
+
+  if (!tripRoom) {
+    throw new Error("Trip room not found");
+  }
+
+  if (tripRoom.hostUserId !== userId) {
+    return null;
+  }
+
+  const branch = await prisma.planBranch.findFirst({
+    where: {
+      id: branchId,
+      tripRoomId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!branch) {
+    throw new Error("Branch not found");
+  }
+
+  await prisma.$transaction([
+    prisma.tripRoom.update({
+      where: { id: tripRoomId },
+      data: {
+        status: "locked",
+      },
+    }),
+    prisma.planBranch.update({
+      where: { id: branchId },
+      data: {
+        status: "locked",
+      },
+    }),
+  ]);
+
+  return {
+    tripRoomId,
+    status: "locked" as const,
+    selectedBranchId: branchId,
+  };
+};
+
 export const getPreferenceListService = async(tripRoomId:number) => {
   return prisma.memberPreference.findMany({
     where : {tripRoomId},
