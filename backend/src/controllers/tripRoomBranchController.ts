@@ -71,8 +71,8 @@ export const generateAiBranches = async (req: AuthenticatedRequest, res: Respons
   } catch (error) {
     console.error("generateAiBranches error:", error);
 
-    if (error instanceof Error && error.message === "Trip room not found") {
-      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "여행방을 찾을 수 없습니다." });
     }
 
     if (error instanceof Error && error.message === "No proposals available") {

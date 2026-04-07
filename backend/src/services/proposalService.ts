@@ -14,16 +14,29 @@ interface CreateProposalInput {
 
 export const generateAiProposalsService = async(tripRoomId: number, count:number) => {
   // TripRoom 정보 가져오기
-  const tripRoom = await prisma.tripRoom.findUnique({
+    const tripRoom = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
-    include: {
-      preferences: { include: { user: true } },
-      members: { include: { user: true } }
-    }
+    select:{
+      id:true,
+      title:true,
+      startDate:true,
+      endDate:true,
+      status:true,
+      preferences: {
+        include:{user:true},
+      },
+      members: {
+        include:{user:true},
+      },
+    }, 
   });
 
   if (!tripRoom) {
     throw new Error('Trip room not found');
+  }
+
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
   }
 
   // 장소 목록 가져오기 (모든 장소 또는 특정 조건)
@@ -193,6 +206,20 @@ export const createProposalService = async ({
   estimatedDuration,
   comment,
 }: CreateProposalInput) => {
+
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where : {id : tripRoomId},
+    select: {status : true},
+  });
+
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
+  }
+
   return prisma.placeProposal.create({
   data: {
     tripRoomId,

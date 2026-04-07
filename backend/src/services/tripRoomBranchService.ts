@@ -300,6 +300,7 @@ export const generateAiBranchesService = async (
       title: true,
       startDate: true,
       endDate: true,
+      status: true,
       preferences: {
         include: {
           user: {
@@ -341,6 +342,10 @@ export const generateAiBranchesService = async (
 
   if (tripRoom.proposals.length === 0) {
     throw new Error("No proposals available");
+  }
+
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
   }
 
   const safeBranchCount = Math.min(Math.max(branchCount, 1), 5);

@@ -10,10 +10,12 @@ import { authenticate } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get("/:tripRoomId", getTripRoomDetail);
-router.get("/:tripRoomId/preferences", getPreferenceList);
-router.post("/", createTripRoom);
-router.put("/:tripRoomId/preferences/me", saveMyPreference);
+router.post("/",authenticate, createTripRoom);
+router.get("/:tripRoomId", authenticate,getTripRoomDetail);
+
+router.put("/:tripRoomId/preferences/me",authenticate ,saveMyPreference);
+router.get("/:tripRoomId/preferences",authenticate ,getPreferenceList);
+
 router.post("/:tripRoomId/finalize", authenticate, finalizeTripRoom);
 
 export default router;

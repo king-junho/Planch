@@ -10,7 +10,7 @@ export const getBranchDetail = async (req: AuthenticatedRequest, res: Response) 
     const branchId = Number(req.params.branchId);
     const userId = req.user?.id;
 
-    if (Number.isNaN(branchId)) {
+    if (Number.isNaN(branchId) || branchId <= 0) {
       return res.status(400).json({ message: "유효하지 않은 branchId입니다." });
     }
 
@@ -31,6 +31,9 @@ export const getBranchDetail = async (req: AuthenticatedRequest, res: Response) 
     return res.status(200).json({
       branchId: result.branch.id,
       name: result.branch.name,
+      status: result.branch.status,
+      createdBy: result.branch.createdBy,
+      aiReason: result.branch.aiReason,
       metrics: {
         totalCost: result.branch.totalCost,
         totalTravelTime: result.branch.totalTravelTime,
@@ -61,9 +64,9 @@ export const saveBranchVote = async (req: AuthenticatedRequest, res: Response) =
   try {
     const branchId = Number(req.params.branchId);
     const userId = req.user?.id;
-    const { voteType } = req.body;
+    const normalizedVoteType = String(req.body.voteType).trim().toLowerCase();
 
-    if (Number.isNaN(branchId)) {
+    if (Number.isNaN(branchId) || branchId <= 0) {
       return res.status(400).json({ message: "유효하지 않은 branchId입니다." });
     }
 
@@ -71,11 +74,11 @@ export const saveBranchVote = async (req: AuthenticatedRequest, res: Response) =
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
-    if (!["agree", "hold", "disagree"].includes(voteType)) {
+    if (!["agree", "hold", "disagree"].includes(normalizedVoteType)) {
       return res.status(400).json({ message: "유효하지 않은 voteType입니다." });
     }
 
-    const result = await saveBranchVoteService(branchId, userId, voteType);
+    const result = await saveBranchVoteService(branchId, userId, normalizedVoteType as "agree" | "hold" | "disagree");
 
     if (!result.found) {
       return res.status(404).json({ message: "브랜치를 찾을 수 없습니다." });
@@ -83,6 +86,10 @@ export const saveBranchVote = async (req: AuthenticatedRequest, res: Response) =
 
     if (!result.authorized) {
       return res.status(403).json({ message: "해당 여행방 참여자만 투표할 수 있습니다." });
+    }
+
+    if (result.locked) {
+      return res.status(409).json({ message: "이미 확정된 일정은 투표할 수 없습니다." });
     }
 
     return res.status(200).json({

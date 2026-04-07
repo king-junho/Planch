@@ -110,6 +110,19 @@ export const saveMyPreferenceService = async({
   avoid,
   availableTime,
 }: SaveMyPreferenceInput) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: {id: tripRoomId},
+    select:{ status: true},
+  });
+  
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
+  }
+  
   return prisma.memberPreference.upsert({
     where:{
       tripRoomId_userId:{

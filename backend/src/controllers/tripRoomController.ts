@@ -1,4 +1,4 @@
-﻿import { Request, Response } from "express";
+﻿import { Response } from "express";
 import {
   getTripRoomDetailService,
   createTripRoomService,
@@ -8,12 +8,16 @@ import {
 } from "../services/tripRoomService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
-export const getPreferenceList = async (req: Request, res: Response) => {
+export const getPreferenceList = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);
 
     if (Number.isNaN(tripRoomId)) {
       return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
     const preferences = await getPreferenceListService(tripRoomId);
@@ -24,11 +28,10 @@ export const getPreferenceList = async (req: Request, res: Response) => {
   }
 };
 
-export const saveMyPreference = async (req: Request, res: Response) => {
+export const saveMyPreference = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);
     const {
-      userId,
       budgetMin,
       budgetMax,
       styles,
@@ -41,13 +44,13 @@ export const saveMyPreference = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
     }
 
-    if (!userId) {
-      return res.status(400).json({ message: "userId는 필수입니다." });
+    if (!req.user) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
     const result = await saveMyPreferenceService({
       tripRoomId,
-      userId: Number(userId),
+      userId: req.user.id,
       budgetMin,
       budgetMax,
       styles,
@@ -58,17 +61,24 @@ export const saveMyPreference = async (req: Request, res: Response) => {
 
     return res.status(200).json(result);
   } catch (error) {
+    if (error instanceof Error && error.message ==="Trip roomm is locked"){
+      return res.status(409).json({message: "여행방이 확정되어 선호 입력이 불가능합니다."});
+    }
     console.error("saveMyPreference error:", error);
     return res.status(500).json({ message: "선호 입력 저장 중 서버 오류가 발생했습니다." });
   }
 };
 
-export const getTripRoomDetail = async (req: Request, res: Response) => {
+export const getTripRoomDetail = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);
 
     if (Number.isNaN(tripRoomId)) {
       return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
     const tripRoom = await getTripRoomDetailService(tripRoomId);
@@ -84,19 +94,23 @@ export const getTripRoomDetail = async (req: Request, res: Response) => {
   }
 };
 
-export const createTripRoom = async (req: Request, res: Response) => {
+export const createTripRoom = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { title, startDate, endDate, hostUserId } = req.body;
+    const { title, startDate, endDate } = req.body;
 
-    if (!title || !hostUserId) {
-      return res.status(400).json({ message: "title과 hostUserId는 필수입니다." });
+    if (!title) {
+      return res.status(400).json({ message: "title은 필수입니다." });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
     const newTripRoom = await createTripRoomService({
       title,
       startDate,
       endDate,
-      hostUserId: Number(hostUserId),
+      hostUserId: req.user.id,
     });
 
     return res.status(201).json(newTripRoom);

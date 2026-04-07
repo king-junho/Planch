@@ -7,6 +7,9 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
       id: true,
       tripRoomId: true,
       name: true,
+      status: true,
+      createdBy:true,
+      aiReason: true,
       totalCost: true,
       totalTravelTime: true,
       preferenceScore: true,
@@ -77,6 +80,12 @@ export const saveBranchVoteService = async (
     select: {
       id: true,
       tripRoomId: true,
+      status: true,
+      tripRoom:{
+        select:{
+          status : true,
+        },
+      },
     },
   });
 
@@ -102,6 +111,14 @@ export const saveBranchVoteService = async (
     return {
       found: true as const,
       authorized: false as const,
+    };
+  }
+
+  if(branch.status ==="locked" || branch.tripRoom.status==="locked"){
+    return {
+      found: true as const,
+      authorized: true as const,
+      locked: true as const,
     };
   }
 
