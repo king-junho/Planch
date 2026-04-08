@@ -20,8 +20,16 @@ export const getPreferenceList = async (req: AuthenticatedRequest, res: Response
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
-    const preferences = await getPreferenceListService(tripRoomId);
-    return res.status(200).json(preferences);
+    const result = await getPreferenceListService(tripRoomId, req.user.id);
+
+    if (!result.found) {
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    }
+
+    if(!result.authorized){
+      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다." });
+    }
+    return res.status(200).json(result.preferences);
   } catch (error) {
     console.error("getPreferenceList error:", error);
     return res.status(500).json({ message: "선호 목록 조회 중 서버 오류가 발생했습니다." });
@@ -42,7 +50,7 @@ export const saveMyPreference = async (req: AuthenticatedRequest, res: Response)
 
     if (Number.isNaN(tripRoomId)) {
       return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
-    }
+    } 
 
     if (!req.user) {
       return res.status(401).json({ message: "인증이 필요합니다." });
@@ -61,8 +69,12 @@ export const saveMyPreference = async (req: AuthenticatedRequest, res: Response)
 
     return res.status(200).json(result);
   } catch (error) {
-    if (error instanceof Error && error.message ==="Trip roomm is locked"){
+    if (error instanceof Error && error.message ==="Trip room is locked"){
       return res.status(409).json({message: "여행방이 확정되어 선호 입력이 불가능합니다."});
+    }
+
+    if (error instanceof Error && error.message === "Forbidden"){
+      return res.status(403).json({message: "해당 여행방 참여자만 선호 입력이 가능합니다."});
     }
     console.error("saveMyPreference error:", error);
     return res.status(500).json({ message: "선호 입력 저장 중 서버 오류가 발생했습니다." });
@@ -72,22 +84,27 @@ export const saveMyPreference = async (req: AuthenticatedRequest, res: Response)
 export const getTripRoomDetail = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);
-
+    const userId = req.user?.id;
+    
     if (Number.isNaN(tripRoomId)) {
       return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
     }
 
-    if (!req.user) {
+    if (!userId) {
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
-    const tripRoom = await getTripRoomDetailService(tripRoomId);
+    const result = await getTripRoomDetailService(tripRoomId, userId);
 
-    if (!tripRoom) {
+    if(!result.found){
       return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
     }
 
-    return res.status(200).json(tripRoom);
+    if(!result.authorized){
+      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다."});
+    }
+
+    return res.status(200).json(result.tripRoom);
   } catch (error) {
     console.error("getTripRoomDetail error:", error);
     return res.status(500).json({ message: "여행방 조회 중 서버 오류가 발생했습니다." });

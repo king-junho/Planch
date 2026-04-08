@@ -72,12 +72,40 @@ export const finalizeTripRoomService = async (tripRoomId: number, branchId: numb
   };
 };
 
-export const getPreferenceListService = async(tripRoomId:number) => {
-  return prisma.memberPreference.findMany({
-    where : {tripRoomId},
+export const getPreferenceListService = async (tripRoomId:number, userId:number)=>{
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where:{id: tripRoomId},
     select:{
       id:true,
-      tripRoomId:true,
+    },
+  });
+  if(!tripRoom){
+    return{
+      found:false as const,
+    };
+  }
+  const membership = await prisma.tripMember.findUnique({
+    where:{
+      tripRoomId_userId:{
+        tripRoomId,
+        userId,
+      },
+    },
+    select:{
+      id:true,
+    },
+  });
+  if(!membership){
+    return{
+      found:true as const,
+      authorized:false as const,
+    };
+  }
+  const preferences = await prisma.memberPreference.findMany({
+    where:{tripRoomId},
+    select:{
+      id:true,
+      tripROomId:true,
       userId:true,
       budgetMin:true,
       budgetMax:true,
@@ -98,7 +126,12 @@ export const getPreferenceListService = async(tripRoomId:number) => {
       updatedAt:"desc",
     },
   });
-};
+  return {
+    found: true as const,
+    authorized: true as const,
+    preferences,
+  }
+}
 
 export const saveMyPreferenceService = async({
   tripRoomId,
@@ -114,9 +147,25 @@ export const saveMyPreferenceService = async({
     where: {id: tripRoomId},
     select:{ status: true},
   });
+
+  const membership = await prisma.tripMember.findUnique({
+    where:{
+      tripRoomId_userId:{
+        tripRoomId,
+        userId,
+      },
+    },
+    select:{
+      id:true
+    },
+  });
   
   if(!tripRoom){
     throw new Error("Trip room not found");
+  }
+
+  if(!membership){
+    throw new Error("Forbidden");
   }
 
   if(tripRoom.status === "locked"){
@@ -164,8 +213,8 @@ export const saveMyPreferenceService = async({
 };
 
 
-export const getTripRoomDetailService = async (tripRoomId : number) => {
-  return prisma.tripRoom.findUnique({
+export const getTripRoomDetailService = async (tripRoomId : number, userId: number) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
     where : {id : tripRoomId},
     include : {
       hostUser: {
@@ -191,6 +240,35 @@ export const getTripRoomDetailService = async (tripRoomId : number) => {
       branches:true,
     },
   });
+
+  if(!tripRoom){
+    return{
+      found: false as const,
+    };
+  }
+
+  const membership = await prisma.tripMember.findUnique({
+    where:{
+      tripRoomId_userId:{
+        tripRoomId,
+        userId,
+      },
+    },
+    select:{
+      id: true,
+    },
+  });
+  if (!membership){
+    return{
+      found: true as const,
+      authorized: false as const,
+    };
+  }
+  return{
+    found: true as const,
+    authorized: true as const,
+    tripRoom,
+  };
 };
 
 export const createTripRoomService = async ({

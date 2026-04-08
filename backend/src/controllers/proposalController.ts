@@ -27,9 +27,22 @@ export const generateAiProposals = async (req: AuthenticatedRequest, res: Respon
       return res.status(400).json({ message: "count는 1 이상의 숫자여야 합니다." });
     }
 
-    const result = await generateAiProposalsService(tripRoomId, normalizedCount);
+    const result = await generateAiProposalsService(tripRoomId, req.user.id, normalizedCount);
+    if(!result.found){
+      return res.status(404).json({message:"해당 여행방을 찾을 수 없습니다."});
+    }
+    if(!result.authenticated){
+      return res.status(403).json({message:"해당 여행방 참여자만 AI 제안 생성을 할 수 있습니다."});
+    }
+    if(result.locked){
+      return res.status(409).json({message:"여행방이 확정되어 AI 제안 생성이 불가능합니다."});
+    }
 
-    return res.status(201).json(result);
+    return res.status(201).json({
+      generated: result.generated,
+      count: result.count,
+      proposals: result.proposals,
+    });
   } catch (error) {
     if (error instanceof Error && error.message ==="Trip room is locked"){
       return res.status(409).json({message: "여행방이 확정되어 AI 제안 생성이 불가능합니다."});
@@ -51,8 +64,16 @@ export const getProposalList = async (req: AuthenticatedRequest, res: Response) 
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
-    const proposals = await getProposalListService(tripRoomId);
-    return res.status(200).json(proposals);
+    const result = await getProposalListService(tripRoomId, req.user.id);
+
+    if(!result.found){
+      return res.status(404).json({message:"해당 여행방을 찾을 수 없습니다."});
+    }
+    if(!result.authorized){
+      return res.status(403).json({message:"해당 여행방 참여자만 장소 제안 목록 조회가 가능합니다."});
+    }
+
+    return res.status(200).json(result.proposals);
   } catch (error) {
     console.error("getProposalList error:", error);
     return res.status(500).json({ message: "장소 제안 목록 조회 중 서버 오류가 발생했습니다." });
@@ -89,6 +110,9 @@ export const createProposal = async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     if (error instanceof Error && error.message === "Trip room is locked"){
       return res.status(409).json({message: "여행방이 확정되어 장소 제안이 불가능합니다."});
+    }
+    if(error instanceof Error && error.message === "Forbidden"){
+      return res.status(403).json({message: "해당 여행방 참여자만 장소 제안이 가능합니다."});
     }
     console.error("createProposal error:", error);
     return res.status(500).json({ message: "장소 제안 생성 중 서버 오류가 발생했습니다." });
