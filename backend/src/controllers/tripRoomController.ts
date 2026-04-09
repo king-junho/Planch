@@ -96,13 +96,15 @@ export const getTripRoomDetail = async (req: AuthenticatedRequest, res: Response
 
     const result = await getTripRoomDetailService(tripRoomId, userId);
 
+    if(!result.authorized){
+      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다."});
+    }
+    
     if(!result.found){
       return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
     }
 
-    if(!result.authorized){
-      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다."});
-    }
+
 
     return res.status(200).json(result.tripRoom);
   } catch (error) {

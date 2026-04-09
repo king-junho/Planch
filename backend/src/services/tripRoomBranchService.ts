@@ -22,6 +22,18 @@ interface GeneratedBranchDraft {
 }
 
 export const getBranchListService = async (tripRoomId: number, userId: number) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: {id: tripRoomId},
+    select:{
+      id:true,
+    },
+  });
+  if(!tripRoom){
+    return{
+      found: false as const,
+    };
+  }
+
   const membership = await prisma.tripMember.findUnique({
     where: {
       tripRoomId_userId: {
@@ -34,26 +46,36 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
     },
   });
 
-  if (!membership) {
-    return null;
+  if (!membership){
+    return{
+      found: true as const,
+      authorized: false as const,
+    };
   }
 
-  return prisma.planBranch.findMany({
-    where: { tripRoomId },
-    orderBy: {
-      createdAt: "desc",
+  const branches = await prisma.planBranch.findMany({
+    where:{tripRoomId},
+    orderBy:{
+      createdAt:"desc",
     },
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      totalCost: true,
-      totalTravelTime: true,
-      preferenceScore: true,
-      densityScore: true,
-      aiReason: true,
+    select:{
+      id:true,
+      name:true,
+      status:true,
+      totalCost:true,
+      totalTravelTime:true,
+      preferenceScore:true,
+      densityScore:true,
+      aiReason:true,
     },
   });
+
+
+  return {
+    found:true as const,
+    authorized:true as const,
+    branches,
+  };
 };
 
 const buildBranchPrompt = ({

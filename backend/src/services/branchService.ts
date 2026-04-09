@@ -95,6 +95,12 @@ export const saveBranchVoteService = async (
     };
   }
 
+  if (!branch.tripRoom){
+    return{
+      found:false as const,
+    };
+  }
+
   const membership = await prisma.tripMember.findUnique({
     where: {
       tripRoomId_userId: {
@@ -147,6 +153,7 @@ export const saveBranchVoteService = async (
   return {
     found: true as const,
     authorized: true as const,
+    locked : false as const,
     vote,
   };
 };

@@ -18,14 +18,18 @@ export const getBranchList = async (req: AuthenticatedRequest, res: Response) =>
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
-    const branches = await getBranchListService(tripRoomId, userId);
+    const result = await getBranchListService(tripRoomId, userId);
 
-    if (branches === null) {
-      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다." });
+    if (!result.found){
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    }
+
+    if(!result.authorized){
+      return res.status(403).json({ message: "해당 여행방 참여자만 브랜치 목록을 조회할 수 있습니다." });
     }
 
     return res.status(200).json(
-      branches.map((branch) => ({
+      result.branches.map((branch)=>({
         branchId: branch.id,
         name: branch.name,
         status: branch.status,

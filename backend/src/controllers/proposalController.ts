@@ -23,10 +23,6 @@ export const generateAiProposals = async (req: AuthenticatedRequest, res: Respon
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
-    if (Number.isNaN(normalizedCount) || normalizedCount <= 0) {
-      return res.status(400).json({ message: "count는 1 이상의 숫자여야 합니다." });
-    }
-
     const result = await generateAiProposalsService(tripRoomId, req.user.id, normalizedCount);
     if(!result.found){
       return res.status(404).json({message:"해당 여행방을 찾을 수 없습니다."});
@@ -44,9 +40,6 @@ export const generateAiProposals = async (req: AuthenticatedRequest, res: Respon
       proposals: result.proposals,
     });
   } catch (error) {
-    if (error instanceof Error && error.message ==="Trip room is locked"){
-      return res.status(409).json({message: "여행방이 확정되어 AI 제안 생성이 불가능합니다."});
-    }
     console.error("generateAiProposals error:", error);
     return res.status(500).json({ message: "AI 제안 생성 중 서버 오류가 발생했습니다." });
   }
