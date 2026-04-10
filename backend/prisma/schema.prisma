@@ -75,7 +75,10 @@ model TripRoom {
   endDate    DateTime?    @map("end_date") @db.Date
   hostUserId Int          @map("host_user_id")
   status     RoomStatus   @default(draft)
+  selectedBranchId  Int?  @map("selected_branch_id")
   createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+  thumbnailUrl  String?   @map("thumbnail_url")
 
   hostUser     User               @relation("TripHost", fields: [hostUserId], references: [id], onDelete: Cascade)
   members      TripMember[]
@@ -84,6 +87,7 @@ model TripRoom {
   proposals    PlaceProposal[]
   branches     PlanBranch[]
   decisionLogs DecisionLog[]
+  selectedBranch  PlanBranch? @relation("SelectedBranch",fields:[selectedBranchId],references:[id],onDelete:SetNull)
 
   @@map("trip_rooms")
 }
@@ -121,10 +125,12 @@ model MemberPreference {
   userId        Int       @map("user_id")
   budgetMin     Int?      @map("budget_min")
   budgetMax     Int?      @map("budget_max")
-  styles        Json?
-  mustVisit     Json?     @map("must_visit")
-  avoid         Json?
-  availableTime Json?     @map("available_time")
+  styles        String[]    @default([])
+  mustVisit     String[]    @default([])
+  avoid         String[]    @default([])
+  availableTime String[]    @default([])
+  freeTextNote  String?   @map("free_text_note")
+  createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   tripRoom TripRoom @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
@@ -187,6 +193,7 @@ model PlanBranch {
   tripRoom     TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
   branchPlaces BranchPlace[]
   votes        BranchVote[]
+  selectedByRooms TripRoom[] @relation("SelectedBranch")
 
   @@map("plan_branches")
 }

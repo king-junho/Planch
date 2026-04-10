@@ -1,5 +1,6 @@
 ﻿import { Response } from "express";
 import {
+  getMyTripRoomsService,
   getTripRoomDetailService,
   createTripRoomService,
   finalizeTripRoomService,
@@ -8,6 +9,22 @@ import {
 } from "../services/tripRoomService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
+export const getMyTripRooms = async (req: AuthenticatedRequest, res: Response) => {
+  try{
+    const userId = req.user?.id;
+
+    if(!userId){
+      return res.status(401).json({message: "인증이 필요합니다."});
+    }
+    
+    const tripRooms = await getMyTripRoomsService(userId);
+
+    return res.status(200).json(tripRooms);
+  }catch(error){
+    console.error("getMyTripRooms error:", error);
+    return res.status(500).json({message: "여행방 목록 조회 중 서버 오류가 발생했습니다."});
+  }
+}
 export const getPreferenceList = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);
@@ -29,7 +46,7 @@ export const getPreferenceList = async (req: AuthenticatedRequest, res: Response
     if(!result.authorized){
       return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다." });
     }
-    return res.status(200).json(result.preferences);
+    return res.status(200).json(result.data);
   } catch (error) {
     console.error("getPreferenceList error:", error);
     return res.status(500).json({ message: "선호 목록 조회 중 서버 오류가 발생했습니다." });
@@ -46,6 +63,7 @@ export const saveMyPreference = async (req: AuthenticatedRequest, res: Response)
       mustVisit,
       avoid,
       availableTime,
+      freeTextNote,
     } = req.body;
 
     if (Number.isNaN(tripRoomId)) {
@@ -65,6 +83,7 @@ export const saveMyPreference = async (req: AuthenticatedRequest, res: Response)
       mustVisit,
       avoid,
       availableTime,
+      freeTextNote,
     });
 
     return res.status(200).json(result);
@@ -75,6 +94,9 @@ export const saveMyPreference = async (req: AuthenticatedRequest, res: Response)
 
     if (error instanceof Error && error.message === "Forbidden"){
       return res.status(403).json({message: "해당 여행방 참여자만 선호 입력이 가능합니다."});
+    }
+    if(error instanceof Error && error.message === "Trip room not found"){
+      return res.status(404).json({message:"여행방을 찾을 수 없습니다."});
     }
     console.error("saveMyPreference error:", error);
     return res.status(500).json({ message: "선호 입력 저장 중 서버 오류가 발생했습니다." });
@@ -96,18 +118,16 @@ export const getTripRoomDetail = async (req: AuthenticatedRequest, res: Response
 
     const result = await getTripRoomDetailService(tripRoomId, userId);
 
-    if(!result.authorized){
-      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다."});
-    }
-    
     if(!result.found){
       return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
     }
 
+    if(!result.authorized){
+      return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다."});
+    }
 
-
-    return res.status(200).json(result.tripRoom);
-  } catch (error) {
+    return res.status(200).json(result.data);
+  }catch (error) {
     console.error("getTripRoomDetail error:", error);
     return res.status(500).json({ message: "여행방 조회 중 서버 오류가 발생했습니다." });
   }
@@ -115,7 +135,7 @@ export const getTripRoomDetail = async (req: AuthenticatedRequest, res: Response
 
 export const createTripRoom = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { title, startDate, endDate } = req.body;
+    const { title, startDate, endDate, thumbnailUrl } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: "title은 필수입니다." });
@@ -130,6 +150,7 @@ export const createTripRoom = async (req: AuthenticatedRequest, res: Response) =
       startDate,
       endDate,
       hostUserId: req.user.id,
+      thumbnailUrl: thumbnailUrl ?? null,
     });
 
     return res.status(201).json(newTripRoom);

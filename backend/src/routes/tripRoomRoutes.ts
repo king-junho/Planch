@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+    getMyTripRooms,
     getTripRoomDetail,
     createTripRoom,
     finalizeTripRoom,
@@ -10,7 +11,9 @@ import { authenticate } from "../middlewares/authMiddleware";
 
 const router = Router();
 
+router.get("/", authenticate, getMyTripRooms);
 router.post("/",authenticate, createTripRoom);
+
 router.get("/:tripRoomId", authenticate,getTripRoomDetail);
 
 router.put("/:tripRoomId/preferences/me",authenticate ,saveMyPreference);

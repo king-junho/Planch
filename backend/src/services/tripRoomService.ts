@@ -5,6 +5,7 @@ interface CreateTripRoomInput {
   startDate?: string;
   endDate?: string;
   hostUserId: number;
+  thumbnailUrl?: string | null;
 }
 
 interface SaveMyPreferenceInput{
@@ -16,8 +17,63 @@ interface SaveMyPreferenceInput{
   mustVisit?: string[];
   avoid?:string[]
   availableTime?: string[];
+  freeTextNote?: string;
 }
 
+export const getMyTripRoomsService = async (userId:number) => {
+  const tripRooms = await prisma.tripRoom.findMany({
+    where:{
+      members:{
+        some:{
+          userId,
+        },
+      },
+    },
+    orderBy:{
+      updatedAt:"desc",
+    },
+    select:{
+      id:true,
+      title:true,
+      status:true,
+      thumbnailUrl:true,
+      updatedAt:true,
+      selectedBranchId: true,
+      hostUser:{
+        select:{
+          id:true,
+          name:true,
+        },
+      },
+      members:{
+        select:{
+          user:{
+            select:{
+              name:true,
+            },
+          },
+        },
+      },
+    },
+  });
+  return tripRooms.map((tripRoom)=>{
+    const memberNames = tripRoom.members.map((member)=>member.user.name);
+    const preview = memberNames.slice(0,3);
+
+    return {
+      tripRoomId: tripRoom.id,
+      title: tripRoom.title,
+      status :tripRoom.status,
+      thumbnailUrl : tripRoom.thumbnailUrl,
+      memberCount : memberNames.length,
+      memberNamesPreview : preview,
+      remainingMemberCount:Math.max(memberNames.length-preview.length,0),
+      hostUser : tripRoom.hostUser,
+      lastActivityAt : tripRoom.updatedAt,
+      selectedBranchId : tripRoom.selectedBranchId ?? null,
+    };
+  });
+};
 export const finalizeTripRoomService = async (tripRoomId: number, branchId: number, userId: number) => {
   const tripRoom = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
@@ -55,6 +111,7 @@ export const finalizeTripRoomService = async (tripRoomId: number, branchId: numb
       where: { id: tripRoomId },
       data: {
         status: "locked",
+        selectedBranchId: branchId,
       },
     }),
     prisma.planBranch.update({
@@ -105,7 +162,7 @@ export const getPreferenceListService = async (tripRoomId:number, userId:number)
     where:{tripRoomId},
     select:{
       id:true,
-      tripROomId:true,
+      tripRoomId:true,
       userId:true,
       budgetMin:true,
       budgetMax:true,
@@ -113,6 +170,7 @@ export const getPreferenceListService = async (tripRoomId:number, userId:number)
       mustVisit:true,
       avoid:true,
       availableTime:true,
+      freeTextNote:true,
       updatedAt:true,
       user:{
         select:{
@@ -129,8 +187,11 @@ export const getPreferenceListService = async (tripRoomId:number, userId:number)
   return {
     found: true as const,
     authorized: true as const,
-    preferences,
-  }
+    data:{
+      tripRoomId,
+      preferences,
+    },
+  };
 }
 
 export const saveMyPreferenceService = async({
@@ -142,6 +203,7 @@ export const saveMyPreferenceService = async({
   mustVisit,
   avoid,
   availableTime,
+  freeTextNote,
 }: SaveMyPreferenceInput) => {
   const tripRoom = await prisma.tripRoom.findUnique({
     where: {id: tripRoomId},
@@ -172,7 +234,7 @@ export const saveMyPreferenceService = async({
     throw new Error("Trip room is locked");
   }
   
-  return prisma.memberPreference.upsert({
+  const savedPreference = await prisma.memberPreference.upsert({
     where:{
       tripRoomId_userId:{
         tripRoomId,
@@ -186,6 +248,7 @@ export const saveMyPreferenceService = async({
       mustVisit,
       avoid,
       availableTime,
+      freeTextNote,
     },
     create:{
       tripRoomId,
@@ -196,6 +259,7 @@ export const saveMyPreferenceService = async({
       mustVisit,
       avoid,
       availableTime,
+      freeTextNote,
     },
     select:{
       id:true,
@@ -207,16 +271,30 @@ export const saveMyPreferenceService = async({
       mustVisit:true,
       avoid:true,
       availableTime:true,
+      freeTextNote:true,
       updatedAt:true,
     },
   });
+  return {
+    ...savedPreference,
+    saved : true as const
+  }
 };
 
 
 export const getTripRoomDetailService = async (tripRoomId : number, userId: number) => {
   const tripRoom = await prisma.tripRoom.findUnique({
     where : {id : tripRoomId},
-    include : {
+    select : {
+      id:true,
+      title:true,
+      startDate:true,
+      endDate:true,
+      status:true,
+      thumbnailUrl:true,
+      createdAt:true,
+      updatedAt: true,
+      selectedBranchId:true,
       hostUser: {
         select :{
           id:true,
@@ -225,19 +303,31 @@ export const getTripRoomDetailService = async (tripRoomId : number, userId: numb
         },
       },
       members:{
-        include : {
+        select : {
+          role:true,
           user:{
             select:{
               id:true,
               name:true,
-              email:true,
             },
           },
         },
       },
-      preferences:true,
-      proposals:true,
-      branches:true,
+      preferences:{
+        select:{
+          userId: true,
+        },
+      },
+      proposals: {
+        select:{
+          id:true,
+        },
+      },
+      branches:{
+        select:{
+          id:true,
+        },
+      },
     },
   });
 
@@ -264,10 +354,36 @@ export const getTripRoomDetailService = async (tripRoomId : number, userId: numb
       authorized: false as const,
     };
   }
+
+  const submittedUserIds = new Set(tripRoom.preferences.map((pref)=> pref.userId));
+
   return{
     found: true as const,
     authorized: true as const,
-    tripRoom,
+    data:{
+      tripRoomId : tripRoom.id,
+      title: tripRoom.title,
+      startDate : tripRoom.startDate,
+      endDate : tripRoom.endDate,
+      status: tripRoom.status,
+      thumbnailUrl : tripRoom.thumbnailUrl,
+      hostUser : tripRoom.hostUser,
+      members : tripRoom.members.map((member)=>({
+        id:member.user.id,
+        name:member.user.name,
+        role:member.role,
+        hasSubmittedPreference: submittedUserIds.has(member.user.id),
+      })),
+      summary:{
+        memberCount: tripRoom.members.length,
+        submittedPreferenceCount : tripRoom.preferences.length,
+        proposalCount : tripRoom.proposals.length,
+        branchCount : tripRoom.branches.length,
+        selectedBranchId : tripRoom.selectedBranchId ?? null,
+      },
+      createdAt : tripRoom.createdAt,
+      updatedAt : tripRoom.updatedAt,
+    },
   };
 };
 
@@ -276,13 +392,15 @@ export const createTripRoomService = async ({
   startDate,
   endDate,
   hostUserId,
+  thumbnailUrl
 }: CreateTripRoomInput) => {
-  return prisma.tripRoom.create({
+  const newTripRoom = await prisma.tripRoom.create({
     data: {
       title,
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null,
       hostUserId,
+      thumbnailUrl: thumbnailUrl ?? null,
       status: "draft",
       members: {
         create: {
@@ -292,7 +410,26 @@ export const createTripRoomService = async ({
       },
     },
     include: {
+      hostUser:{
+        select:{
+          id: true,
+          name: true
+        },
+      },
       members: true,
     },
   });
+  return {
+    tripRoomId: newTripRoom.id,
+    title: newTripRoom.title,
+    startDate: newTripRoom.startDate,
+    endDate: newTripRoom.endDate,
+    status: newTripRoom.status,
+    thumbnailUrl: newTripRoom.thumbnailUrl,
+    hostUser: newTripRoom.hostUser,
+    memberCount: newTripRoom.members.length,
+    selectedBranchId: newTripRoom.selectedBranchId ?? null,
+    createdAt: newTripRoom.createdAt,
+    updatedAt: newTripRoom.updatedAt,
+  };
 };

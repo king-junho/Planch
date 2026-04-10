@@ -2,7 +2,10 @@
   "name": "planch",
   "private": true,
   "scripts": {
-    "dev": "npm --prefix .\\backend run dev",
-    "seed": "npm --prefix .\\backend run seed"
+    "dev": "npm --prefix backend run dev",
+    "seed": "npm --prefix backend run seed"
+  },
+  "dependencies": {
+    "openai": "^6.33.0"
   }
 }

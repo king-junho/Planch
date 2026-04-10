@@ -93,32 +93,43 @@ export const generateAiProposalsService = async(tripRoomId: number,userId: numbe
   }));
 
   // 프롬프트 생성
-  const prompt = `
+const prompt = `
 다음 여행 정보를 기반으로 ${normalizedCount}개의 장소를 추천해주세요.
 
 여행 제목: ${tripRoom.title}
-여행 기간: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split('T')[0] : '미정'} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split('T')[0] : '미정'}
+여행 기간: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split("T")[0] : "미정"} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split("T")[0] : "미정"}
 멤버 수: ${tripRoom.members.length}
 
 멤버 선호도:
-${preferences.map((p) => `- ${p.user}: 예산 ${p.budgetMin || '미정'}~${p.budgetMax || '미정'}, 스타일: ${JSON.stringify(p.styles)}, 필수방문: ${JSON.stringify(p.mustVisit)}, 피해야할: ${JSON.stringify(p.avoid)}`).join('\n')}
+${preferences
+  .map(
+    (p) =>
+      `- ${p.user}: 예산 ${p.budgetMin || "미정"}~${p.budgetMax || "미정"}, 스타일: ${(p.styles || []).join(", ") || "없음"}, 필수방문: ${(p.mustVisit || []).join(", ") || "없음"}, 피해야할: ${(p.avoid || []).join(", ") || "없음"}, 가능시간: ${(p.availableTime || []).join(", ") || "없음"}`
+  )
+  .join("\n")}
 
 장소 목록 (ID, 이름, 주소, 카테고리):
-${places.map((p) => `${p.id}: ${p.name} (${p.address}, ${p.category})`).join('\n')}
+${places.map((p) => `${p.id}: ${p.name} (${p.address}, ${p.category})`).join("\n")}
 
-JSON 형식으로 응답해주세요. 형식:
-{
-  "recommendations": [
-    {
-      "placeId": number,
-      "estimatedCost": number,
-      "estimatedDuration": number,
-      "comment": "string",
-      "aiReason": "string"
-    }
-  ]
-}
-  `;
+반드시 아래 텍스트 형식만 지켜서 응답해주세요.
+JSON으로 응답하지 말고, 설명 문단도 쓰지 마세요.
+
+RECOMMENDATION 1
+placeId: 숫자
+estimatedCost: 숫자
+estimatedDuration: 숫자
+comment: 한 줄 설명
+aiReason: 한 줄 이유
+---
+RECOMMENDATION 2
+placeId: 숫자
+estimatedCost: 숫자
+estimatedDuration: 숫자
+comment: 한 줄 설명
+aiReason: 한 줄 이유
+
+추천 개수는 정확히 ${normalizedCount}개로 맞춰주세요.
+`;
   const createAiProposal = async (
     placeId: number,
     estimatedCost: number,
@@ -156,11 +167,24 @@ JSON 형식으로 응답해주세요. 형식:
       max_tokens: 1000,
     });
 
-    const content = response.choices[0].message.content;
-    const parsed = JSON.parse(content || '{}');
+    const content = response.choices[0].message.content || "";
+    const recommendations = content.split("---").map((block)=>block.trim()).filter((block)=>block.length>0).map((block)=>{
+      const lines = block.split("\n").map((line)=>line.trim());
+
+      const getValue = (prefix: string)=>
+        lines.find((line)=>line.startsWith(prefix))?.replace(prefix,"").trim() || "";
+
+      return {
+        placeId:Number(getValue("placeId:")),
+        estimatedCost: Number(getValue("estimatedCost:")),
+        estimatedDuration: Number(getValue("estimatedDuration:")),
+        comment:getValue("comment:"),
+        aiReason:getValue("aiReason:"),
+      };
+    })
 
     const created = [];
-    for (const rec of parsed.recommendations || []) {
+    for (const rec of recommendations){
       if (!validPlaceIds.has(rec.placeId)){
         continue;
       }
