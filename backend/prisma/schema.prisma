@@ -118,6 +118,7 @@ model InviteLink {
 
   tripRoom TripRoom @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
 
+  @@unique([tripRoomId])
   @@map("invite_links")
 }
 
