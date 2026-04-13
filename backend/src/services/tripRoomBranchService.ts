@@ -79,6 +79,113 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
   };
 };
 
+export const getBranchCompareService = async (tripRoomId: number, userId: number) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: { id: tripRoomId },
+    select: {
+      id: true,
+      title: true,
+      selectedBranchId: true,
+    },
+  });
+
+  if (!tripRoom) {
+    return {
+      found: false as const,
+    };
+  }
+
+  const membership = await prisma.tripMember.findUnique({
+    where: {
+      tripRoomId_userId: {
+        tripRoomId,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!membership) {
+    return {
+      found: true as const,
+      authorized: false as const,
+    };
+  }
+
+  const branches = await prisma.planBranch.findMany({
+    where: { tripRoomId },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      name: true,
+      createdBy: true,
+      status: true,
+      aiReason: true,
+      totalCost: true,
+      totalTravelTime: true,
+      preferenceScore: true,
+      densityScore: true,
+      branchPlaces: {
+        orderBy: [
+          { dayNo: "asc" },
+          { orderIndex: "asc" },
+        ],
+        select: {
+          dayNo: true,
+          orderIndex: true,
+          proposalId: true,
+          place: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              category: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return {
+    found: true as const,
+    authorized: true as const,
+    data: {
+      tripRoomId: tripRoom.id,
+      tripRoomTitle: tripRoom.title,
+      selectedBranchId: tripRoom.selectedBranchId ?? null,
+      branches: branches.map((branch) => ({
+        branchId: branch.id,
+        name: branch.name,
+        createdBy: branch.createdBy,
+        status: branch.status,
+        aiReason: branch.aiReason,
+        metrics: {
+          totalCost: branch.totalCost,
+          totalTravelTime: branch.totalTravelTime,
+          preferenceScore: branch.preferenceScore,
+          densityScore: branch.densityScore,
+        },
+        places: branch.branchPlaces.map((branchPlace) => ({
+          dayNo: branchPlace.dayNo,
+          orderIndex: branchPlace.orderIndex,
+          proposalId: branchPlace.proposalId,
+          place: {
+            id: branchPlace.place.id,
+            name: branchPlace.place.name,
+            address: branchPlace.place.address,
+            category: branchPlace.place.category,
+          },
+        })),
+      })),
+    },
+  };
+};
+
 const buildBranchPrompt = ({
   tripRoom,
   branchCount,
