@@ -57,6 +57,7 @@ model User {
   passwordHash String             @map("password_hash")
   name         String
   createdAt    DateTime           @default(now()) @map("created_at")
+  ChatMessage  ChatMessage[]
 
   hostedRooms  TripRoom[]         @relation("TripHost")
   memberships  TripMember[]
@@ -79,6 +80,7 @@ model TripRoom {
   createdAt  DateTime     @default(now()) @map("created_at")
   updatedAt  DateTime     @updatedAt @map("updated_at")
   thumbnailUrl  String?   @map("thumbnail_url")
+  chatRoom    ChatRoom?
 
   hostUser     User               @relation("TripHost", fields: [hostUserId], references: [id], onDelete: Cascade)
   members      TripMember[]
@@ -248,3 +250,29 @@ model DecisionLog {
 
   @@map("decision_logs")
 }
+
+model ChatRoom {
+  id         Int           @id @default(autoincrement())
+  tripRoomId Int           @unique @map("trip_room_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  tripRoom   TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
+  messages   ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id           Int       @id @default(autoincrement())
+  chatRoomId    Int      @map("chat_room_id")
+  senderUserId  Int      @map("sender_user_id")
+  content       String   @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  chatRoom      ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  senderUser    User     @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
