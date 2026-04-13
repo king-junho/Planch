@@ -7,6 +7,7 @@ import {
     saveMyPreference,
     getPreferenceList,
 } from "../controllers/tripRoomController";
+import {getTripRoomChatMessages, sendTripRoomChatMessage,} from "../controllers/chatController";
 import { createInviteLink } from "../controllers/inviteLinkController";
 import { authenticate } from "../middlewares/authMiddleware";
 
@@ -24,4 +25,6 @@ router.post("/:tripRoomId/finalize", authenticate, finalizeTripRoom);
 
 router.post("/:tripRoomId/invite-links", authenticate, createInviteLink);
 
+router.get("/:tripRoomId/chat", authenticate,getTripRoomChatMessages);
+router.post("/:tripRoomId/chat", authenticate, sendTripRoomChatMessage);
 export default router;
