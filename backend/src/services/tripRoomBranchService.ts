@@ -61,6 +61,7 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
     select:{
       id:true,
       name:true,
+      createdBy:true,
       status:true,
       totalCost:true,
       totalTravelTime:true,

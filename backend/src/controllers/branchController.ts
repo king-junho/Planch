@@ -49,6 +49,8 @@ export const getBranchDetail = async (req: AuthenticatedRequest, res: Response) 
         place: {
           id: branchPlace.place.id,
           name: branchPlace.place.name,
+          address: branchPlace.place.address,
+          category: branchPlace.place.category,
           latitude: Number(branchPlace.place.latitude),
           longitude: Number(branchPlace.place.longitude),
         },

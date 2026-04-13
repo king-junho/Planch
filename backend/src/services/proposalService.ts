@@ -239,6 +239,7 @@ export const getProposalListService = async (tripRoomId: number, userId: number)
       id: true,
     },
   });
+
   if(!membership){
     return{
       found : true as const,
@@ -284,7 +285,14 @@ export const getProposalListService = async (tripRoomId: number, userId: number)
   return {
     found : true as const,
     authorized: true as const,
-    proposals,
+    proposals : proposals.map((proposal) => ({
+      ...proposal,
+      place:{
+        ...proposal.place,
+        latitude: Number(proposal.place.latitude),
+        longitude: Number(proposal.place.longitude),
+      },
+    })),
   };
 };
 
@@ -299,15 +307,14 @@ export const createProposalService = async ({
 
   const tripRoom = await prisma.tripRoom.findUnique({
     where : {id : tripRoomId},
-    select: {status : true},
+    select: {
+      id:true,
+      status : true
+    },
   });
 
   if(!tripRoom){
     throw new Error("Trip room not found");
-  }
-
-  if(tripRoom.status === "locked"){
-    throw new Error("Trip room is locked");
   }
 
   const membership = await prisma.tripMember.findUnique({
@@ -321,11 +328,16 @@ export const createProposalService = async ({
       id:true,
     },
   });
+
   if(!membership){
     throw new Error("Forbidden");
   }
 
-  return prisma.placeProposal.create({
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
+  }
+
+  const proposal = await prisma.placeProposal.create({
   data: {
     tripRoomId,
     proposerUserId,
@@ -349,6 +361,30 @@ export const createProposalService = async ({
     source:true,
     status:true,
     createdAt:true,
-  },
-});
+    place:{
+      select:{
+        id:true,
+        name:true,
+        address:true,
+        latitude:true,
+        longitude:true,
+        category:true,
+      },
+    },
+    proposerUser:{
+      select:{
+        id:true,
+        name:true,
+        },
+      },
+    },
+  });
+  return {
+    ...proposal,
+    place:{
+      ...proposal.place,
+      latitude: Number(proposal.place.latitude),
+      longitude : Number(proposal.place.longitude),
+    },
+  };
 };

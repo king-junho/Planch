@@ -29,6 +29,8 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
             select: {
               id: true,
               name: true,
+              address: true,
+              category: true,
               latitude: true,
               longitude: true,
             },

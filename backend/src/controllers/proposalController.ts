@@ -93,7 +93,7 @@ export const createProposal = async (req: AuthenticatedRequest, res: Response) =
     const proposal = await createProposalService({
       tripRoomId,
       proposerUserId: req.user.id,
-      placeId: Number(placeId),
+      placeId,
       estimatedCost,
       estimatedDuration,
       comment,

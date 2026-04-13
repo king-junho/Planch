@@ -32,6 +32,7 @@ export const getBranchList = async (req: AuthenticatedRequest, res: Response) =>
       result.branches.map((branch)=>({
         branchId: branch.id,
         name: branch.name,
+        createdBy : branch.createdBy,
         status: branch.status,
         totalCost: branch.totalCost,
         totalTravelTime: branch.totalTravelTime,
