@@ -6,6 +6,7 @@ import tripRoomBranchRoutes from "./routes/tripRoomBranchRoutes";
 import proposalRoutes from "./routes/proposalRoutes";
 import branchRoutes from "./routes/branchRoutes";
 import authRoutes from "./routes/authRoutes";
+import inviteLinkRoutes from "./routes/inviteLinkRoutes";
 import prisma from "./lib/prisma";
 
 const app = express();
@@ -42,6 +43,7 @@ app.use("/auth", authRoutes);
 app.use("/trip-rooms", tripRoomRoutes);
 app.use("/trip-rooms", tripRoomBranchRoutes);
 app.use("/trip-rooms", proposalRoutes);
+app.use("/invite-links", inviteLinkRoutes);
 app.use("/branches", branchRoutes);
 
 app.get("/{*path}", (_req, res) => {
