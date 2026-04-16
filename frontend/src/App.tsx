@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import InvitePage from "./pages/InvitePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import TripBranchPage from "./pages/TripBranchPage";
+import TripProposalPage from "./pages/TripProposalPage";
 import TripSchedulePage from "./pages/TripSchedulePage";
 import TripRoomPage from "./pages/TripRoomPage";
 import TripRoomListPage from "./pages/TripRoomListPage";
@@ -14,6 +16,14 @@ export default function App() {
       <Route element={<RegisterPage />} path="/register" />
       <Route element={<TripRoomListPage />} path="/trip-rooms" />
       <Route element={<TripRoomPage />} path="/trip-rooms/:tripRoomId" />
+      <Route
+        element={<TripProposalPage />}
+        path="/trip-rooms/:tripRoomId/proposal"
+      />
+      <Route
+        element={<TripBranchPage />}
+        path="/trip-rooms/:tripRoomId/branch"
+      />
       <Route
         element={<TripSchedulePage />}
         path="/trip-rooms/:tripRoomId/schedule"

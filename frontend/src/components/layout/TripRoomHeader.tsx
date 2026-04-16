@@ -97,6 +97,30 @@ export default function TripRoomHeader({
               );
             }
 
+            if (item.key === "proposal") {
+              return (
+                <Link
+                  className={sharedClassName}
+                  key={item.key}
+                  to={`/trip-rooms/${tripRoomId}/proposal`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+
+            if (item.key === "branch") {
+              return (
+                <Link
+                  className={sharedClassName}
+                  key={item.key}
+                  to={`/trip-rooms/${tripRoomId}/branch`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+
             return (
               <button
                 className={sharedClassName}
