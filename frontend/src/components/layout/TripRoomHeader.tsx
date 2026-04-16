@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 type TripRoomHeaderProps = {
-  activeItem: "main" | "plan" | "proposal" | "branch";
+  activeItem: "main" | "plan" | "preference" | "proposal" | "branch";
   tripRoomId: string;
   onMenuClick?: () => void;
-  onPendingClick?: (label: string) => void;
 };
 
 const navItems = [
   { key: "main", label: "메인" },
   { key: "plan", label: "여행계획" },
+  { key: "preference", label: "선호입력" },
   { key: "proposal", label: "장소제안" },
   { key: "branch", label: "브랜치" },
 ] as const;
@@ -19,7 +19,6 @@ export default function TripRoomHeader({
   activeItem,
   tripRoomId,
   onMenuClick,
-  onPendingClick,
 }: TripRoomHeaderProps) {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
@@ -97,6 +96,18 @@ export default function TripRoomHeader({
               );
             }
 
+            if (item.key === "preference") {
+              return (
+                <Link
+                  className={sharedClassName}
+                  key={item.key}
+                  to={`/trip-rooms/${tripRoomId}/preference`}
+                >
+                  {item.label}
+                </Link>
+              );
+            }
+
             if (item.key === "proposal") {
               return (
                 <Link
@@ -121,16 +132,7 @@ export default function TripRoomHeader({
               );
             }
 
-            return (
-              <button
-                className={sharedClassName}
-                key={item.key}
-                onClick={() => onPendingClick?.(item.label)}
-                type="button"
-              >
-                {item.label}
-              </button>
-            );
+            return null;
           })}
 
           <div className="relative">

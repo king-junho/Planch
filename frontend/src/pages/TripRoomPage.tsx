@@ -233,10 +233,6 @@ export default function TripRoomPage() {
     );
   }, [tripRoomDetail]);
 
-  function handlePendingNavigation(label: string) {
-    setToast({ type: "error", message: `${label} 페이지는 준비 중입니다.` });
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-stone-50 text-stone-900">
@@ -265,7 +261,6 @@ export default function TripRoomPage() {
     <div className="min-h-screen bg-stone-50 text-stone-900">
       <TripRoomHeader
         activeItem="main"
-        onPendingClick={handlePendingNavigation}
         tripRoomId={tripRoomId}
       />
 

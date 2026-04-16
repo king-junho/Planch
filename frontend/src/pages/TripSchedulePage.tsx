@@ -310,16 +310,11 @@ export default function TripSchedulePage() {
     setToast({ type: "success", message: "선택한 항목이 삭제되었습니다." });
   }
 
-  function handlePendingNavigation(label: string) {
-    setToast({ type: "error", message: `${label} 페이지는 준비 중입니다.` });
-  }
-
   return (
     <div className="min-h-screen bg-white text-stone-900">
       <TripRoomHeader
         activeItem="plan"
         onMenuClick={() => setIsVoteMenuOpen((current) => !current)}
-        onPendingClick={handlePendingNavigation}
         tripRoomId={tripRoomId}
       />
 
