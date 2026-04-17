@@ -16,7 +16,7 @@ export default function ProposalMap() {
     } = useProposalStore();
 
     const [map, setMap] = useState<any>(null);
-    const defaultCenter = { lat: 33.4890, lng: 126.4983 };
+    const defaultCenter = { lat: 37.5546, lng: 126.9706 };
 
     // 키워드 검색 및 검색 결과 마커 범위 조정
     useEffect(() => {
@@ -71,7 +71,6 @@ export default function ProposalMap() {
                 ))}
             </Map>
 
-            {/* 제안 상세 정보 카드 (따옴표 제거 버전) */}
             {focusedProposal && (
                 <div className="absolute bottom-8 left-8 right-8 z-30 bg-white p-6 rounded-3xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex justify-between items-start mb-4">

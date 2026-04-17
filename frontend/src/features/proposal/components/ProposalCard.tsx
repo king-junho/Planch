@@ -26,7 +26,7 @@ export default function ProposalCard({ proposal }: ProposalCardProps) {
                 </div>
             </div>
 
-            <p className="text-gray-600 text-xs leading-relaxed bg-stone-50/50 p-3 rounded-xl mb-4 border border-stone-100 italic">
+            <p className="text-gray-600 text-xs leading-relaxed bg-stone-50/50 p-3 rounded-xl mb-4 border border-stone-100 non-italic">
                 {proposal.memo}
             </p>
 

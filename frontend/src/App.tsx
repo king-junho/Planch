@@ -28,6 +28,10 @@ export default function App() {
       />
       <Route
         element={<TripBranchCreatePage />}
+        path="/trip-rooms/:tripRoomId/branch/edit"
+      />
+      <Route
+        element={<TripBranchCreatePage />}
         path="/trip-rooms/:tripRoomId/branch/create"
       />
       <Route
