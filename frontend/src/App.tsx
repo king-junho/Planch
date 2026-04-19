@@ -6,7 +6,6 @@ import RegisterPage from "./pages/RegisterPage";
 import TripBranchPage from "./pages/TripBranchPage";
 import TripPreferencePage from "./pages/TripPreferencePage";
 import TripProposalPage from "./pages/TripProposalPage";
-import TripSchedulePage from "./pages/TripSchedulePage";
 import TripRoomPage from "./pages/TripRoomPage";
 import TripRoomListPage from "./pages/TripRoomListPage";
 
@@ -37,10 +36,6 @@ export default function App() {
       <Route
         element={<TripPreferencePage />}
         path="/trip-rooms/:tripRoomId/preference"
-      />
-      <Route
-        element={<TripSchedulePage />}
-        path="/trip-rooms/:tripRoomId/schedule"
       />
       <Route element={<Navigate replace to="/trip-rooms/3" />} path="/trip-room" />
       <Route element={<InvitePage />} path="/invite" />

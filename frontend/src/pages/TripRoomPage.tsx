@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { getTripRoomDetail } from "../services/tripRoomApi";
 import { TripRoomDetailResponse } from "../types/tripRoom";
@@ -425,21 +425,13 @@ export default function TripRoomPage() {
               </article>
 
               <article className="rounded-3xl border border-stone-200 bg-white p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-stone-900">
-                      여행방 현황
-                    </h2>
-                    <p className="mt-2 text-sm text-stone-500">
-                      여행 준비가 얼마나 진행됐는지 한눈에 볼 수 있어요.
-                    </p>
-                  </div>
-                  <Link
-                    className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white"
-                    to={`/trip-rooms/${tripRoomId}/schedule`}
-                  >
-                    여행일정 보기
-                  </Link>
+                <div>
+                  <h2 className="text-xl font-semibold text-stone-900">
+                    여행방 현황
+                  </h2>
+                  <p className="mt-2 text-sm text-stone-500">
+                    여행 준비가 얼마나 진행됐는지 한눈에 볼 수 있어요.
+                  </p>
                 </div>
 
                 <div className="mt-6 space-y-5">

@@ -2,14 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 type TripRoomHeaderProps = {
-  activeItem: "main" | "plan" | "preference" | "proposal" | "branch";
+  activeItem: "main" | "preference" | "proposal" | "branch";
   tripRoomId: string;
   onMenuClick?: () => void;
 };
 
 const navItems = [
   { key: "main", label: "메인" },
-  { key: "plan", label: "여행계획" },
   { key: "preference", label: "선호입력" },
   { key: "proposal", label: "장소제안" },
   { key: "branch", label: "브랜치" },
@@ -78,18 +77,6 @@ export default function TripRoomHeader({
                   className={sharedClassName}
                   key={item.key}
                   to={`/trip-rooms/${tripRoomId}`}
-                >
-                  {item.label}
-                </Link>
-              );
-            }
-
-            if (item.key === "plan") {
-              return (
-                <Link
-                  className={sharedClassName}
-                  key={item.key}
-                  to={`/trip-rooms/${tripRoomId}/schedule`}
                 >
                   {item.label}
                 </Link>
