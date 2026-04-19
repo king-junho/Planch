@@ -109,17 +109,6 @@ export default function TripSchedulePage() {
   const [statusFilter, setStatusFilter] = useState<"all" | VoteStatus>("all");
   const [saveMessage, setSaveMessage] = useState("");
   const [selectedChoiceLabel, setSelectedChoiceLabel] = useState<string | null>(null);
-  const [tripInfo, setTripInfo] = useState({
-    destination: "",
-    date: "",
-    duration: "",
-  });
-  const [savedTripInfo, setSavedTripInfo] = useState({
-    destination: "",
-    date: "",
-    duration: "",
-  });
-  const [tripInfoMessage, setTripInfoMessage] = useState("");
   const [newProposal, setNewProposal] = useState("");
   const [toast, setToast] = useState<{
     type: "success" | "error";
@@ -144,8 +133,6 @@ export default function TripSchedulePage() {
 
   const hasUnsavedChanges =
     JSON.stringify(voteSummaries) !== JSON.stringify(savedVoteSummaries);
-  const hasUnsavedTripInfo =
-    JSON.stringify(tripInfo) !== JSON.stringify(savedTripInfo);
 
   useEffect(() => {
     if (!toast) return;
@@ -172,20 +159,6 @@ export default function TripSchedulePage() {
     setSavedVoteSummaries(voteSummaries);
     setSaveMessage("투표 상태가 저장되었습니다.");
     setToast({ type: "success", message: "투표 상태가 저장되었습니다." });
-  }
-
-  function handleTripInfoChange(
-    field: "destination" | "date" | "duration",
-    value: string
-  ) {
-    setTripInfo((current) => ({ ...current, [field]: value }));
-    setTripInfoMessage("");
-  }
-
-  function handleTripInfoSave() {
-    setSavedTripInfo(tripInfo);
-    setTripInfoMessage("여행 정보가 저장되었습니다.");
-    setToast({ type: "success", message: "여행 정보가 저장되었습니다." });
   }
 
   function handleAddProposal() {
@@ -326,63 +299,7 @@ export default function TripSchedulePage() {
           </p>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-[344.6px_343.7px_343.7px]">
-          <aside className="rounded-2xl border border-stone-200 bg-stone-50 p-[25px]">
-            <h2 className="text-lg font-semibold leading-[27px] text-stone-900">여행 정보</h2>
-
-            <div className="mt-8 space-y-4">
-              {[
-                {
-                  field: "destination" as const,
-                  label: "여행지",
-                  placeholder: "예: 부산 해운대",
-                },
-                {
-                  field: "date" as const,
-                  label: "여행날짜",
-                  placeholder: "예: 2026-05-20",
-                },
-                {
-                  field: "duration" as const,
-                  label: "여행기간",
-                  placeholder: "예: 2박 3일",
-                },
-              ].map((item) => (
-                <div
-                  className="rounded-xl border border-stone-200 bg-white px-[17px] py-[17px] shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
-                  key={item.label}
-                >
-                  <p className="text-sm font-medium leading-[21px] text-stone-600">
-                    {item.label}
-                  </p>
-                  <input
-                    className="mt-2 w-full rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-base font-medium leading-6 text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
-                    onChange={(event) =>
-                      handleTripInfoChange(item.field, event.target.value)
-                    }
-                    placeholder={item.placeholder}
-                    type="text"
-                    value={tripInfo[item.field]}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {tripInfoMessage ? (
-              <p className="mt-4 text-sm font-medium text-emerald-700">
-                {tripInfoMessage}
-              </p>
-            ) : null}
-
-            <button
-              className="mt-4 h-[52px] w-full rounded-lg bg-stone-900 text-base font-medium text-white"
-              onClick={handleTripInfoSave}
-              type="button"
-            >
-              여행 정보 저장하기
-            </button>
-          </aside>
-
+        <section className="grid gap-5 lg:grid-cols-[344.6px_minmax(0,1fr)]">
           <section className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">

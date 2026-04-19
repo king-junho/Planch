@@ -164,8 +164,14 @@ export default function TripRoomPage() {
   const [tripRoomDetail, setTripRoomDetail] = useState<TripRoomDetailResponse | null>(
     null
   );
+  const [tripInfo, setTripInfo] = useState({
+    destination: "",
+    date: "",
+    duration: "",
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tripInfoMessage, setTripInfoMessage] = useState("");
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
@@ -232,6 +238,19 @@ export default function TripRoomPage() {
         100
     );
   }, [tripRoomDetail]);
+
+  function handleTripInfoChange(
+    field: "destination" | "date" | "duration",
+    value: string
+  ) {
+    setTripInfo((current) => ({ ...current, [field]: value }));
+    setTripInfoMessage("");
+  }
+
+  function handleTripInfoSave() {
+    setTripInfoMessage("여행 정보가 저장되었습니다.");
+    setToast({ type: "success", message: "여행 정보가 저장되었습니다." });
+  }
 
   if (isLoading) {
     return (
@@ -348,6 +367,66 @@ export default function TripRoomPage() {
               <article className="rounded-3xl border border-stone-200 bg-white p-6">
                 <div className="flex items-center justify-between gap-4">
                   <div>
+                    <h2 className="text-xl font-semibold text-stone-900">여행 정보</h2>
+                    <p className="mt-2 text-sm text-stone-500">
+                      여행지, 날짜, 기간을 메인페이지에서 바로 정리할 수 있어요.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  {[
+                    {
+                      field: "destination" as const,
+                      label: "여행지",
+                      placeholder: "예: 부산 해운대",
+                    },
+                    {
+                      field: "date" as const,
+                      label: "여행날짜",
+                      placeholder: "예: 2026-05-20",
+                    },
+                    {
+                      field: "duration" as const,
+                      label: "여행기간",
+                      placeholder: "예: 2박 3일",
+                    },
+                  ].map((item) => (
+                    <div
+                      className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4"
+                      key={item.label}
+                    >
+                      <p className="text-sm font-medium text-stone-600">{item.label}</p>
+                      <input
+                        className="mt-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
+                        onChange={(event) =>
+                          handleTripInfoChange(item.field, event.target.value)
+                        }
+                        placeholder={item.placeholder}
+                        type="text"
+                        value={tripInfo[item.field]}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm font-medium text-emerald-700">
+                    {tripInfoMessage || ""}
+                  </div>
+                  <button
+                    className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white"
+                    onClick={handleTripInfoSave}
+                    type="button"
+                  >
+                    여행 정보 저장하기
+                  </button>
+                </div>
+              </article>
+
+              <article className="rounded-3xl border border-stone-200 bg-white p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
                     <h2 className="text-xl font-semibold text-stone-900">
                       여행방 현황
                     </h2>
@@ -460,24 +539,6 @@ export default function TripRoomPage() {
                 </div>
               </article>
 
-              <article className="rounded-3xl border border-stone-200 bg-white p-6">
-                <h2 className="text-xl font-semibold text-stone-900">빠른 액션</h2>
-                <div className="mt-5 space-y-3">
-                  <Link
-                    className="flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm font-medium text-stone-700"
-                    to={`/trip-rooms/${tripRoomId}/schedule`}
-                  >
-                    <span>여행일정 페이지로 이동</span>
-                    <span>›</span>
-                  </Link>
-                </div>
-
-                {error ? (
-                  <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    {error}
-                  </div>
-                ) : null}
-              </article>
             </aside>
           </div>
         </section>
