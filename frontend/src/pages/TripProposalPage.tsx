@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import TripRoomHeader from '../components/layout/TripRoomHeader';
-import ProposalSection from '../features/proposal/components/ProposalSection';
+import { ProposalSection } from '../features/proposal/components/ProposalSection';
 
 export default function TripProposalPage() {
   // 1. 주소창에서 ID를 가져오는 팀원의 로직은 유지
