@@ -43,6 +43,7 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
         }
 
         const payload = {
+            placeId: Number(selectedPlace.id),
             placeName: selectedPlace.place_name,
             address: selectedPlace.address_name,
             latitude: selectedPlace.y,
@@ -51,7 +52,7 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
             memo: memoText
         };
 
-        const success = await addProposal(tripRoomId, payload);
+        const success = await addProposal(Number(tripRoomId), payload);
         if (success) {
             setSearchText('');
             setMemoText('');

@@ -1,5 +1,15 @@
 import { create } from 'zustand';
 import { ProposalResponse } from '../../../types/proposal';
+import api from '../../../api/axiosInstance';
+
+export interface ProposalPayload {
+    placeName: string;
+    address: string;
+    latitude: string | number;
+    longitude: string | number;
+    category: string;
+    memo: string;
+}
 
 export interface KakaoSearchResult {
     id?: string;
@@ -9,7 +19,6 @@ export interface KakaoSearchResult {
     x: string;
     y: string;
     phone?: string;
-    isViewing?: boolean;
 }
 
 interface ProposalState {
@@ -24,50 +33,16 @@ interface ProposalState {
     setSearchResults: (results: KakaoSearchResult[]) => void;
     setSelectedPlace: (place: KakaoSearchResult | null) => void;
     setFocusedProposal: (proposal: ProposalResponse | null) => void;
-    fetchProposals: (tripRoomId: string) => Promise<void>;
-    addProposal: (tripRoomId: string, payload: any) => Promise<boolean>;
+
+    // API 액션
+    fetchProposals: (tripRoomId: number) => Promise<void>;
+    addProposal: (tripRoomId: number, payload: ProposalPayload) => Promise<boolean>;
+    generateAiProposals: (tripRoomId: number) => Promise<void>;
+    deleteProposal: (tripRoomId: number, proposalId: number) => Promise<boolean>;
 }
 
-export const useProposalStore = create<ProposalState>((set) => ({
-    // 초기 상태에 가짜 데이터를 주입합니다.
-    proposals: [
-        {
-            proposalId: 1001,
-            tripRoomId: 1,
-            proposer: { userId: 1, nickname: '나' },
-            placeName: '몽상드애월',
-            address: '제주특별자치도 제주시 애월읍 애월북서길 56-1',
-            latitude: 33.4628,
-            longitude: 126.3093,
-            category: '카페',
-            memo: '바다 뷰가 예쁜 카페입니다. 노을 질 때 가면 사진이 잘 나와요.',
-            createdAt: '2026-04-17T10:00:00Z'
-        },
-        {
-            proposalId: 1002,
-            tripRoomId: 1,
-            proposer: { userId: 2, nickname: '복성준' },
-            placeName: '성산일출봉',
-            address: '제주특별자치도 서귀포시 성산읍 일출로 284-12',
-            latitude: 33.4586,
-            longitude: 126.9422,
-            category: '관광명소',
-            memo: '아침 일찍 일어나서 일출 보는 것을 추천합니다. 왕복 1시간 정도 소요됩니다.',
-            createdAt: '2026-04-17T10:30:00Z'
-        },
-        {
-            proposalId: 1003,
-            tripRoomId: 1,
-            proposer: { userId: 3, nickname: '최병욱' },
-            placeName: '숙성도 노형본관',
-            address: '제주특별자치도 제주시 원노형로 41',
-            latitude: 33.4848,
-            longitude: 126.4816,
-            category: '음식점',
-            memo: '제주도 흑돼지 맛집입니다. 웨이팅이 길 수 있으니 캐치테이블 예약 필수.',
-            createdAt: '2026-04-17T11:15:00Z'
-        }
-    ],
+export const useProposalStore = create<ProposalState>((set, get) => ({
+    proposals: [],
     focusedProposal: null,
     keyword: '',
     searchResults: [],
@@ -79,35 +54,82 @@ export const useProposalStore = create<ProposalState>((set) => ({
     setSelectedPlace: (place) => set({ selectedPlace: place }),
     setFocusedProposal: (proposal) => set({ focusedProposal: proposal }),
 
+    // API: 장소 제안 목록 조회
     fetchProposals: async (tripRoomId) => {
         set({ isLoading: true });
-        // API 연동 전까지는 기존 mock 데이터를 유지합니다.
-        set({ isLoading: false });
+        try {
+            const response = await api.get(`/trip-rooms/${tripRoomId}/proposals`);
+            set({ proposals: response.data });
+        } catch (error) {
+            console.error("제안 목록 로드 실패:", error);
+        } finally {
+            set({ isLoading: false });
+        }
     },
 
-    addProposal: async (tripRoomId, payload) => {
+    // API: 장소 제안 추가
+    addProposal: async (tripRoomId, payload: ProposalPayload) => {
+        const { selectedPlace } = get();
+        if (!selectedPlace) return false;
+
         set({ isLoading: true });
+        try {
+            await api.post(`/trip-rooms/${tripRoomId}/proposals`, {
+                placeId: Number(selectedPlace.id),
+                comment: payload.memo,
+                placeName: payload.placeName,
+                address: payload.address,
+                latitude: Number(payload.latitude),
+                longitude: Number(payload.longitude),
+                category: payload.category
+            });
 
-        const newProposal: ProposalResponse = {
-            proposalId: Date.now(),
-            tripRoomId: Number(tripRoomId),
-            proposer: { userId: 99, nickname: '나' },
-            placeName: payload.placeName,
-            address: payload.address,
-            latitude: Number(payload.latitude),
-            longitude: Number(payload.longitude),
-            category: payload.category,
-            memo: payload.memo,
-            createdAt: new Date().toISOString()
-        };
+            await get().fetchProposals(Number(tripRoomId));
+            set({ selectedPlace: null, keyword: '' });
+            return true;
+        } catch (error) {
+            console.error("장소 제안 실패:", error);
+            return false;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
 
-        set((state) => ({
-            proposals: [newProposal, ...state.proposals],
-            isLoading: false,
-            selectedPlace: null,
-            keyword: ''
-        }));
+    // API: AI 장소 제안 생성
+    generateAiProposals: async (tripRoomId) => {
+        set({ isLoading: true });
+        try {
+            await api.post(`/trip-rooms/${tripRoomId}/proposals/generate-ai`, { count: 3 });
+            await get().fetchProposals(tripRoomId);
+        } catch (error) {
+            alert("AI 제안 생성 중 오류가 발생했습니다.");
+        } finally {
+            set({ isLoading: false });
+        }
+    },
 
-        return true;
+    // API: 장소 제안 삭제
+    deleteProposal: async (tripRoomId: number, proposalId: number) => {
+        set({ isLoading: true });
+        try {
+            await api.delete(`/trip-rooms/${tripRoomId}/proposals/${proposalId}`);
+
+            // 삭제 성공 시 목록 새로고침
+            await get().fetchProposals(tripRoomId);
+
+            // 삭제한 항목이 현재 상세 보기 중인 항목이라면 상태 초기화
+            const currentFocused = get().focusedProposal;
+            if (currentFocused && (currentFocused.id === proposalId || currentFocused.proposalId === proposalId)) {
+                set({ focusedProposal: null });
+            }
+
+            return true;
+        } catch (error) {
+            console.error("장소 제안 삭제 실패:", error);
+            alert("삭제에 실패했습니다. 본인의 제안인지 확인해주세요.");
+            return false;
+        } finally {
+            set({ isLoading: false });
+        }
     }
 }));

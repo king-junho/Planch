@@ -1,8 +1,26 @@
+import { useEffect, useState } from 'react';
 import { useProposalStore } from '../store/useProposalStore';
 import ProposalCard from './ProposalCard';
 
 export default function ProposalListArea() {
     const { proposals, isLoading } = useProposalStore();
+    const [currentUserId, setCurrentUserId] = useState<number | undefined>(undefined);
+
+    // 컴포넌트가 화면에 뜰 때 로컬 스토리지의 토큰에서 내 유저 ID를 추출합니다.
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                // JWT 토큰의 payload 부분을 디코딩하여 유저 정보를 꺼냅니다.
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload && payload.sub) {
+                    setCurrentUserId(Number(payload.sub));
+                }
+            } catch (error) {
+                console.error("토큰 디코딩 실패:", error);
+            }
+        }
+    }, []);
 
     if (isLoading) {
         return <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">데이터를 불러오는 중...</div>;
@@ -21,8 +39,12 @@ export default function ProposalListArea() {
                 {proposals.length === 0 ? (
                     <div className="py-20 text-center text-gray-300 text-sm">아직 제안된 장소가 없습니다.</div>
                 ) : (
-                    proposals.map((prop) => (
-                        <ProposalCard key={prop.proposalId} proposal={prop} />
+                    proposals.map((prop, index) => (
+                        <ProposalCard
+                            key={prop.id || prop.proposalId || index}
+                            proposal={prop}
+                            currentUserId={currentUserId} // 찾아낸 내 ID를 카드로 전달합니다.
+                        />
                     ))
                 )}
             </div>

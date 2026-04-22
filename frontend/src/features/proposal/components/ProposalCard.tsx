@@ -1,39 +1,84 @@
-import { MapPin, User, ChevronRight } from 'lucide-react';
+import { MapPin, User, ChevronRight, Trash2 } from 'lucide-react';
 import { useProposalStore } from '../store/useProposalStore';
 import { ProposalResponse } from '../../../types/proposal';
 
 interface ProposalCardProps {
     proposal: ProposalResponse;
+    // 선택 사항: 로그인한 유저 ID를 받아와서 내 글에만 삭제 버튼이 보이게 할 수 있습니다.
+    currentUserId?: number;
 }
 
-export default function ProposalCard({ proposal }: ProposalCardProps) {
-    const { setFocusedProposal } = useProposalStore();
+export default function ProposalCard({ proposal, currentUserId }: ProposalCardProps) {
+    // 스토어에서 삭제 함수를 가져옵니다.
+    const { setFocusedProposal, deleteProposal } = useProposalStore();
+
+    // 백엔드 실제 데이터와 프론트엔드 임시 데이터 구조 차이 방어 코드
+    const placeName = proposal?.placeName || proposal?.place?.name || '알 수 없는 장소';
+    const category = proposal?.category || proposal?.place?.category || '카테고리 없음';
+    const memo = proposal?.memo || proposal?.comment || '메모가 없습니다.';
+    const address = proposal?.address || proposal?.place?.address || '주소 정보 없음';
+    const proposerName = proposal?.proposerUser?.name || proposal?.proposer?.nickname || '알 수 없는 사용자';
+
+    // 제안 ID와 방 ID 추출
+    const proposalId = proposal?.id || proposal?.proposalId;
+    const tripRoomId = proposal?.tripRoomId;
+
+    // 본인이 작성한 제안인지 확인 (currentUserId가 넘어왔을 때만 비교)
+    const isMyProposal = currentUserId && proposal?.proposerUserId
+        ? proposal.proposerUserId === currentUserId
+        : true;
+
+    // 삭제 버튼 클릭 핸들러
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // 상위 요소 클릭 이벤트 버블링 방지
+
+        if (!proposalId || !tripRoomId) return;
+
+        if (window.confirm('이 장소 제안을 정말 삭제하시겠습니까?')) {
+            await deleteProposal(Number(tripRoomId), Number(proposalId));
+        }
+    };
 
     return (
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
             <div className="flex justify-between items-start mb-3">
                 <div className="flex flex-col gap-1">
                     <span className="text-gray-900 font-bold text-base leading-tight">
-                        {proposal.placeName}
+                        {placeName}
                     </span>
                     <span className="text-gray-400 text-[11px] font-medium uppercase tracking-wider">
-                        {proposal.category}
+                        {category}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
-                    <User size={12} className="text-gray-400" />
-                    <span className="text-gray-600 text-[11px] font-bold">{proposal.proposer.nickname}</span>
+
+                {/* 우측 상단: 작성자 뱃지 및 삭제 버튼 */}
+                <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
+                        <User size={12} className="text-gray-400" />
+                        <span className="text-gray-600 text-[11px] font-bold">{proposerName}</span>
+                    </div>
+
+                    {/* 내 제안일 때만 휴지통 아이콘 표시 */}
+                    {isMyProposal && (
+                        <button
+                            onClick={handleDelete}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="제안 삭제"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </div>
             </div>
 
             <p className="text-gray-600 text-xs leading-relaxed bg-stone-50/50 p-3 rounded-xl mb-4 border border-stone-100 non-italic">
-                {proposal.memo}
+                {memo}
             </p>
 
             <div className="flex items-center justify-between border-t border-gray-50 pt-3">
                 <div className="flex items-center gap-1 text-gray-400">
                     <MapPin size={12} />
-                    <span className="text-[10px] truncate max-w-[150px]">{proposal.address}</span>
+                    <span className="text-[10px] truncate max-w-[150px]">{address}</span>
                 </div>
 
                 <button
