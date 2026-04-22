@@ -3,7 +3,8 @@ import { X, CheckSquare, Square, Plus } from 'lucide-react';
 import { usePreferenceStore } from '../store/usePreferenceStore';
 
 export default function PreferenceForm() {
-    const { preferences, updatePreference, toggleArrayItem, addArrayItem, removeArrayItem } = usePreferenceStore();
+    // preferences 대신 formData를 꺼내옵니다.
+    const { formData, updatePreference, toggleArrayItem, addArrayItem, removeArrayItem } = usePreferenceStore();
     const [mustGoInput, setMustGoInput] = useState('');
     const [mustAvoidInput, setMustAvoidInput] = useState('');
 
@@ -33,7 +34,7 @@ export default function PreferenceForm() {
                 <div className="flex justify-between items-end mb-6">
                     <h3 className="text-lg font-bold text-gray-900">여행 예산 (1인 기준)</h3>
                     <span className="text-blue-600 font-bold text-xl">
-                        {preferences.budget >= 1000000 ? '100만원+' : `${(preferences.budget / 10000).toLocaleString()}만원 이하`}
+                        {formData.budgetMax >= 1000000 ? '100만원+' : `${(formData.budgetMax / 10000).toLocaleString()}만원 이하`}
                     </span>
                 </div>
                 <input
@@ -41,8 +42,8 @@ export default function PreferenceForm() {
                     min="50000"
                     max="1000000"
                     step="50000"
-                    value={preferences.budget}
-                    onChange={(e) => updatePreference('budget', Number(e.target.value))}
+                    value={formData.budgetMax}
+                    onChange={(e) => updatePreference('budgetMax', Number(e.target.value))}
                     className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-gray-900"
                 />
                 <div className="flex justify-between mt-3 text-[10px] font-bold text-gray-300 px-1">
@@ -60,9 +61,9 @@ export default function PreferenceForm() {
                         <button
                             key={style}
                             onClick={() => toggleArrayItem('styles', style)}
-                            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${preferences.styles.includes(style)
-                                    ? 'bg-gray-900 text-white shadow-md'
-                                    : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
+                            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${formData.styles.includes(style)
+                                ? 'bg-gray-900 text-white shadow-md'
+                                : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
                                 }`}
                         >
                             {style}
@@ -71,7 +72,7 @@ export default function PreferenceForm() {
                 </div>
             </section>
 
-            {/* 태그 입력 (가고 싶은 곳 / 피하고 싶은 곳) */}
+            {/* 태그 입력 */}
             <div className="grid grid-cols-2 gap-8">
                 <section>
                     <h3 className="text-lg font-bold text-gray-900 mb-4">꼭 가고 싶은 곳</h3>
@@ -87,7 +88,7 @@ export default function PreferenceForm() {
                         <Plus size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {preferences.mustGo.map((tag, index) => (
+                        {formData.mustGo.map((tag, index) => (
                             <span key={index} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100">
                                 {tag}
                                 <button onClick={() => removeArrayItem('mustGo', index)}><X size={12} /></button>
@@ -110,7 +111,7 @@ export default function PreferenceForm() {
                         <Plus size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {preferences.mustAvoid.map((tag, index) => (
+                        {formData.mustAvoid.map((tag, index) => (
                             <span key={index} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-100">
                                 {tag}
                                 <button onClick={() => removeArrayItem('mustAvoid', index)}><X size={12} /></button>
@@ -130,7 +131,7 @@ export default function PreferenceForm() {
                                 onClick={() => toggleArrayItem('activeTimes', time)}
                                 className="focus:outline-none"
                             >
-                                {preferences.activeTimes.includes(time) ? (
+                                {formData.activeTimes.includes(time) ? (
                                     <CheckSquare size={24} className="text-gray-900" />
                                 ) : (
                                     <Square size={24} className="text-gray-200 group-hover:text-gray-300" />
@@ -146,7 +147,7 @@ export default function PreferenceForm() {
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-4">추가 코멘트</h3>
                 <textarea
-                    value={preferences.freeText}
+                    value={formData.freeText}
                     onChange={(e) => updatePreference('freeText', e.target.value)}
                     placeholder="예: 뚜벅이 여행이라 이동 동선이 짧았으면 좋겠어요."
                     className="w-full h-32 p-5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-gray-200 outline-none text-sm resize-none transition-all"
