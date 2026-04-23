@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { clearAuthSession, getAccessToken } from "../../services/authStorage";
+import { createInviteLink } from "../../services/tripRoomApi";
 
 type TripRoomHeaderProps = {
   activeItem: "main" | "preference" | "proposal" | "branch";
@@ -23,12 +24,10 @@ export default function TripRoomHeader({
   const navigate = useNavigate();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [isInviteLoading, setIsInviteLoading] = useState(false);
   const isLoggedIn = Boolean(getAccessToken());
-
-  const inviteUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/invite?tripRoomId=${tripRoomId}`
-      : `http://localhost:5173/invite?tripRoomId=${tripRoomId}`;
 
   useEffect(() => {
     if (!copyMessage) return;
@@ -37,7 +36,58 @@ export default function TripRoomHeader({
     return () => window.clearTimeout(timeout);
   }, [copyMessage]);
 
+  useEffect(() => {
+    if (!isInviteOpen) return;
+
+    const numericTripRoomId = Number(tripRoomId);
+    if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
+      setInviteError("유효하지 않은 tripRoomId입니다.");
+      setInviteUrl("");
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadInviteLink() {
+      setIsInviteLoading(true);
+      setInviteError("");
+      setCopyMessage("");
+
+      try {
+        const response = await createInviteLink(numericTripRoomId);
+        if (!isMounted) return;
+
+        setInviteUrl(response.inviteUrl);
+      } catch (caughtError) {
+        if (!isMounted) return;
+
+        const message =
+          caughtError instanceof Error && caughtError.message.trim()
+            ? caughtError.message
+            : "초대 링크 생성에 실패했습니다.";
+
+        setInviteError(message);
+        setInviteUrl("");
+      } finally {
+        if (isMounted) {
+          setIsInviteLoading(false);
+        }
+      }
+    }
+
+    loadInviteLink();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isInviteOpen, tripRoomId]);
+
   async function handleCopyInviteLink() {
+    if (!inviteUrl) {
+      setCopyMessage("복사할 초대 링크가 없습니다.");
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setCopyMessage("복사되었습니다.");
@@ -144,11 +194,18 @@ export default function TripRoomHeader({
               <div className="absolute right-0 top-12 z-30 w-[360px] rounded-2xl border border-stone-200 bg-white p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
                 <p className="text-sm font-semibold text-stone-900">현재 여행방 초대링크</p>
                 <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600">
-                  {inviteUrl}
+                  {isInviteLoading
+                    ? "초대 링크를 생성하는 중입니다."
+                    : inviteError
+                    ? inviteError
+                    : inviteUrl || "초대 링크가 없습니다."}
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
                   <span className="text-xs text-stone-500">
-                    {copyMessage || "복사 버튼으로 링크를 공유할 수 있어요."}
+                    {copyMessage ||
+                      (inviteError
+                        ? "호스트 권한과 인증 상태를 확인해 주세요."
+                        : "복사 버튼으로 링크를 공유할 수 있어요.")}
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -159,7 +216,8 @@ export default function TripRoomHeader({
                       닫기
                     </button>
                     <button
-                      className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
+                      className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-stone-400"
+                      disabled={isInviteLoading || Boolean(inviteError) || !inviteUrl}
                       onClick={handleCopyInviteLink}
                       type="button"
                     >

@@ -74,3 +74,9 @@ export type JoinInviteLinkResponse = {
   joined: boolean;
   role: string;
 };
+
+export type CreateInviteLinkResponse = {
+  inviteUrl: string;
+  token: string;
+  expiresAt: string;
+};

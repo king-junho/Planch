@@ -18,7 +18,7 @@ export default function InvitePage() {
 
   async function handleAcceptInvite() {
     if (!token.trim()) {
-      setError("유효하지 않은 초대 링크입니다.");
+      setError("유효하지 않은 token입니다.");
       return;
     }
 
@@ -33,7 +33,7 @@ export default function InvitePage() {
       const message =
         caughtError instanceof Error && caughtError.message.trim()
           ? caughtError.message
-          : "초대 수락에 실패했습니다.";
+          : "여행방 참여 처리 중 서버 오류가 발생했습니다.";
 
       if (message.includes("로그인") || message.includes("인증")) {
         navigate("/login", {

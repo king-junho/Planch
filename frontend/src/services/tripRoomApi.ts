@@ -2,6 +2,7 @@ import { getAccessToken } from "./authStorage";
 import { ApiErrorResponse } from "../types/auth";
 import {
   CreateTripRoomRequest,
+  CreateInviteLinkResponse,
   JoinInviteLinkResponse,
   TripRoomDetailResponse,
   TripRoomListItem,
@@ -129,7 +130,7 @@ export async function joinTripRoomByInviteLink(
   });
 
   if (!response.ok) {
-    let message = "초대 수락에 실패했습니다.";
+    let message = "여행방 참여 처리 중 서버 오류가 발생했습니다.";
 
     try {
       const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
@@ -144,4 +145,41 @@ export async function joinTripRoomByInviteLink(
   }
 
   return (await response.json()) as JoinInviteLinkResponse;
+}
+
+export async function createInviteLink(
+  tripRoomId: number
+): Promise<CreateInviteLinkResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/trip-rooms/${tripRoomId}/invite-links`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    let message = "초대 링크 생성에 실패했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as CreateInviteLinkResponse;
 }
