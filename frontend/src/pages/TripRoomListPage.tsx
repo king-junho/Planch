@@ -1,5 +1,6 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { clearAuthSession, getAccessToken } from "../services/authStorage";
 import { createTripRoom, getMyTripRooms } from "../services/tripRoomApi";
 import { TripRoomListItem } from "../types/tripRoom";
 
@@ -145,6 +146,7 @@ function TripRoomCard({
 
 export default function TripRoomListPage() {
   const navigate = useNavigate();
+  const isLoggedIn = Boolean(getAccessToken());
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isChatListOpen, setIsChatListOpen] = useState(false);
   const [activeChatRoomId, setActiveChatRoomId] = useState<number | null>(null);
@@ -247,6 +249,11 @@ export default function TripRoomListPage() {
     setMessageDraft("");
   }
 
+  function handleLogout() {
+    clearAuthSession();
+    navigate("/login", { replace: true });
+  }
+
   async function handleCreateTripRoom() {
     if (!tripTitle.trim()) {
       setCreateError("title은 필수입니다.");
@@ -300,18 +307,30 @@ export default function TripRoomListPage() {
           <div className="h-10 w-[720px]" />
 
           <div className="hidden items-center gap-3 sm:flex">
-            <Link
-              className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
-              to="/login"
-            >
-              로그인
-            </Link>
-            <Link
-              className="h-10 rounded-lg bg-[#2C2C2C] px-5 py-2 text-base font-normal text-stone-100"
-              to="/register"
-            >
-              회원가입
-            </Link>
+            {isLoggedIn ? (
+              <button
+                className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+                onClick={handleLogout}
+                type="button"
+              >
+                로그아웃
+              </button>
+            ) : (
+              <>
+                <Link
+                  className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+                  to="/login"
+                >
+                  로그인
+                </Link>
+                <Link
+                  className="h-10 rounded-lg bg-[#2C2C2C] px-5 py-2 text-base font-normal text-stone-100"
+                  to="/register"
+                >
+                  회원가입
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

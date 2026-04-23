@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { clearAuthSession, getAccessToken } from "../../services/authStorage";
 
 type TripRoomHeaderProps = {
   activeItem: "main" | "preference" | "proposal" | "branch";
@@ -19,8 +20,10 @@ export default function TripRoomHeader({
   tripRoomId,
   onMenuClick,
 }: TripRoomHeaderProps) {
+  const navigate = useNavigate();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
+  const isLoggedIn = Boolean(getAccessToken());
 
   const inviteUrl =
     typeof window !== "undefined"
@@ -41,6 +44,12 @@ export default function TripRoomHeader({
     } catch {
       setCopyMessage("복사에 실패했습니다.");
     }
+  }
+
+  function handleLogout() {
+    clearAuthSession();
+    setIsInviteOpen(false);
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -164,18 +173,30 @@ export default function TripRoomHeader({
         </nav>
 
         <div className="hidden w-[220px] items-center justify-end gap-3 lg:flex">
-          <Link
-            className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
-            to="/login"
-          >
-            로그인
-          </Link>
-          <Link
-            className="h-10 rounded-lg bg-[#2C2C2C] px-5 py-2 text-base font-normal text-stone-100"
-            to="/register"
-          >
-            회원가입
-          </Link>
+          {isLoggedIn ? (
+            <button
+              className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+              onClick={handleLogout}
+              type="button"
+            >
+              로그아웃
+            </button>
+          ) : (
+            <>
+              <Link
+                className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+                to="/login"
+              >
+                로그인
+              </Link>
+              <Link
+                className="h-10 rounded-lg bg-[#2C2C2C] px-5 py-2 text-base font-normal text-stone-100"
+                to="/register"
+              >
+                회원가입
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
