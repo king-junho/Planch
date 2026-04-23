@@ -1,6 +1,7 @@
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createTripRoom } from "../services/tripRoomApi";
+import { createTripRoom, getMyTripRooms } from "../services/tripRoomApi";
+import { TripRoomListItem } from "../types/tripRoom";
 
 type ChatMessage = {
   id: number;
@@ -17,45 +18,6 @@ type ChatRoom = {
   unreadCount: number;
   messages: ChatMessage[];
 };
-
-type TripRoomStatus = "진행중" | "보류" | "종료";
-
-const tripRooms: Array<{
-  id: number;
-  title: string;
-  status: TripRoomStatus;
-  membersCount: number;
-  participants: string[];
-}> = [
-  {
-    id: 1,
-    title: "동아리 MT",
-    status: "진행중",
-    membersCount: 4,
-    participants: ["김준호", "복성준", "김호영", "최병욱"],
-  },
-  {
-    id: 2,
-    title: "캡스톤 회의",
-    status: "보류",
-    membersCount: 4,
-    participants: ["김준호", "복성준", "김호영", "최병욱"],
-  },
-  {
-    id: 3,
-    title: "랩실 MT",
-    status: "진행중",
-    membersCount: 4,
-    participants: ["김준호", "복성준", "김호영", "최병욱"],
-  },
-  {
-    id: 4,
-    title: "중학교 동창 여행",
-    status: "종료",
-    membersCount: 6,
-    participants: ["김준호", "복성준", "김호영", "최병욱", "이수민", "박도윤"],
-  },
-];
 
 const initialChatRooms: ChatRoom[] = [
   {
@@ -110,36 +72,39 @@ const initialChatRooms: ChatRoom[] = [
 ];
 
 function TripRoomCard({
-  id,
+  tripRoomId,
   status,
   title,
-  membersCount,
-  participants,
+  memberCount,
+  memberNamesPreview,
+  remainingMemberCount,
 }: {
-  id: number;
-  status: TripRoomStatus;
+  tripRoomId: number;
+  status: string;
   title: string;
-  membersCount: number;
-  participants: string[];
+  memberCount: number;
+  memberNamesPreview: string[];
+  remainingMemberCount: number;
 }) {
-  const visibleParticipants = participants.slice(0, 3);
-  const hiddenParticipantsCount = Math.max(participants.length - visibleParticipants.length, 0);
   const participantsLabel =
-    hiddenParticipantsCount > 0
-      ? `${visibleParticipants.join(", ")} +${hiddenParticipantsCount}명`
-      : visibleParticipants.join(", ");
+    remainingMemberCount > 0
+      ? `${memberNamesPreview.join(", ")} +${remainingMemberCount}명`
+      : memberNamesPreview.join(", ");
 
   const statusClassName =
-    status === "진행중"
+    status === "voting"
       ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-      : status === "보류"
+      : status === "draft"
       ? "bg-stone-100 text-stone-600 ring-1 ring-stone-200"
       : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+
+  const statusLabel =
+    status === "voting" ? "진행중" : status === "draft" ? "준비중" : "확정";
 
   return (
     <Link
       className="block overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg"
-      to={`/trip-rooms/${id}`}
+      to={`/trip-rooms/${tripRoomId}`}
     >
       <div className="relative h-[193.5px] bg-stone-100">
         <img
@@ -158,7 +123,7 @@ function TripRoomCard({
           <span
             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClassName}`}
           >
-            {status}
+            {statusLabel}
           </span>
         </div>
 
@@ -167,7 +132,7 @@ function TripRoomCard({
             <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-stone-500 text-[10px]">
               인
             </span>
-            <span>현재 참여 인원 : {membersCount}명</span>
+            <span>현재 참여 인원 : {memberCount}명</span>
           </div>
           <p className="text-sm leading-[21px] text-stone-500">
             참가자 : {participantsLabel}
@@ -185,15 +150,65 @@ export default function TripRoomListPage() {
   const [activeChatRoomId, setActiveChatRoomId] = useState<number | null>(null);
   const [chatRooms, setChatRooms] = useState(initialChatRooms);
   const [messageDraft, setMessageDraft] = useState("");
+  const [tripRooms, setTripRooms] = useState<TripRoomListItem[]>([]);
   const [tripTitle, setTripTitle] = useState("");
   const [tripStartDate, setTripStartDate] = useState("");
   const [tripEndDate, setTripEndDate] = useState("");
   const [selectedImageName, setSelectedImageName] = useState("");
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [listError, setListError] = useState("");
+  const [isListLoading, setIsListLoading] = useState(true);
 
   const activeChatRoom =
     chatRooms.find((chatRoom) => chatRoom.id === activeChatRoomId) ?? null;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTripRooms() {
+      setIsListLoading(true);
+      setListError("");
+
+      try {
+        const response = await getMyTripRooms();
+
+        if (isMounted) {
+          setTripRooms(response);
+        }
+      } catch (caughtError) {
+        if (!isMounted) return;
+
+        const message =
+          caughtError instanceof Error && caughtError.message.trim()
+            ? caughtError.message
+            : "여행 목록을 불러오지 못했습니다.";
+
+        if (message.includes("로그인") || message.includes("인증")) {
+          navigate("/login", {
+            replace: true,
+            state: {
+              loginMessage: "로그인 후 여행 목록을 확인할 수 있습니다.",
+              redirectTo: "/trip-rooms",
+            },
+          });
+          return;
+        }
+
+        setListError(message);
+      } finally {
+        if (isMounted) {
+          setIsListLoading(false);
+        }
+      }
+    }
+
+    loadTripRooms();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -325,16 +340,31 @@ export default function TripRoomListPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
-              {tripRooms.map((tripRoom) => (
-                <TripRoomCard
-                  key={tripRoom.id}
-                  id={tripRoom.id}
-                  membersCount={tripRoom.membersCount}
-                  participants={tripRoom.participants}
-                  status={tripRoom.status}
-                  title={tripRoom.title}
-                />
-              ))}
+              {isListLoading ? (
+                <div className="col-span-full rounded-2xl border border-stone-200 bg-stone-50 px-6 py-10 text-center text-sm text-stone-500">
+                  여행 목록을 불러오는 중입니다.
+                </div>
+              ) : listError ? (
+                <div className="col-span-full rounded-2xl border border-red-100 bg-red-50 px-6 py-10 text-center text-sm text-red-600">
+                  {listError}
+                </div>
+              ) : tripRooms.length === 0 ? (
+                <div className="col-span-full rounded-2xl border border-stone-200 bg-stone-50 px-6 py-10 text-center text-sm text-stone-500">
+                  아직 참여 중인 여행방이 없습니다.
+                </div>
+              ) : (
+                tripRooms.map((tripRoom) => (
+                  <TripRoomCard
+                    key={tripRoom.tripRoomId}
+                    tripRoomId={tripRoom.tripRoomId}
+                    status={tripRoom.status}
+                    title={tripRoom.title}
+                    memberCount={tripRoom.memberCount}
+                    memberNamesPreview={tripRoom.memberNamesPreview}
+                    remainingMemberCount={tripRoom.remainingMemberCount}
+                  />
+                ))
+              )}
             </div>
           </div>
         </section>

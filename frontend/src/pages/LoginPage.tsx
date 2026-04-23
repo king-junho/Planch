@@ -7,6 +7,8 @@ import { LoginRequest } from "../types/auth";
 type LoginPageLocationState = {
   signupEmail?: string;
   signupMessage?: string;
+  loginMessage?: string;
+  redirectTo?: string;
 };
 
 export default function LoginPage() {
@@ -18,7 +20,7 @@ export default function LoginPage() {
     const response = await logIn(values);
     setAuthSession(response.accessToken, response.user);
 
-    navigate("/trip-rooms", {
+    navigate(locationState?.redirectTo || "/trip-rooms", {
       replace: true,
       state: {
         loginMessage: `${response.user.name}님, 다시 오신 것을 환영합니다.`,
@@ -60,6 +62,11 @@ export default function LoginPage() {
 
       <main className="flex min-h-[calc(100vh-76px)] items-start justify-center px-6 pb-[179px] pt-24">
         <section className="w-full max-w-[400px] space-y-4">
+          {locationState?.loginMessage ? (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <p>{locationState.loginMessage}</p>
+            </div>
+          ) : null}
           {locationState?.signupMessage ? (
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               <p>{locationState.signupMessage}</p>

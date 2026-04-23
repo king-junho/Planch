@@ -5,6 +5,22 @@ export type CreateTripRoomRequest = {
   thumbnailUrl: string | null;
 };
 
+export type TripRoomListItem = {
+  tripRoomId: number;
+  title: string;
+  status: string;
+  thumbnailUrl: string | null;
+  memberCount: number;
+  memberNamesPreview: string[];
+  remainingMemberCount: number;
+  hostUser: {
+    id: number;
+    name: string;
+  };
+  lastActivityAt: string;
+  selectedBranchId: number | null;
+};
+
 export type TripRoomMember = {
   id: number;
   name: string;
@@ -51,4 +67,10 @@ export type TripRoomDetailResponse = {
   };
   createdAt: string;
   updatedAt: string;
+};
+
+export type JoinInviteLinkResponse = {
+  tripRoomId: number;
+  joined: boolean;
+  role: string;
 };

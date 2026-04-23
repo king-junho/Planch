@@ -4,123 +4,6 @@ import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { getTripRoomDetail } from "../services/tripRoomApi";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 
-const mockTripRoomDetails: Record<number, TripRoomDetailResponse> = {
-  1: {
-    tripRoomId: 1,
-    title: "동아리 MT",
-    startDate: "2026-07-15T00:00:00.000Z",
-    endDate: "2026-07-16T00:00:00.000Z",
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: true },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: false },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: false },
-    ],
-    summary: {
-      memberCount: 4,
-      submittedPreferenceCount: 2,
-      proposalCount: 3,
-      branchCount: 2,
-      selectedBranchId: null,
-    },
-    createdAt: "2026-04-10T07:20:58.994Z",
-    updatedAt: "2026-04-10T07:20:58.994Z",
-  },
-  2: {
-    tripRoomId: 2,
-    title: "캡스톤 회의",
-    startDate: "2026-08-02T00:00:00.000Z",
-    endDate: "2026-08-03T00:00:00.000Z",
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: true },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: true },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: false },
-    ],
-    summary: {
-      memberCount: 4,
-      submittedPreferenceCount: 3,
-      proposalCount: 4,
-      branchCount: 1,
-      selectedBranchId: null,
-    },
-    createdAt: "2026-04-11T09:00:00.000Z",
-    updatedAt: "2026-04-11T09:00:00.000Z",
-  },
-  3: {
-    tripRoomId: 3,
-    title: "랩실 MT",
-    startDate: "2026-06-12T00:00:00.000Z",
-    endDate: "2026-06-14T00:00:00.000Z",
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: true },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: true },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: true },
-    ],
-    summary: {
-      memberCount: 4,
-      submittedPreferenceCount: 4,
-      proposalCount: 5,
-      branchCount: 3,
-      selectedBranchId: 2,
-    },
-    createdAt: "2026-04-12T10:10:00.000Z",
-    updatedAt: "2026-04-12T10:10:00.000Z",
-  },
-  4: {
-    tripRoomId: 4,
-    title: "중학교 동창 여행",
-    startDate: null,
-    endDate: null,
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: false },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: false },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: false },
-      { id: 9, name: "이수민", role: "member", hasSubmittedPreference: false },
-      { id: 10, name: "박도윤", role: "member", hasSubmittedPreference: false },
-    ],
-    summary: {
-      memberCount: 6,
-      submittedPreferenceCount: 1,
-      proposalCount: 2,
-      branchCount: 0,
-      selectedBranchId: null,
-    },
-    createdAt: "2026-04-13T11:20:00.000Z",
-    updatedAt: "2026-04-13T11:20:00.000Z",
-  },
-};
-
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate && !endDate) return "여행 날짜 미정";
 
@@ -141,17 +24,17 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
 
 function statusLabel(status: string) {
   if (status === "draft") return "준비중";
-  if (status === "active") return "진행중";
-  if (status === "completed") return "종료";
+  if (status === "voting") return "진행중";
+  if (status === "locked") return "확정";
   return status;
 }
 
 function statusBadgeClass(status: string) {
-  if (status === "active") {
+  if (status === "voting") {
     return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
   }
 
-  if (status === "completed") {
+  if (status === "locked") {
     return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
   }
 
@@ -197,13 +80,9 @@ export default function TripRoomPage() {
           setTripRoomDetail(response);
         }
       } catch (caughtError) {
-        const fallback = mockTripRoomDetails[numericTripRoomId];
-
         if (!isMounted) return;
 
-        if (fallback) {
-          setTripRoomDetail(fallback);
-        } else if (caughtError instanceof Error && caughtError.message.trim()) {
+        if (caughtError instanceof Error && caughtError.message.trim()) {
           setError(caughtError.message);
         } else {
           setError("여행방을 찾을 수 없습니다.");

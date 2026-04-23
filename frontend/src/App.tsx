@@ -39,6 +39,7 @@ export default function App() {
       />
       <Route element={<Navigate replace to="/trip-rooms/3" />} path="/trip-room" />
       <Route element={<InvitePage />} path="/invite" />
+      <Route element={<InvitePage />} path="/invite/:token" />
     </Routes>
   );
 }
