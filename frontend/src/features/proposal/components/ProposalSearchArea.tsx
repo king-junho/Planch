@@ -19,6 +19,7 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
 
     const [searchText, setSearchText] = useState('');
     const [memoText, setMemoText] = useState('');
+    const [isSaving, setIsSaving] = useState(false); // 저장 진행 상태 관리
 
     // 검색 실행 함수
     const handleSearch = () => {
@@ -34,6 +35,7 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
 
     // 최종 등록 함수
     const handleSubmit = async () => {
+        if (isSaving) return; // 이미 저장 중이면 무시
         if (!selectedPlace) return;
 
         // 메모가 비어있거나 공백만 있는지 확인
@@ -41,6 +43,8 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
             alert('추천 이유나 메모를 반드시 입력해주세요.');
             return;
         }
+
+        setIsSaving(true); // 저장 시작(잠금)
 
         const payload = {
             placeId: Number(selectedPlace.id),
@@ -59,6 +63,8 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
             setSearchResults([]);
             setSelectedPlace(null);
         }
+
+        setIsSaving(false); // 저장 종료(잠금 해제)
     };
 
     return (
@@ -120,9 +126,10 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
                     />
                     <button
                         onClick={handleSubmit}
-                        className="w-full h-12 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-all shadow-md"
+                        disabled={isSaving}
+                        className={`w-full h-12 text-white rounded-xl font-bold text-sm transition-all shadow-md ${isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'}`}
                     >
-                        장소 제안 등록하기
+                        {isSaving ? '등록 중...' : '장소 제안 등록하기'}
                     </button>
                 </div>
             )}

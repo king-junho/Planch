@@ -69,6 +69,8 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
 
     // API: 장소 제안 추가
     addProposal: async (tripRoomId, payload: ProposalPayload) => {
+        if (get().isLoading) return false; // 이미 진행 중이면 추가 요청 차단
+
         const { selectedPlace } = get();
         if (!selectedPlace) return false;
 
