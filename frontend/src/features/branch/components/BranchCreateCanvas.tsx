@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useProposalStore } from '../../proposal/store/useProposalStore';
 import { useBranchStore } from '../store/useBranchStore';
 import BranchMap from './BranchMap';
@@ -14,10 +15,12 @@ interface BranchCreateCanvasProps {
 }
 
 export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateCanvasProps) {
+    const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const [title, setTitle] = useState('');
+    const [isSaving, setIsSaving] = useState(false); // 중복 저장 방지 상태
     const tripDuration = 3;
 
-    const { proposals } = useProposalStore();
+    const { proposals, fetchProposals } = useProposalStore();
     const {
         draftRoutes,
         currentDraftDay,
@@ -25,20 +28,23 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         addPlaceToDraft,
         removePlaceFromDraft,
         updateDraftPlace,
-        addBranch,
-        updateBranch,
         setDraftRoutes,
         resetDraft,
         reorderDraftPlace,
         sortDraftByTime,
-        setSelectedBranch
+        setSelectedBranch,
+        createBranch
     } = useBranchStore();
 
     useEffect(() => {
+        if (tripRoomId) {
+            fetchProposals(Number(tripRoomId));
+        }
+    }, [tripRoomId, fetchProposals]);
+
+    useEffect(() => {
         if (editBranch) {
-            setTitle(editBranch.title);
-            const copiedRoutes = JSON.parse(JSON.stringify(editBranch.routes));
-            setDraftRoutes(copiedRoutes);
+            setTitle(editBranch.title || editBranch.name || '');
             setCurrentDraftDay(1);
         } else {
             setTitle('');
@@ -56,7 +62,7 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
             id: Date.now(),
             time: '12:00',
             title: name,
-            desc: '',
+            desc: address || '',
             place: name,
             latitude: parseFloat(y),
             longitude: parseFloat(x),
@@ -65,37 +71,26 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         addPlaceToDraft(currentDraftDay, newPlace);
     };
 
-    const handleSave = () => {
-        if (!title.trim()) return alert('브랜치 이름을 입력해주세요.');
+    const handleSave = async () => {
+        if (isSaving) return; // 이미 저장 중이면 함수 종료
 
-        const completeRoutes: Record<number, RouteItem[]> = {};
-        for (let i = 1; i <= tripDuration; i++) {
-            completeRoutes[i] = draftRoutes[i] || [];
-        }
+        if (!title.trim()) return alert('브랜치 이름을 입력해주세요.');
+        if (!tripRoomId) return alert('여행방 정보를 찾을 수 없습니다.');
 
         if (editBranch) {
-            updateBranch({
-                ...editBranch,
-                title,
-                routes: completeRoutes
-            });
-        } else {
-            addBranch({
-                id: Date.now(),
-                title,
-                description: "팀원이 구성한 일정입니다.",
-                proposer: "나",
-                isAI: false,
-                status: "voting",
-                cost: "미정",
-                time: "계산 중",
-                matchRate: 100,
-                routes: completeRoutes
-            });
+            alert('브랜치 수정 기능은 추후 백엔드 API 연결이 필요합니다.');
+            return;
         }
 
-        resetDraft();
-        onBack();
+        setIsSaving(true); // 저장 시작 시 잠금 설정
+
+        const success = await createBranch(Number(tripRoomId), title);
+
+        if (success) {
+            onBack();
+        } else {
+            setIsSaving(false); // 실패 시에만 잠금 해제
+        }
     };
 
     return (

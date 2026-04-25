@@ -74,22 +74,45 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                         {proposals.length === 0 ? (
                             <div className="text-center py-10 text-gray-400 text-xs">등록된 제안이 없습니다.</div>
                         ) : (
-                            proposals.map((prop) => (
-                                <div key={`prop-${prop.proposalId}`} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm group hover:border-blue-200 transition-colors">
+                            // 타입 에러를 방지하기 위해 prop을 any로 임시 처리하여 내부 중첩 객체에 안전하게 접근합니다.
+                            proposals.map((prop: any) => (
+                                <div key={`prop-${prop.id}`} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm group hover:border-blue-200 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex flex-col">
-                                            <span className="text-gray-900 font-bold text-xs">{prop.placeName}</span>
-                                            <span className="text-gray-400 text-[10px] mt-0.5">{prop.category}</span>
+                                            {/* 백엔드 구조에 맞춰 prop.place 하위 속성으로 접근합니다. */}
+                                            <span className="text-gray-900 font-bold text-xs">
+                                                {prop.place?.name || '장소명 없음'}
+                                            </span>
+                                            <span className="text-gray-400 text-[10px] mt-0.5 line-clamp-1">
+                                                {prop.place?.address || '주소 정보 없음'}
+                                            </span>
                                         </div>
                                         <button
-                                            onClick={() => onAddPlace(prop.placeName, String(prop.longitude), String(prop.latitude), prop.address)}
-                                            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white"
+                                            // 마찬가지로 prop.place 내부의 위도, 경도, 주소를 꺼내 전달합니다.
+                                            onClick={() => onAddPlace(
+                                                prop.place?.name || '이름 없음',
+                                                String(prop.place?.longitude || 0),
+                                                String(prop.place?.latitude || 0),
+                                                prop.place?.address || ''
+                                            )}
+                                            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white shrink-0 ml-2"
                                             title="일정에 추가"
                                         >
                                             <Plus size={14} />
                                         </button>
                                     </div>
-                                    <p className="text-[11px] text-gray-500 line-clamp-2 mt-1">{prop.memo}</p>
+
+                                    {/* 제안자와 코멘트 정보를 표시해줍니다. */}
+                                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+                                        <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                                            {prop.proposerUser?.name || '익명'}
+                                        </span>
+                                        {prop.comment && (
+                                            <span className="text-[10px] text-gray-400 line-clamp-1">
+                                                {prop.comment}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -121,7 +144,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                             {searchResults.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 pb-10">
                                     <MapPin size={32} strokeWidth={1.5} className="text-gray-300" />
-                                    <span className="text-xs">원하는 장소를 검색해<br />일정에 바로 추가해 보세요.</span>
+                                    <span className="text-xs text-center">원하는 장소를 검색해<br />일정에 바로 추가해 보세요.</span>
                                 </div>
                             ) : (
                                 searchResults.map((place) => (
@@ -132,7 +155,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                         </div>
                                         <button
                                             onClick={() => onAddPlace(place.place_name, place.x, place.y, place.address_name)}
-                                            className="p-1.5 bg-gray-50 text-gray-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm"
+                                            className="p-1.5 bg-gray-50 text-gray-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm shrink-0"
                                             title="일정에 추가"
                                         >
                                             <Plus size={14} />

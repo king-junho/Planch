@@ -3,7 +3,6 @@ import { useBranchStore } from '../store/useBranchStore';
 import BranchListView from './BranchListView';
 import BranchDetailSection from './BranchDetailSection';
 import CreateBranchModal from './CreateBranchModal';
-// KakaoMapArea 대신 BranchMap을 임포트합니다.
 import BranchMap from './BranchMap';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -15,7 +14,8 @@ export default function BranchSection() {
 
     return (
         <div className="flex w-full h-full overflow-hidden">
-            <div className="w-[400px] border-r border-gray-100 bg-white z-10 overflow-hidden">
+            {/* 넓이를 500px로 늘리고, 화면 축소 시 찌그러짐을 방지하는 속성을 추가했습니다. */}
+            <div className="w-[500px] min-w-[500px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
                 {selectedBranch ? (
                     <BranchDetailSection
                         branch={selectedBranch}
@@ -30,7 +30,6 @@ export default function BranchSection() {
             </div>
 
             <div className="flex-1 relative z-0">
-                {/* 분리된 브랜치 전용 지도를 배치합니다. */}
                 <BranchMap />
             </div>
 
