@@ -12,7 +12,6 @@ export default function PreferenceSection() {
     const navigate = useNavigate();
     const [viewMode, setViewMode] = useState<string | number>('form');
 
-    // 스토어에서 함수들 가져오기 (initializeFormWithExisting 추가)
     const {
         teamPreferences,
         fetchPreferences,
@@ -21,31 +20,29 @@ export default function PreferenceSection() {
         initializeFormWithExisting
     } = usePreferenceStore();
 
-    // 마운트 시 데이터 로드 및 폼 초기화
+    // 1. 마운트 시 서버에서 선호도 데이터를 가져옵니다.
     useEffect(() => {
-        const loadDataAndInitializeForm = async () => {
-            if (tripRoomId) {
-                // 1. 서버에서 데이터 가져오기
-                await fetchPreferences(Number(tripRoomId));
+        if (tripRoomId) {
+            fetchPreferences(Number(tripRoomId));
+        }
+    }, [tripRoomId, fetchPreferences]);
 
-                // 2. 토큰에서 내 ID 추출하기
-                const token = localStorage.getItem('token');
-                if (token) {
-                    try {
-                        const payload = JSON.parse(atob(token.split('.')[1]));
-                        const myUserId = Number(payload.sub);
+    // 2. '내 취향 입력(form)' 탭을 열거나, 팀 데이터가 업데이트될 때마다 폼을 내 정보로 동기화합니다.
+    useEffect(() => {
+        if (viewMode === 'form') {
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const myUserId = Number(payload.sub);
 
-                        // 3. 폼에 내 데이터 채우기
-                        initializeFormWithExisting(myUserId);
-                    } catch (error) {
-                        console.error("토큰 디코딩 실패:", error);
-                    }
+                    initializeFormWithExisting(myUserId);
+                } catch (error) {
+                    console.error("토큰 디코딩 실패:", error);
                 }
             }
-        };
-
-        loadDataAndInitializeForm();
-    }, [tripRoomId]);
+        }
+    }, [viewMode, teamPreferences, initializeFormWithExisting]);
 
     const handleOpenAiModal = () => {
         alert('AI 추천 기능은 준비 중입니다.');
@@ -97,7 +94,6 @@ export default function PreferenceSection() {
                 <div className="max-w-3xl mx-auto">
                     {viewMode === 'form' && (
                         <>
-                            {/* 헤더에 저장 버튼 추가 */}
                             <header className="mb-12 flex justify-between items-end">
                                 <div>
                                     <h2 className="text-3xl font-bold text-gray-900">내 여행 취향 입력</h2>

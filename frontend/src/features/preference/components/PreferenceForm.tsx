@@ -1,15 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, CheckSquare, Square, Plus } from 'lucide-react';
 import { usePreferenceStore } from '../store/usePreferenceStore';
+import { getAccessToken } from '../../../services/authStorage';
 
 export default function PreferenceForm() {
-    // preferences 대신 formData를 꺼내옵니다.
-    const { formData, updatePreference, toggleArrayItem, addArrayItem, removeArrayItem } = usePreferenceStore();
+    const {
+        formData,
+        updatePreference,
+        toggleArrayItem,
+        addArrayItem,
+        removeArrayItem,
+        initializeFormWithExisting,
+        teamPreferences
+    } = usePreferenceStore();
+
     const [mustGoInput, setMustGoInput] = useState('');
     const [mustAvoidInput, setMustAvoidInput] = useState('');
 
     const styleOptions = ['맛집', '카페', '관광', '휴식', '사진스팟', '쇼핑', '액티비티'];
     const timeOptions = ['오전', '오후', '저녁'];
+
+    // 로컬 스토리지가 아닌, 프로젝트 전용 getAccessToken 함수를 사용합니다.
+    useEffect(() => {
+        if (teamPreferences.length > 0) {
+            const token = getAccessToken();
+
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const myUserId = payload.userId || payload.id || payload.sub;
+
+                    if (myUserId) {
+                        initializeFormWithExisting(myUserId);
+                    }
+                } catch (error) {
+                    console.error("토큰 디코딩 실패:", error);
+                }
+            }
+        }
+    }, [teamPreferences, initializeFormWithExisting]);
 
     const handleAddTag = (e: React.KeyboardEvent, type: 'go' | 'avoid') => {
         if (e.key === 'Enter') {
@@ -29,7 +58,6 @@ export default function PreferenceForm() {
 
     return (
         <div className="flex flex-col gap-12">
-            {/* 예산 설정 */}
             <section>
                 <div className="flex justify-between items-end mb-6">
                     <h3 className="text-lg font-bold text-gray-900">여행 예산 (1인 기준)</h3>
@@ -53,7 +81,6 @@ export default function PreferenceForm() {
                 </div>
             </section>
 
-            {/* 여행 스타일 */}
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-6">여행 스타일</h3>
                 <div className="flex flex-wrap gap-2">
@@ -72,7 +99,6 @@ export default function PreferenceForm() {
                 </div>
             </section>
 
-            {/* 태그 입력 */}
             <div className="grid grid-cols-2 gap-8">
                 <section>
                     <h3 className="text-lg font-bold text-gray-900 mb-4">꼭 가고 싶은 곳</h3>
@@ -121,7 +147,6 @@ export default function PreferenceForm() {
                 </section>
             </div>
 
-            {/* 활동 시간대 */}
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-6">주요 활동 시간대</h3>
                 <div className="flex gap-8">
@@ -143,7 +168,6 @@ export default function PreferenceForm() {
                 </div>
             </section>
 
-            {/* 자유 코멘트 */}
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-4">추가 코멘트</h3>
                 <textarea

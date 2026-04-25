@@ -24,8 +24,7 @@ interface PreferenceState {
     fetchPreferences: (tripRoomId: number) => Promise<void>;
     saveMyPreference: (tripRoomId: number) => Promise<boolean>;
     resetForm: () => void;
-    // 새로 추가된 함수 타입 선언
-    initializeFormWithExisting: (myUserId: number) => void;
+    initializeFormWithExisting: (myUserId: string | number) => void;
 }
 
 const initialForm: PreferenceData = {
@@ -63,32 +62,34 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
 
     resetForm: () => set({ formData: initialForm }),
 
-    // 추가된 함수: 내 데이터를 찾아서 폼에 채워넣기
     initializeFormWithExisting: (myUserId) => {
         const { teamPreferences } = get();
         const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
-        // 전체 팀원 선호도 중에서 내 ID와 일치하는 데이터를 찾습니다.
-        const myPref = safePreferences.find((p: any) => (p.user?.id || p.userId) === myUserId);
+        // 데이터가 아직 로드되지 않았다면 빈 폼으로 덮어쓰지 않고 무시합니다.
+        if (safePreferences.length === 0) return;
+
+        // 타입 불일치 오류를 막기 위해 전부 문자열로 변환하여 안전하게 비교합니다.
+        const myPref = safePreferences.find((p: any) =>
+            String(p.user?.id || p.userId) === String(myUserId) ||
+            String(p.user?.email) === String(myUserId)
+        );
 
         if (myPref) {
             set({
                 formData: {
                     budgetMin: myPref.budgetMin || 0,
                     budgetMax: myPref.budgetMax || 500000,
-                    styles: myPref.styles || [],
-                    mustGo: myPref.mustVisit || [],
-                    mustAvoid: myPref.avoid || [],
-                    activeTimes: myPref.availableTime || [],
+                    styles: Array.isArray(myPref.styles) ? myPref.styles : [],
+                    mustGo: Array.isArray(myPref.mustVisit) ? myPref.mustVisit : [],
+                    mustAvoid: Array.isArray(myPref.avoid) ? myPref.avoid : [],
+                    activeTimes: Array.isArray(myPref.availableTime) ? myPref.availableTime : [],
                     freeText: myPref.memo || ''
                 }
             });
-        } else {
-            set({ formData: initialForm });
         }
     },
 
-    // [GET] 팀 선호도 목록 가져오기
     fetchPreferences: async (tripRoomId) => {
         set({ isLoading: true });
         try {
@@ -107,8 +108,9 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
         }
     },
 
-    // [PUT] 내 선호도 저장하기
     saveMyPreference: async (tripRoomId) => {
+        if (get().isLoading) return false;
+
         const { formData } = get();
         set({ isLoading: true });
         try {
@@ -121,7 +123,7 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
                 availableTime: formData.activeTimes,
                 memo: formData.freeText
             });
-            await get().fetchPreferences(tripRoomId); // 저장 후 목록 갱신
+            await get().fetchPreferences(tripRoomId);
             return true;
         } catch (error) {
             console.error("선호도 저장 실패:", error);
