@@ -1,125 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { getTripRoomDetail } from "../services/tripRoomApi";
 import { TripRoomDetailResponse } from "../types/tripRoom";
-
-const mockTripRoomDetails: Record<number, TripRoomDetailResponse> = {
-  1: {
-    tripRoomId: 1,
-    title: "동아리 MT",
-    startDate: "2026-07-15T00:00:00.000Z",
-    endDate: "2026-07-16T00:00:00.000Z",
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: true },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: false },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: false },
-    ],
-    summary: {
-      memberCount: 4,
-      submittedPreferenceCount: 2,
-      proposalCount: 3,
-      branchCount: 2,
-      selectedBranchId: null,
-    },
-    createdAt: "2026-04-10T07:20:58.994Z",
-    updatedAt: "2026-04-10T07:20:58.994Z",
-  },
-  2: {
-    tripRoomId: 2,
-    title: "캡스톤 회의",
-    startDate: "2026-08-02T00:00:00.000Z",
-    endDate: "2026-08-03T00:00:00.000Z",
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: true },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: true },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: false },
-    ],
-    summary: {
-      memberCount: 4,
-      submittedPreferenceCount: 3,
-      proposalCount: 4,
-      branchCount: 1,
-      selectedBranchId: null,
-    },
-    createdAt: "2026-04-11T09:00:00.000Z",
-    updatedAt: "2026-04-11T09:00:00.000Z",
-  },
-  3: {
-    tripRoomId: 3,
-    title: "랩실 MT",
-    startDate: "2026-06-12T00:00:00.000Z",
-    endDate: "2026-06-14T00:00:00.000Z",
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: true },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: true },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: true },
-    ],
-    summary: {
-      memberCount: 4,
-      submittedPreferenceCount: 4,
-      proposalCount: 5,
-      branchCount: 3,
-      selectedBranchId: 2,
-    },
-    createdAt: "2026-04-12T10:10:00.000Z",
-    updatedAt: "2026-04-12T10:10:00.000Z",
-  },
-  4: {
-    tripRoomId: 4,
-    title: "중학교 동창 여행",
-    startDate: null,
-    endDate: null,
-    status: "draft",
-    thumbnailUrl: null,
-    hostUser: {
-      id: 5,
-      name: "김준호",
-      email: "junho2@test.com",
-    },
-    members: [
-      { id: 5, name: "김준호", role: "host", hasSubmittedPreference: true },
-      { id: 6, name: "복성준", role: "member", hasSubmittedPreference: false },
-      { id: 7, name: "김호영", role: "member", hasSubmittedPreference: false },
-      { id: 8, name: "최병욱", role: "member", hasSubmittedPreference: false },
-      { id: 9, name: "이수민", role: "member", hasSubmittedPreference: false },
-      { id: 10, name: "박도윤", role: "member", hasSubmittedPreference: false },
-    ],
-    summary: {
-      memberCount: 6,
-      submittedPreferenceCount: 1,
-      proposalCount: 2,
-      branchCount: 0,
-      selectedBranchId: null,
-    },
-    createdAt: "2026-04-13T11:20:00.000Z",
-    updatedAt: "2026-04-13T11:20:00.000Z",
-  },
-};
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate && !endDate) return "여행 날짜 미정";
@@ -141,17 +24,17 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
 
 function statusLabel(status: string) {
   if (status === "draft") return "준비중";
-  if (status === "active") return "진행중";
-  if (status === "completed") return "종료";
+  if (status === "voting") return "진행중";
+  if (status === "locked") return "확정";
   return status;
 }
 
 function statusBadgeClass(status: string) {
-  if (status === "active") {
+  if (status === "voting") {
     return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
   }
 
-  if (status === "completed") {
+  if (status === "locked") {
     return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
   }
 
@@ -164,8 +47,14 @@ export default function TripRoomPage() {
   const [tripRoomDetail, setTripRoomDetail] = useState<TripRoomDetailResponse | null>(
     null
   );
+  const [tripInfo, setTripInfo] = useState({
+    destination: "",
+    date: "",
+    duration: "",
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tripInfoMessage, setTripInfoMessage] = useState("");
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
@@ -191,13 +80,9 @@ export default function TripRoomPage() {
           setTripRoomDetail(response);
         }
       } catch (caughtError) {
-        const fallback = mockTripRoomDetails[numericTripRoomId];
-
         if (!isMounted) return;
 
-        if (fallback) {
-          setTripRoomDetail(fallback);
-        } else if (caughtError instanceof Error && caughtError.message.trim()) {
+        if (caughtError instanceof Error && caughtError.message.trim()) {
           setError(caughtError.message);
         } else {
           setError("여행방을 찾을 수 없습니다.");
@@ -232,6 +117,19 @@ export default function TripRoomPage() {
         100
     );
   }, [tripRoomDetail]);
+
+  function handleTripInfoChange(
+    field: "destination" | "date" | "duration",
+    value: string
+  ) {
+    setTripInfo((current) => ({ ...current, [field]: value }));
+    setTripInfoMessage("");
+  }
+
+  function handleTripInfoSave() {
+    setTripInfoMessage("여행 정보가 저장되었습니다.");
+    setToast({ type: "success", message: "여행 정보가 저장되었습니다." });
+  }
 
   if (isLoading) {
     return (
@@ -348,19 +246,71 @@ export default function TripRoomPage() {
               <article className="rounded-3xl border border-stone-200 bg-white p-6">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-stone-900">
-                      여행방 현황
-                    </h2>
+                    <h2 className="text-xl font-semibold text-stone-900">여행 정보</h2>
                     <p className="mt-2 text-sm text-stone-500">
-                      여행 준비가 얼마나 진행됐는지 한눈에 볼 수 있어요.
+                      여행지, 날짜, 기간을 메인페이지에서 바로 정리할 수 있어요.
                     </p>
                   </div>
-                  <Link
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  {[
+                    {
+                      field: "destination" as const,
+                      label: "여행지",
+                      placeholder: "예: 부산 해운대",
+                    },
+                    {
+                      field: "date" as const,
+                      label: "여행날짜",
+                      placeholder: "예: 2026-05-20",
+                    },
+                    {
+                      field: "duration" as const,
+                      label: "여행기간",
+                      placeholder: "예: 2박 3일",
+                    },
+                  ].map((item) => (
+                    <div
+                      className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4"
+                      key={item.label}
+                    >
+                      <p className="text-sm font-medium text-stone-600">{item.label}</p>
+                      <input
+                        className="mt-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
+                        onChange={(event) =>
+                          handleTripInfoChange(item.field, event.target.value)
+                        }
+                        placeholder={item.placeholder}
+                        type="text"
+                        value={tripInfo[item.field]}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm font-medium text-emerald-700">
+                    {tripInfoMessage || ""}
+                  </div>
+                  <button
                     className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white"
-                    to={`/trip-rooms/${tripRoomId}/schedule`}
+                    onClick={handleTripInfoSave}
+                    type="button"
                   >
-                    여행일정 보기
-                  </Link>
+                    여행 정보 저장하기
+                  </button>
+                </div>
+              </article>
+
+              <article className="rounded-3xl border border-stone-200 bg-white p-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-stone-900">
+                    여행방 현황
+                  </h2>
+                  <p className="mt-2 text-sm text-stone-500">
+                    여행 준비가 얼마나 진행됐는지 한눈에 볼 수 있어요.
+                  </p>
                 </div>
 
                 <div className="mt-6 space-y-5">
@@ -460,24 +410,6 @@ export default function TripRoomPage() {
                 </div>
               </article>
 
-              <article className="rounded-3xl border border-stone-200 bg-white p-6">
-                <h2 className="text-xl font-semibold text-stone-900">빠른 액션</h2>
-                <div className="mt-5 space-y-3">
-                  <Link
-                    className="flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4 text-sm font-medium text-stone-700"
-                    to={`/trip-rooms/${tripRoomId}/schedule`}
-                  >
-                    <span>여행일정 페이지로 이동</span>
-                    <span>›</span>
-                  </Link>
-                </div>
-
-                {error ? (
-                  <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    {error}
-                  </div>
-                ) : null}
-              </article>
             </aside>
           </div>
         </section>

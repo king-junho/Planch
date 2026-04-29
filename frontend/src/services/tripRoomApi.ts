@@ -2,7 +2,10 @@ import { getAccessToken } from "./authStorage";
 import { ApiErrorResponse } from "../types/auth";
 import {
   CreateTripRoomRequest,
+  CreateInviteLinkResponse,
+  JoinInviteLinkResponse,
   TripRoomDetailResponse,
+  TripRoomListItem,
   TripRoomSummary,
 } from "../types/tripRoom";
 
@@ -44,6 +47,38 @@ export async function createTripRoom(
   return (await response.json()) as TripRoomSummary;
 }
 
+export async function getMyTripRooms(): Promise<TripRoomListItem[]> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("로그인 후 여행 목록을 확인할 수 있습니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = "여행 목록을 불러오지 못했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as TripRoomListItem[];
+}
+
 export async function getTripRoomDetail(
   tripRoomId: number
 ): Promise<TripRoomDetailResponse> {
@@ -76,4 +111,75 @@ export async function getTripRoomDetail(
   }
 
   return (await response.json()) as TripRoomDetailResponse;
+}
+
+export async function joinTripRoomByInviteLink(
+  token: string
+): Promise<JoinInviteLinkResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("로그인 후 초대를 수락할 수 있습니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/invite-links/${token}/join`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = "여행방 참여 처리 중 서버 오류가 발생했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as JoinInviteLinkResponse;
+}
+
+export async function createInviteLink(
+  tripRoomId: number
+): Promise<CreateInviteLinkResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/trip-rooms/${tripRoomId}/invite-links`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    let message = "초대 링크 생성에 실패했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as CreateInviteLinkResponse;
 }

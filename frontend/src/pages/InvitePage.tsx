@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { joinTripRoomByInviteLink } from "../services/tripRoomApi";
 
 export default function InvitePage() {
+  const navigate = useNavigate();
+  const { token = "" } = useParams();
   const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -9,6 +15,42 @@ export default function InvitePage() {
     const timeout = window.setTimeout(() => setToast(null), 2200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  async function handleAcceptInvite() {
+    if (!token.trim()) {
+      setError("유효하지 않은 token입니다.");
+      return;
+    }
+
+    setError("");
+    setIsJoining(true);
+
+    try {
+      const response = await joinTripRoomByInviteLink(token);
+      setToast("초대를 수락했습니다.");
+      navigate(`/trip-rooms/${response.tripRoomId}`, { replace: true });
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 참여 처리 중 서버 오류가 발생했습니다.";
+
+      if (message.includes("로그인") || message.includes("인증")) {
+        navigate("/login", {
+          replace: true,
+          state: {
+            loginMessage: "로그인 후 초대를 수락할 수 있습니다.",
+            redirectTo: `/invite/${token}`,
+          },
+        });
+        return;
+      }
+
+      setError(message);
+    } finally {
+      setIsJoining(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] px-4 py-10 text-stone-900">
@@ -39,21 +81,27 @@ export default function InvitePage() {
               </div>
 
               <h1 className="text-center text-[28px] font-bold leading-[35px] text-stone-900">
-                동아리 MT
+                여행 초대
               </h1>
 
               <div className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-[21px] py-[13px]">
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm text-stone-900">인</span>
+                  <span className="text-sm text-stone-900">링크</span>
                   <p className="text-base font-semibold leading-6 text-stone-900">
-                    현재 참여 인원 : 4명
+                    토큰 기반 초대 링크
                   </p>
                 </div>
                 <p className="mt-1 text-center text-[13px] leading-[19.5px] text-stone-500">
-                  김준호, 복성준, 김호영, 최병욱
+                  {token ? `초대 코드: ${token}` : "유효한 초대 토큰이 필요합니다."}
                 </p>
               </div>
             </div>
+
+            {error ? (
+              <div className="w-full rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            ) : null}
 
             <div className="h-px w-full bg-stone-100" />
 
@@ -71,12 +119,13 @@ export default function InvitePage() {
                 <span>거절</span>
               </button>
               <button
-                className="flex h-[60px] flex-1 items-center justify-center gap-3 rounded-[14px] bg-stone-900 text-base font-semibold text-white shadow-[0_2px_4px_-2px_rgba(0,0,0,0.1),0_4px_6px_-1px_rgba(0,0,0,0.1)]"
-                onClick={() => setToast("초대를 수락했습니다.")}
+                className="flex h-[60px] flex-1 items-center justify-center gap-3 rounded-[14px] bg-stone-900 text-base font-semibold text-white shadow-[0_2px_4px_-2px_rgba(0,0,0,0.1),0_4px_6px_-1px_rgba(0,0,0,0.1)] disabled:cursor-not-allowed disabled:bg-stone-400"
+                disabled={!token || isJoining}
+                onClick={handleAcceptInvite}
                 type="button"
               >
                 <span className="text-sm">+</span>
-                <span>수락</span>
+                <span>{isJoining ? "수락 중..." : "수락"}</span>
               </button>
             </div>
           </div>

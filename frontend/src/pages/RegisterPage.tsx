@@ -1,9 +1,16 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import RegisterForm from "../features/auth/components/RegisterForm";
 import { signUp } from "../services/authApi";
 
+type RegisterPageLocationState = {
+  redirectTo?: string;
+};
+
 export default function RegisterPage() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const locationState =
+    (location.state ?? null) as RegisterPageLocationState | null;
 
   async function handleRegister(values: {
     name: string;
@@ -14,6 +21,7 @@ export default function RegisterPage() {
     navigate("/login", {
       replace: true,
       state: {
+        redirectTo: locationState?.redirectTo,
         signupEmail: values.email,
         signupMessage: "회원가입이 완료되었습니다. 로그인해 주세요.",
       },
