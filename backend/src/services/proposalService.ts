@@ -8,7 +8,12 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 interface CreateProposalInput {
   tripRoomId: number;
   proposerUserId: number;
-  placeId: number;
+  placeId?: number;
+  placeName?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  category? : string;
   estimatedCost?: number;
   estimatedDuration?: number;
   comment?: string;
@@ -300,6 +305,11 @@ export const createProposalService = async ({
   tripRoomId,
   proposerUserId,
   placeId,
+  placeName,
+  address,
+  latitude,
+  longitude,
+  category,
   estimatedCost,
   estimatedDuration,
   comment,
@@ -337,54 +347,88 @@ export const createProposalService = async ({
     throw new Error("Trip room is locked");
   }
 
-  const proposal = await prisma.placeProposal.create({
-  data: {
-    tripRoomId,
-    proposerUserId,
-    placeId,
-    estimatedCost,
-    estimatedDuration,
-    comment,
-    aiReason: null,
-    source: "user",
-    status: "pending",
-  },
-  select:{
-    id: true,
-    tripRoomId:true,
-    proposerUserId:true,
-    placeId:true,
-    estimatedCost:true,
-    estimatedDuration:true,
-    comment:true,
-    aiReason:true,
-    source:true,
-    status:true,
-    createdAt:true,
-    place:{
-      select:{
-        id:true,
-        name:true,
-        address:true,
-        latitude:true,
-        longitude:true,
-        category:true,
+  let place = null;
+
+  //내부 placeID가 실제 DB에 있으면 사용
+  if(placeId){
+    place = await prisma.place.findUnique({
+      where:{id:placeId},
+    });
+  }
+
+  if(!place && placeName && address){
+    place = await prisma.place.findFirst({
+      where:{
+        name:placeName,
+        address,
       },
+    });
+  }
+
+  if (!place){
+    if(!placeName || !address){
+      throw new Error("새로운 장소를 등록하기 위한 장소 이름과 주소 정보 필요합니다.");
+    }
+    place = await prisma.place.create({
+      data:{
+        name:placeName,
+        address,
+        latitude : Number(latitude) || 0,
+        longitude : Number(longitude) || 0,
+        category: category || "기타",
+      },
+    });
+  }
+
+    const proposal = await prisma.placeProposal.create({
+    data: {
+      tripRoomId,
+      proposerUserId,
+      placeId: place.id,
+      estimatedCost,
+      estimatedDuration,
+      comment,
+      aiReason: null,
+      source: "user",
+      status: "pending",
     },
-    proposerUser:{
-      select:{
-        id:true,
-        name:true,
+    select: {
+      id: true,
+      tripRoomId: true,
+      proposerUserId: true,
+      placeId: true,
+      estimatedCost: true,
+      estimatedDuration: true,
+      comment: true,
+      aiReason: true,
+      source: true,
+      status: true,
+      createdAt: true,
+      place: {
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+          category: true,
+        },
+      },
+      proposerUser: {
+        select: {
+          id: true,
+          name: true,
         },
       },
     },
   });
+
   return {
     ...proposal,
-    place:{
+    place: {
       ...proposal.place,
       latitude: Number(proposal.place.latitude),
-      longitude : Number(proposal.place.longitude),
+      longitude: Number(proposal.place.longitude),
     },
   };
 };

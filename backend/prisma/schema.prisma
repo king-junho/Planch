@@ -57,7 +57,7 @@ model User {
   passwordHash String             @map("password_hash")
   name         String
   createdAt    DateTime           @default(now()) @map("created_at")
-  ChatMessage  ChatMessage[]
+  chatMessages  ChatMessage[]
 
   hostedRooms  TripRoom[]         @relation("TripHost")
   memberships  TripMember[]
@@ -152,6 +152,7 @@ model Place {
   longitude    Decimal  @db.Decimal(10, 7)
   category     String?
   createdAt    DateTime @default(now()) @map("created_at")
+  externalPlaceId String? @unique @map("external_place_id")
 
   proposals    PlaceProposal[]
   branchPlaces BranchPlace[]
@@ -212,6 +213,9 @@ model BranchPlace {
   endTime           String?  @map("end_time") @db.VarChar(20)
   estimatedCost     Int?     @map("estimated_cost")
   estimatedDuration Int?     @map("estimated_duration")
+  distanceMeters    Int?     @map("distance_meters")
+  durationSeconds   Int?     @map("duration_seconds")
+  routePolyline     String?  @map("route_polyline")
 
   branch   PlanBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
   place    Place         @relation(fields: [placeId], references: [id], onDelete: Cascade)
@@ -259,7 +263,7 @@ model ChatRoom {
   updatedAt  DateTime      @updatedAt @map("updated_at")
 
   tripRoom   TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
-  messages   ChatMessage[]
+  chatMessages   ChatMessage[]
 
   @@map("chat_rooms")
 }

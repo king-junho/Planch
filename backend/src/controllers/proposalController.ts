@@ -76,7 +76,17 @@ export const getProposalList = async (req: AuthenticatedRequest, res: Response) 
 export const createProposal = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);
-    const { placeId, estimatedCost, estimatedDuration, comment } = req.body;
+    const {
+      placeId,
+      placeName,
+      address,
+      latitude,
+      longitude,
+      category,
+      estimatedCost,
+      estimatedDuration,
+      comment,
+    } = req.body;
 
     if (Number.isNaN(tripRoomId)) {
       return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
@@ -90,10 +100,16 @@ export const createProposal = async (req: AuthenticatedRequest, res: Response) =
       return res.status(400).json({ message: "placeId는 필수입니다." });
     }
 
+
     const proposal = await createProposalService({
       tripRoomId,
       proposerUserId: req.user.id,
       placeId,
+      placeName,
+      address,
+      latitude,
+      longitude,
+      category,
       estimatedCost,
       estimatedDuration,
       comment,
