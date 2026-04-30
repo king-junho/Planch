@@ -183,7 +183,7 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
                         strokeOpacity={0.7}
                         strokeStyle="solid"
                     />
-                    {/* 💡 마커는 기존의 장소 원본 좌표(rawSinglePath) 사용 */}
+                    {/* 마커는 기존의 장소 원본 좌표(rawSinglePath) 사용 */}
                     {rawSinglePath.map((pos, idx) => (
                         <MapMarker
                             key={`single-marker-${idx}`}

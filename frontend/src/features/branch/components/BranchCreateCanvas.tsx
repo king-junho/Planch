@@ -17,7 +17,7 @@ interface BranchCreateCanvasProps {
 export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateCanvasProps) {
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const [title, setTitle] = useState('');
-    const [isSaving, setIsSaving] = useState(false); // 중복 저장 방지 상태
+    const [isSaving, setIsSaving] = useState(false);
     const tripDuration = 3;
 
     const { proposals, fetchProposals } = useProposalStore();
@@ -33,7 +33,8 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         reorderDraftPlace,
         sortDraftByTime,
         setSelectedBranch,
-        createBranch
+        createBranch,
+        updateBranch
     } = useBranchStore();
 
     useEffect(() => {
@@ -42,10 +43,15 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         }
     }, [tripRoomId, fetchProposals]);
 
+    // 수정 모드 진입 시 기존 데이터를 불러오는 로직 보완
     useEffect(() => {
         if (editBranch) {
             setTitle(editBranch.title || editBranch.name || '');
             setCurrentDraftDay(1);
+            // 기존 브랜치의 경로(장소) 데이터를 화면 타임라인(draftRoutes)에 복사해 줍니다.
+            if (editBranch.routes) {
+                setDraftRoutes(editBranch.routes);
+            }
         } else {
             setTitle('');
             resetDraft();
@@ -57,9 +63,11 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         };
     }, [editBranch, setDraftRoutes, resetDraft, setCurrentDraftDay, setSelectedBranch]);
 
-    const handleAddPlace = (name: string, x: string, y: string, address: string) => {
+    const handleAddPlace = (name: string, x: string, y: string, address: string, placeId?: number, proposalId?: number) => {
         const newPlace: RouteItem = {
             id: Date.now(),
+            placeId: placeId,
+            proposalId: proposalId,
             time: '12:00',
             title: name,
             desc: address || '',
@@ -72,24 +80,25 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     };
 
     const handleSave = async () => {
-        if (isSaving) return; // 이미 저장 중이면 함수 종료
+        if (isSaving) return;
 
         if (!title.trim()) return alert('브랜치 이름을 입력해주세요.');
         if (!tripRoomId) return alert('여행방 정보를 찾을 수 없습니다.');
 
+        setIsSaving(true);
+
+        let success = false;
+
         if (editBranch) {
-            alert('브랜치 수정 기능은 추후 백엔드 API 연결이 필요합니다.');
-            return;
+            success = await updateBranch(editBranch.id, Number(tripRoomId), title);
+        } else {
+            success = await createBranch(Number(tripRoomId), title);
         }
-
-        setIsSaving(true); // 저장 시작 시 잠금 설정
-
-        const success = await createBranch(Number(tripRoomId), title);
 
         if (success) {
             onBack();
         } else {
-            setIsSaving(false); // 실패 시에만 잠금 해제
+            setIsSaving(false);
         }
     };
 

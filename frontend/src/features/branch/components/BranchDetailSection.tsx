@@ -20,8 +20,7 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
 
     const isOwner = true; // 현재는 UI 테스트를 위해 true (추후 실제 권한 연동 필요)
 
-    // 💡 수정됨: 백엔드에서 내려줄 실제 투표 데이터 필드를 연결합니다. (없을 경우 0 처리)
-    // 백엔드 개발자분께 브랜치 데이터에 이 세 가지 카운트를 추가해 달라고 요청하시면 됩니다!
+    // 백엔드에서 내려줄 실제 투표 데이터 필드를 연결합니다. (없을 경우 0 처리)
     const voteCounts = {
         agree: branch.agreeCount || 0,
         hold: branch.holdCount || 0,
@@ -111,7 +110,8 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
                     </div>
                 ) : (
                     currentRoute.map((item, index) => (
-                        <div key={item.id} className="relative flex gap-5">
+                        // 수정됨: 중복 키 에러를 방지하기 위해 id와 index를 결합하여 고유한 키값 생성
+                        <div key={`route-item-${item.id}-${index}`} className="relative flex gap-5">
                             <div className="flex flex-col items-center">
                                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 z-10" />
                                 {index !== currentRoute.length - 1 && (

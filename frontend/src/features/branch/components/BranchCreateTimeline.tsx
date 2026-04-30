@@ -14,12 +14,16 @@ export default function BranchCreateTimeline({
     draftRoute, currentDay, onRemovePlace, onUpdatePlace, onReorderPlace, onSortByTime
 }: BranchCreateTimelineProps) {
     return (
-        <div className="flex-1 overflow-y-auto p-10 bg-white custom-scrollbar">
-            <div className="max-w-md mx-auto flex flex-col gap-8">
+        // overflow-y-auto를 overflow-y-scroll로 변경하여 처음부터 스크롤 영역을 잡아두어 밀림 현상 방지
+        <div className="flex-1 overflow-y-scroll p-10 bg-white custom-scrollbar">
+            {/* w-full을 추가하여 공간이 줄어들어도 중앙 정렬 레이아웃이 안정적으로 유지되도록 설정 */}
+            <div className="max-w-md w-full mx-auto flex flex-col gap-8">
+
                 {/* 헤더 영역 */}
-                <div className="flex items-center justify-between">
+                {/* gap-4를 추가하여 버튼과 텍스트 사이가 너무 붙지 않게 방어 */}
+                <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold">
+                        <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold shrink-0">
                             {currentDay}
                         </div>
                         <div>
@@ -32,7 +36,8 @@ export default function BranchCreateTimeline({
                     {draftRoute.length > 1 && (
                         <button
                             onClick={onSortByTime}
-                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100"
+                            // shrink-0과 whitespace-nowrap을 추가하여 좁은 공간에서도 찌그러지거나 줄바꿈되지 않도록 고정
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-100 shrink-0 whitespace-nowrap"
                         >
                             <ArrowUpDown size={14} />
                             시간순 정렬
