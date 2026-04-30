@@ -1,7 +1,18 @@
-﻿import prisma from "../lib/prisma";
+﻿import { StringFilter } from "../generated/prisma/commonInputTypes";
+import { TripMemberScalarFieldEnum } from "../generated/prisma/internal/prismaNamespace";
+import prisma from "../lib/prisma";
 import OpenAI from "openai";
+import { getBranchDetailService } from "./branchService";
+import{Prisma} from "../generated/prisma/client";
+import {
+  CreateBranchInput,
+  calculateBranchMetrics,
+  toBranchLogJson,
+  buildVoteSummary,
+} from "./branchShared";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
 
 interface BranchPlaceDraft {
   placeId: number;
@@ -21,19 +32,102 @@ interface GeneratedBranchDraft {
   places: BranchPlaceDraft[];
 }
 
-export const getBranchListService = async (tripRoomId: number, userId: number) => {
+export const createBranchService = async ({
+  tripRoomId,
+  userId,
+  name,
+  places,
+}:CreateBranchInput)=> {
   const tripRoom = await prisma.tripRoom.findUnique({
-    where: {id: tripRoomId},
+    where:{id:tripRoomId},
     select:{
       id:true,
+      status:true,
     },
   });
+
   if(!tripRoom){
-    return{
-      found: false as const,
-    };
+    throw new Error("Trip room not found");
+  }
+  const membership = await prisma.tripMember.findUnique({
+    where: {
+      tripRoomId_userId: {
+        tripRoomId,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+  if(!membership){
+    throw new Error("Forbidden");
+  }
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
   }
 
+  if(!name.trim()){
+    throw new Error("Branch name is required");
+  }
+  if(!Array.isArray(places) || places.length === 0){
+    throw new Error("Places are required");
+  }
+
+  const {totalCost, totalTravelTime} = calculateBranchMetrics(places);
+
+  const branch = await prisma.planBranch.create({
+    data: {
+      tripRoomId,
+      name: name.trim(),
+      createdBy: "user",
+      totalCost,
+      totalTravelTime,
+      status: "voting",
+      branchPlaces: {
+        create: places.map((place) => ({
+          placeId: place.placeId,
+          proposalId: place.proposalId ?? null,
+          dayNo: place.dayNo,
+          orderIndex: place.orderIndex,
+          startTime: place.startTime,
+          endTime: place.endTime,
+          estimatedCost: place.estimatedCost,
+          estimatedDuration: place.estimatedDuration,
+          distanceMeters: place.distanceMeters,
+          durationSeconds: place.durationSeconds,
+          routePolyline: place.routePolyline,
+        })),
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+  
+  await prisma.decisionLog.create({
+  data: {
+    tripRoomId,
+    userId,
+    actionType: "branch_create",
+    targetType: "branch",
+    targetId: branch.id,
+    afterData: toBranchLogJson(name, places),
+  },
+});
+
+  const result = await getBranchDetailService(branch.id, userId);
+
+  if(!result.found || !result.authorized){
+    throw new Error("Created branch fetch failed");
+   }
+
+   return result.data;
+  };
+
+
+
+export const getBranchListService = async (tripRoomId: number, userId: number) => {
   const membership = await prisma.tripMember.findUnique({
     where: {
       tripRoomId_userId: {
@@ -46,37 +140,52 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
     },
   });
 
-  if (!membership){
-    return{
+  if (!membership) {
+    return {
       found: true as const,
       authorized: false as const,
     };
   }
 
   const branches = await prisma.planBranch.findMany({
-    where:{tripRoomId},
-    orderBy:{
-      createdAt:"desc",
+    where: { tripRoomId },
+    orderBy: {
+      createdAt: "desc",
     },
-    select:{
-      id:true,
-      name:true,
-      createdBy:true,
-      status:true,
-      totalCost:true,
-      totalTravelTime:true,
-      preferenceScore:true,
-      densityScore:true,
-      aiReason:true,
+    select: {
+      id: true,
+      name: true,
+      createdBy: true,
+      status: true,
+      totalCost: true,
+      totalTravelTime: true,
+      preferenceScore: true,
+      densityScore: true,
+      aiReason: true,
+      votes: {
+        select: {
+          voteType: true,
+        },
+      },
     },
   });
 
-
   return {
-    found:true as const,
-    authorized:true as const,
-    branches,
-  };
+  found: true as const,
+  authorized: true as const,
+  data: branches.map((branch) => ({
+    branchId: branch.id,
+    name: branch.name,
+    createdBy: branch.createdBy,
+    status: branch.status,
+    totalCost: branch.totalCost,
+    totalTravelTime: branch.totalTravelTime,
+    preferenceScore: branch.preferenceScore,
+    densityScore: branch.densityScore,
+    aiReason: branch.aiReason,
+    voteSummary: buildVoteSummary(branch.votes),
+  })),
+};
 };
 
 export const getBranchCompareService = async (tripRoomId: number, userId: number) => {

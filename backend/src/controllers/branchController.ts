@@ -3,7 +3,60 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import {
   getBranchDetailService,
   saveBranchVoteService,
+  updateBranchService,
 } from "../services/branchService";
+
+export const updateBranch = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const branchId = Number(req.params.branchId);
+    const userId = req.user?.id;
+    const { name, places } = req.body;
+
+    if (Number.isNaN(branchId)) {
+      return res.status(400).json({ message: "유효하지 않은 branchId입니다." });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
+    }
+
+    const result = await updateBranchService({
+      branchId,
+      userId,
+      name,
+      places,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Branch not found") {
+      return res.status(404).json({ message: "브랜치를 찾을 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Forbidden") {
+      return res.status(403).json({ message: "해당 여행방 참여자만 브랜치를 수정할 수 있습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "여행방이 확정되어 브랜치를 수정할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Branch is locked") {
+      return res.status(409).json({ message: "확정된 브랜치는 수정할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Branch name is required") {
+      return res.status(400).json({ message: "브랜치 이름은 필수입니다." });
+    }
+
+    if (error instanceof Error && error.message === "Places are required") {
+      return res.status(400).json({ message: "places는 1개 이상이어야 합니다." });
+    }
+
+    console.error("updateBranch error:", error);
+    return res.status(500).json({ message: "브랜치 수정 실패" });
+  }
+};
 
 export const getBranchDetail = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -28,34 +81,7 @@ export const getBranchDetail = async (req: AuthenticatedRequest, res: Response) 
       return res.status(403).json({ message: "해당 여행방 참여자만 조회할 수 있습니다." });
     }
 
-    return res.status(200).json({
-      branchId: result.branch.id,
-      name: result.branch.name,
-      status: result.branch.status,
-      createdBy: result.branch.createdBy,
-      aiReason: result.branch.aiReason,
-      metrics: {
-        totalCost: result.branch.totalCost,
-        totalTravelTime: result.branch.totalTravelTime,
-        preferenceScore: result.branch.preferenceScore,
-        densityScore: result.branch.densityScore,
-      },
-      places: result.branch.branchPlaces.map((branchPlace) => ({
-        dayNo: branchPlace.dayNo,
-        orderIndex: branchPlace.orderIndex,
-        startTime: branchPlace.startTime,
-        endTime: branchPlace.endTime,
-        proposalId: branchPlace.proposalId,
-        place: {
-          id: branchPlace.place.id,
-          name: branchPlace.place.name,
-          address: branchPlace.place.address,
-          category: branchPlace.place.category,
-          latitude: Number(branchPlace.place.latitude),
-          longitude: Number(branchPlace.place.longitude),
-        },
-      })),
-    });
+    return res.status(200).json(result.data);
   } catch (error) {
     console.error("getBranchDetail error:", error);
     return res.status(500).json({ message: "브랜치 조회 실패" });
