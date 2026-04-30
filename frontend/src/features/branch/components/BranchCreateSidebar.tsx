@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, ListChecks, MapPin, X } from 'lucide-react';
+import { Plus, Search, ListChecks, MapPin, X, Loader2 } from 'lucide-react';
 import { ProposalResponse } from '../../../types/proposal';
 
 // 카카오 검색 결과 타입 정의
@@ -22,6 +22,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
     const [activeSubTab, setActiveSubTab] = useState<'proposals' | 'search'>('proposals');
     const [searchText, setSearchText] = useState('');
     const [searchResults, setSearchResults] = useState<KakaoSearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false); // 검색 중 상태 추가
 
     // 카카오맵 장소 검색 로직
     const handleSearch = () => {
@@ -30,6 +31,8 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
             alert('지도 API가 아직 로드되지 않았습니다.');
             return;
         }
+
+        setIsSearching(true); // 검색 시작
 
         const ps = new window.kakao.maps.services.Places();
         ps.keywordSearch(searchText, (data: KakaoSearchResult[], status: any) => {
@@ -41,6 +44,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
             } else {
                 alert('검색 중 오류가 발생했습니다.');
             }
+            setIsSearching(false); // 검색 종료
         });
     };
 
@@ -141,7 +145,12 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                         </div>
 
                         <div className="flex-1 overflow-y-auto flex flex-col gap-2">
-                            {searchResults.length === 0 ? (
+                            {isSearching ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 pb-10">
+                                    <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                                    <span className="text-xs text-center mt-2">장소를 검색하고 있습니다...</span>
+                                </div>
+                            ) : searchResults.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 pb-10">
                                     <MapPin size={32} strokeWidth={1.5} className="text-gray-300" />
                                     <span className="text-xs text-center">원하는 장소를 검색해<br />일정에 바로 추가해 보세요.</span>
