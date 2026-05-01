@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, ListChecks, MapPin, X } from 'lucide-react';
+import { Plus, Search, ListChecks, MapPin, X, Loader2 } from 'lucide-react';
 import { ProposalResponse } from '../../../types/proposal';
 
 // 카카오 검색 결과 타입 정의
@@ -14,13 +14,15 @@ interface KakaoSearchResult {
 
 interface BranchCreateSidebarProps {
     proposals: ProposalResponse[];
-    onAddPlace: (name: string, x: string, y: string, address: string) => void;
+    // onAddPlace 파라미터에 백엔드 전송용 placeId와 proposalId 추가
+    onAddPlace: (name: string, x: string, y: string, address: string, placeId?: number, proposalId?: number) => void;
 }
 
 export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCreateSidebarProps) {
     const [activeSubTab, setActiveSubTab] = useState<'proposals' | 'search'>('proposals');
     const [searchText, setSearchText] = useState('');
     const [searchResults, setSearchResults] = useState<KakaoSearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false); // 검색 중 상태 추가
 
     // 카카오맵 장소 검색 로직
     const handleSearch = () => {
@@ -29,6 +31,8 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
             alert('지도 API가 아직 로드되지 않았습니다.');
             return;
         }
+
+        setIsSearching(true); // 검색 시작
 
         const ps = new window.kakao.maps.services.Places();
         ps.keywordSearch(searchText, (data: KakaoSearchResult[], status: any) => {
@@ -40,6 +44,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
             } else {
                 alert('검색 중 오류가 발생했습니다.');
             }
+            setIsSearching(false); // 검색 종료
         });
     };
 
@@ -74,12 +79,10 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                         {proposals.length === 0 ? (
                             <div className="text-center py-10 text-gray-400 text-xs">등록된 제안이 없습니다.</div>
                         ) : (
-                            // 타입 에러를 방지하기 위해 prop을 any로 임시 처리하여 내부 중첩 객체에 안전하게 접근합니다.
                             proposals.map((prop: any) => (
                                 <div key={`prop-${prop.id}`} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm group hover:border-blue-200 transition-colors">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex flex-col">
-                                            {/* 백엔드 구조에 맞춰 prop.place 하위 속성으로 접근합니다. */}
                                             <span className="text-gray-900 font-bold text-xs">
                                                 {prop.place?.name || '장소명 없음'}
                                             </span>
@@ -88,12 +91,13 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                             </span>
                                         </div>
                                         <button
-                                            // 마찬가지로 prop.place 내부의 위도, 경도, 주소를 꺼내 전달합니다.
                                             onClick={() => onAddPlace(
                                                 prop.place?.name || '이름 없음',
                                                 String(prop.place?.longitude || 0),
                                                 String(prop.place?.latitude || 0),
-                                                prop.place?.address || ''
+                                                prop.place?.address || '',
+                                                prop.place?.id || prop.placeId, // 실제 DB 장소 ID 전달
+                                                prop.id // 제안 ID 전달
                                             )}
                                             className="p-1.5 bg-blue-50 text-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white shrink-0 ml-2"
                                             title="일정에 추가"
@@ -102,7 +106,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                         </button>
                                     </div>
 
-                                    {/* 제안자와 코멘트 정보를 표시해줍니다. */}
+                                    {/* 제안자와 코멘트 정보 표시 */}
                                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
                                         <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
                                             {prop.proposerUser?.name || '익명'}
@@ -141,7 +145,12 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                         </div>
 
                         <div className="flex-1 overflow-y-auto flex flex-col gap-2">
-                            {searchResults.length === 0 ? (
+                            {isSearching ? (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 pb-10">
+                                    <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                                    <span className="text-xs text-center mt-2">장소를 검색하고 있습니다...</span>
+                                </div>
+                            ) : searchResults.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 pb-10">
                                     <MapPin size={32} strokeWidth={1.5} className="text-gray-300" />
                                     <span className="text-xs text-center">원하는 장소를 검색해<br />일정에 바로 추가해 보세요.</span>
@@ -154,7 +163,13 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                             <span className="text-[10px] text-gray-500 truncate">{place.address_name}</span>
                                         </div>
                                         <button
-                                            onClick={() => onAddPlace(place.place_name, place.x, place.y, place.address_name)}
+                                            onClick={() => onAddPlace(
+                                                place.place_name,
+                                                place.x,
+                                                place.y,
+                                                place.address_name,
+                                                Number(place.id) // 카카오 고유 ID를 숫자로 변환하여 placeId로 활용
+                                            )}
                                             className="p-1.5 bg-gray-50 text-gray-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm shrink-0"
                                             title="일정에 추가"
                                         >

@@ -1,5 +1,7 @@
 export interface RouteItem {
     id: number;
+    placeId?: number;
+    proposalId?: number;
     time: string;
     title: string;
     desc: string;

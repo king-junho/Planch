@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useBranchStore } from '../store/useBranchStore';
 import BranchListView from './BranchListView';
 import BranchDetailSection from './BranchDetailSection';
@@ -9,8 +9,17 @@ import { useNavigate, useParams } from 'react-router-dom';
 export default function BranchSection() {
     const { tripRoomId } = useParams();
     const navigate = useNavigate();
-    const { selectedBranch, setSelectedBranch } = useBranchStore();
+
+    // 스토어에서 fetchBranches 함수를 추가로 가져옵니다.
+    const { selectedBranch, setSelectedBranch, fetchBranches } = useBranchStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    // 컴포넌트가 렌더링되거나 tripRoomId가 변경될 때 서버에서 최신 브랜치 목록을 불러옵니다.
+    useEffect(() => {
+        if (tripRoomId) {
+            fetchBranches(Number(tripRoomId));
+        }
+    }, [tripRoomId, fetchBranches]);
 
     return (
         <div className="flex w-full h-full overflow-hidden">
