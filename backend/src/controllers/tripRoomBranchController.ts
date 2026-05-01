@@ -139,7 +139,7 @@ export const generateAiBranches = async (req: AuthenticatedRequest, res: Respons
     console.error("generateAiBranches error:", error);
 
     if (error instanceof Error && error.message === "Trip room is locked") {
-      return res.status(409).json({ message: "여행방을 찾을 수 없습니다." });
+      return res.status(409).json({ message: "여행방이 확정되어 브랜치를 생성할 수 없습니다." });
     }
 
     if (error instanceof Error && error.message === "No proposals available") {

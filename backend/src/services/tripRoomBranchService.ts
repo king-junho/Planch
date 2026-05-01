@@ -466,51 +466,6 @@ const normalizeBranchDraft = (
   };
 };
 
-const buildFallbackBranches = (
-  branchCount: number,
-  proposals: Array<{
-    id: number;
-    placeId: number;
-    estimatedCost: number | null;
-    estimatedDuration: number | null;
-  }>,
-): GeneratedBranchDraft[] => {
-  const uniqueProposals = proposals.filter(
-    (proposal, index, array) => array.findIndex((item) => item.placeId === proposal.placeId) === index,
-  );
-
-  const branchSize = Math.min(Math.max(uniqueProposals.length, 1), 3);
-  const branches: GeneratedBranchDraft[] = [];
-
-  for (let branchIndex = 0; branchIndex < branchCount; branchIndex += 1) {
-    const places = Array.from({ length: branchSize })
-      .map((_, offset) => uniqueProposals[(branchIndex + offset) % uniqueProposals.length])
-      .filter(Boolean)
-      .map((proposal, offset) => ({
-        placeId: proposal.placeId,
-        proposalId: offset % 2 === 0 ? proposal.id : null,
-        orderIndex: offset + 1,
-        estimatedCost: proposal.estimatedCost,
-        estimatedDuration: proposal.estimatedDuration,
-      }));
-
-    const totalCost = places.reduce((sum, place) => sum + (place.estimatedCost ?? 0), 0);
-    const totalTravelTime = places.reduce((sum, place) => sum + (place.estimatedDuration ?? 0), 0);
-
-    branches.push({
-      name: `Plan ${String.fromCharCode(65 + branchIndex)}`,
-      totalCost,
-      totalTravelTime,
-      preferenceScore: Math.max(60, 85 - branchIndex * 4),
-      densityScore: Math.max(55, 78 - branchIndex * 3),
-      aiReason: "장소 제안과 예상 비용/체류시간을 기준으로 비교하기 쉬운 후보 브랜치를 구성했습니다.",
-      places,
-    });
-  }
-
-  return branches;
-};
-
 export const generateAiBranchesService = async (
   tripRoomId: number,
   userId: number,
@@ -637,10 +592,11 @@ export const generateAiBranchesService = async (
       .slice(0, safeBranchCount);
   } catch (error) {
     console.error("generateAiBranches OpenAI error:", error);
+    throw new Error("OpenAI branch generation failed");
   }
 
   if (branchDrafts.length === 0) {
-    branchDrafts = buildFallbackBranches(safeBranchCount, tripRoom.proposals);
+    throw new Error("OpenAI branch generation failed");
   }
 
   const createdBranches = await prisma.$transaction(
