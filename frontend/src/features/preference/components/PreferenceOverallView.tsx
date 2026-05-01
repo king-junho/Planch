@@ -4,9 +4,10 @@ import { usePreferenceStore } from '../store/usePreferenceStore';
 interface PreferenceOverallViewProps {
     onOpenAiModal: () => void;
     onCreateManual: () => void;
+    isLocked?: boolean; // 확정 여부를 받는 prop 추가
 }
 
-export default function PreferenceOverallView({ onOpenAiModal, onCreateManual }: PreferenceOverallViewProps) {
+export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, isLocked = false }: PreferenceOverallViewProps) {
     const { teamPreferences } = usePreferenceStore();
     const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
@@ -48,21 +49,33 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual }:
             </div>
 
             {/* AI 추천 및 직접 생성 버튼 배너 */}
-            <div className="bg-blue-50 border border-blue-100 text-blue-800 p-8 rounded-3xl flex justify-between items-center gap-8 shadow-sm">
+            <div className={`border p-8 rounded-3xl flex justify-between items-center gap-8 shadow-sm transition-colors ${isLocked ? 'bg-gray-50 border-gray-200 text-gray-500' : 'bg-blue-50 border-blue-100 text-blue-800'
+                }`}>
                 <div className="text-base font-medium leading-relaxed">
-                    팀원들의 주요 취향이 파악되었습니다.<br />
-                    데이터 기반의 AI 추천을 받거나 직접 일정을 구성해 보세요.
+                    {isLocked ? (
+                        <>여행 일정이 최종 확정되었습니다.<br />팀 종합 결과를 참고하여 즐거운 여행을 다녀오세요!</>
+                    ) : (
+                        <>팀원들의 주요 취향이 파악되었습니다.<br />데이터 기반의 AI 추천을 받거나 직접 일정을 구성해 보세요.</>
+                    )}
                 </div>
                 <div className="flex gap-3 shrink-0">
                     <button
                         onClick={onOpenAiModal}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-white border border-blue-200 text-blue-600 rounded-xl font-bold shadow-sm hover:bg-blue-50 transition-all"
+                        disabled={isLocked}
+                        className={`flex items-center gap-2 px-6 py-3.5 border rounded-xl font-bold shadow-sm transition-all ${isLocked
+                                ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
+                                : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
+                            }`}
                     >
                         <Sparkles size={18} /> AI 맞춤 추천
                     </button>
                     <button
                         onClick={onCreateManual}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-sm hover:bg-blue-700 transition-all"
+                        disabled={isLocked}
+                        className={`flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold shadow-sm transition-all ${isLocked
+                                ? 'bg-gray-300 text-gray-50 cursor-not-allowed'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
                     >
                         <Plus size={18} /> 직접 만들기
                     </button>

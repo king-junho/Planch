@@ -130,6 +130,7 @@ export default function PreferenceSection() {
                         <PreferenceOverallView
                             onOpenAiModal={handleOpenAiModal}
                             onCreateManual={handleCreateManual}
+                            isLocked={isLocked} // 여기에 확정 상태를 전달합니다.
                         />
                     )}
 

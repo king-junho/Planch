@@ -7,7 +7,7 @@ import BranchCreateHeader from './BranchCreateHeader';
 import BranchCreateSidebar from './BranchCreateSidebar';
 import BranchCreateTimeline from './BranchCreateTimeline';
 import { RouteItem, Branch } from '../../../types/branch';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 interface BranchCreateCanvasProps {
     onBack: () => void;
@@ -48,7 +48,6 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         if (editBranch) {
             setTitle(editBranch.title || editBranch.name || '');
             setCurrentDraftDay(1);
-            // 기존 브랜치의 경로(장소) 데이터를 화면 타임라인(draftRoutes)에 복사해 줍니다.
             if (editBranch.routes) {
                 setDraftRoutes(editBranch.routes);
             }
@@ -103,13 +102,27 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     };
 
     return (
-        <div className="flex w-full h-full overflow-hidden bg-white">
+        <div className="flex w-full h-full overflow-hidden bg-white relative">
+            {/* 전체 화면 로딩 오버레이 추가 */}
+            {isSaving && (
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+                    <span className="text-sm font-bold text-gray-700">일정을 저장하고 있습니다...</span>
+                </div>
+            )}
+
             <div className="w-3/5 min-w-[800px] flex flex-col h-full border-r border-gray-200 shrink-0 relative z-10">
-                <BranchCreateHeader title={title} setTitle={setTitle} onSave={handleSave} onBack={onBack} />
+                <BranchCreateHeader
+                    title={title}
+                    setTitle={setTitle}
+                    onSave={handleSave}
+                    onBack={onBack}
+                    isSaving={isSaving} // isSaving 상태를 Header로 전달
+                />
 
                 <div className="flex items-center justify-center gap-6 py-3 bg-gray-50 border-b border-gray-100">
                     <button
-                        disabled={currentDraftDay <= 1}
+                        disabled={currentDraftDay <= 1 || isSaving}
                         onClick={() => setCurrentDraftDay(currentDraftDay - 1)}
                         className="p-1 disabled:opacity-20 hover:bg-white rounded-full transition-all"
                     >
@@ -119,15 +132,16 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                         {Array.from({ length: tripDuration }).map((_, i) => (
                             <button
                                 key={i + 1}
+                                disabled={isSaving}
                                 onClick={() => setCurrentDraftDay(i + 1)}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${currentDraftDay === i + 1 ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'}`}
+                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${currentDraftDay === i + 1 ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'} disabled:opacity-50`}
                             >
                                 {i + 1}일차
                             </button>
                         ))}
                     </div>
                     <button
-                        disabled={currentDraftDay >= tripDuration}
+                        disabled={currentDraftDay >= tripDuration || isSaving}
                         onClick={() => setCurrentDraftDay(currentDraftDay + 1)}
                         className="p-1 disabled:opacity-20 hover:bg-white rounded-full transition-all"
                     >
