@@ -19,6 +19,92 @@ interface CreateProposalInput {
   comment?: string;
 }
 
+
+export const deleteProposalService = async (
+  tripRoomId: number,
+  proposalId: number,
+  userId: number,
+) => {
+  const proposal = await prisma.placeProposal.findUnique({
+    where: { id: proposalId },
+    select: {
+      id: true,
+      tripRoomId: true,
+      proposerUserId: true,
+      tripRoom: {
+        select: {
+          hostUserId: true,
+          status: true,
+        },
+      },
+      branchPlaces: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
+
+  if (!proposal || proposal.tripRoomId !== tripRoomId) {
+    throw new Error("Proposal not found");
+  }
+
+  const membership = await prisma.tripMember.findUnique({
+    where: {
+      tripRoomId_userId: {
+        tripRoomId,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!membership) {
+    throw new Error("Forbidden");
+  }
+
+  const isHost = proposal.tripRoom.hostUserId === userId;
+  const isOwner = proposal.proposerUserId === userId;
+
+  if (!isHost && !isOwner) {
+    throw new Error("Delete forbidden");
+  }
+
+  if (proposal.tripRoom.status === "locked") {
+    throw new Error("Trip room is locked");
+  }
+
+  if (proposal.branchPlaces.length > 0) {
+    throw new Error("Proposal is used in branch");
+  }
+
+  await prisma.placeProposal.delete({
+    where: { id: proposalId },
+  });
+
+  await prisma.$transaction([
+  prisma.decisionLog.create({
+    data: {
+      tripRoomId,
+      userId,
+      actionType: "proposal_delete",
+      targetType: "place_proposal",
+      targetId: proposalId,
+    },
+  }),
+  prisma.placeProposal.delete({
+    where: { id: proposalId },
+  }),
+]);
+
+  return {
+    proposalId,
+    deleted: true as const,
+  };
+};
+
 export const generateAiProposalsService = async(tripRoomId: number,userId: number, count:number) => {
   const normalizedCount = Number(count);
 

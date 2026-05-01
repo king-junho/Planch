@@ -6,6 +6,84 @@ import prisma from "../lib/prisma";import {
   buildVoteSummary,
 } from "./branchShared";
 
+export const deleteBranchService = async (branchId: number, userId: number) => {
+  const branch = await prisma.planBranch.findUnique({
+    where: { id: branchId },
+    select: {
+      id: true,
+      tripRoomId: true,
+      createdUserId: true,
+      status: true,
+      tripRoom: {
+        select:{
+          hostUserId: true,
+          status: true,
+          selectedBranchId: true,
+        },
+      },
+    },
+  });
+
+  if(!branch){
+    throw new Error("Branch not found");
+  }
+
+  const membership = await prisma.tripMember.findUnique({
+    where:{
+      tripRoomId_userId:{
+        tripRoomId: branch.tripRoomId,
+        userId,
+      },
+    },
+    select:{
+      id:true,
+    },
+  });
+
+  if(!membership){
+    throw new Error("Forbidden");
+  }
+
+  const isHost = branch.tripRoom.hostUserId === userId;
+  const isOwner = branch.createdUserId === userId;
+
+  if(!isHost && !isOwner){
+    throw new Error("Delete forbidden");
+  }
+
+  if(branch.tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
+  }
+
+  if(branch.status === "locked"){
+    throw new Error("Branch is locked");
+  }
+
+  if (branch.tripRoom.selectedBranchId === branchId) {
+    throw new Error("Selected branch cannot be deleted");
+  }
+
+  await prisma.$transaction([
+    prisma.decisionLog.create({
+      data:{
+        tripRoomId: branch.tripRoomId,
+        userId,
+        actionType: "branch_delete",
+        targetType: "branch",
+        targetId: branchId,
+      },
+    }),
+    prisma.planBranch.delete({
+      where:{id:branchId},
+    }),
+  ]);
+
+  return {
+    branchId,
+    deleted:true as const,
+  };
+};
+
 export const updateBranchService = async ({
   branchId,
   userId,

@@ -3,9 +3,55 @@ import {
   getProposalListService,
   createProposalService,
   generateAiProposalsService,
+  deleteProposalService,
 } from "../services/proposalService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
+export const deleteProposal = async(req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tripRoomId = Number(req.params.tripRoomId);
+    const proposalId = Number(req.params.proposalId);
+    const userId = req.user?.id;
+
+    if (Number.isNaN(tripRoomId)) {
+      return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
+    }
+
+    if (Number.isNaN(proposalId)) {
+      return res.status(400).json({ message: "유효하지 않은 proposalId입니다." });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
+    }
+
+    const result = await deleteProposalService(tripRoomId, proposalId, userId);
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Proposal not found") {
+      return res.status(404).json({ message: "장소 제안을 찾을 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Forbidden") {
+      return res.status(403).json({ message: "해당 여행방 참여자만 삭제할 수 있습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Delete forbidden") {
+      return res.status(403).json({ message: "삭제 권한이 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "여행방이 확정되어 장소 제안을 삭제할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Proposal is used in branch") {
+      return res.status(409).json({ message: "브랜치에 포함된 장소 제안은 삭제할 수 없습니다." });
+    }
+
+    console.error("deleteProposal error:", error);
+    return res.status(500).json({ message: "장소 제안 삭제 실패" });
+  }
+};
 export const generateAiProposals = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tripRoomId = Number(req.params.tripRoomId);

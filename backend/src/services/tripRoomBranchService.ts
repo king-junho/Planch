@@ -81,6 +81,7 @@ export const createBranchService = async ({
       tripRoomId,
       name: name.trim(),
       createdBy: "user",
+      createdUserId: userId,
       totalCost,
       totalTravelTime,
       status: "voting",

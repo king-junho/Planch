@@ -65,6 +65,7 @@ model User {
   proposals    PlaceProposal[]    @relation("ProposalAuthor")
   votes        BranchVote[]
   decisionLogs DecisionLog[]
+  createdBranches PlanBranch[]    @relation("BranchCreator")
 
   @@map("users")
 }
@@ -186,6 +187,7 @@ model PlanBranch {
   tripRoomId      Int             @map("trip_room_id")
   name            String          @db.VarChar(100)
   createdBy       BranchCreatedBy @map("created_by")
+  createdUserId   Int?            @map("created_user_id")
   totalCost       Int?            @map("total_cost")
   totalTravelTime Int?            @map("total_travel_time")
   preferenceScore Int?            @map("preference_score")
@@ -195,6 +197,7 @@ model PlanBranch {
   createdAt       DateTime        @default(now()) @map("created_at")
 
   tripRoom     TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
+  creator      User?         @relation("BranchCreator", fields: [createdUserId], references: [id], onDelete: SetNull)
   branchPlaces BranchPlace[]
   votes        BranchVote[]
   selectedByRooms TripRoom[] @relation("SelectedBranch")

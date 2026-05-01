@@ -1,10 +1,56 @@
 ﻿import { Response } from "express";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import {
+  deleteBranchService,
   getBranchDetailService,
   saveBranchVoteService,
   updateBranchService,
 } from "../services/branchService";
+
+export const deleteBranch = async(req: AuthenticatedRequest, res: Response) => {
+  try{
+    const branchId = Number(req.params.branchId);
+    const userId = req.user?.id;
+
+    if(Number.isNaN(branchId) || branchId <= 0){
+      return res.status(400).json({ message: "유효하지 않은 branchId입니다." });
+    }
+
+    if(!userId){
+      return res.status(401).json({ message: "인증이 필요합니다." });
+    }
+
+    const result = await deleteBranchService(branchId, userId);
+    return res.status(200).json(result);
+  }catch(error){
+    if (error instanceof Error && error.message === "Branch not found") {
+      return res.status(404).json({ message: "브랜치를 찾을 수 없습니다." });
+    }
+
+    if(error instanceof Error && error.message === "Forbidden"){
+      return res.status(403).json({ message: "해당 여행방 참여자만 브랜치를 삭제할 수 있습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Delete forbidden") {
+      return res.status(403).json({ message: "삭제 권한이 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "여행방이 확정되어 브랜치를 삭제할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Branch is locked") {
+      return res.status(409).json({ message: "확정된 브랜치는 삭제할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Selected branch cannot be deleted") {
+      return res.status(409).json({ message: "최종 선택된 브랜치는 삭제할 수 없습니다." });
+    }
+
+    console.error("deleteBranch error:", error); 
+    return res.status(500).json({ message: "브랜치 삭제 실패" });
+  }
+};
 
 export const updateBranch = async (req: AuthenticatedRequest, res: Response) => {
   try {
