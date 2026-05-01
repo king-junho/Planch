@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Search, X, MapPin, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, X } from 'lucide-react';
 import { useProposalStore } from '../store/useProposalStore';
 
 interface ProposalSearchAreaProps {
     tripRoomId: string;
+    isLocked?: boolean; // 확정 여부를 받는 prop 추가
 }
 
-export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaProps) {
+export default function ProposalSearchArea({ tripRoomId, isLocked = false }: ProposalSearchAreaProps) {
     const {
-        keyword,
         setKeyword,
         searchResults,
         setSearchResults,
@@ -20,6 +20,15 @@ export default function ProposalSearchArea({ tripRoomId }: ProposalSearchAreaPro
     const [searchText, setSearchText] = useState('');
     const [memoText, setMemoText] = useState('');
     const [isSaving, setIsSaving] = useState(false); // 저장 진행 상태 관리
+
+    // 방이 확정된 상태라면 검색창 대신 안내 메시지를 보여줍니다.
+    if (isLocked) {
+        return (
+            <div className="flex items-center justify-center h-24 mb-8 bg-gray-50 border border-gray-200 rounded-xl">
+                <span className="text-sm font-bold text-gray-500">여행 일정이 최종 확정되어 새로운 장소를 제안할 수 없습니다.</span>
+            </div>
+        );
+    }
 
     // 검색 실행 함수
     const handleSearch = () => {

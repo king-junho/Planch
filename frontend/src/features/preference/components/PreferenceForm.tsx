@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Plus, Loader2 } from 'lucide-react';
+import { X, CheckSquare, Square, Plus, Loader2, Lock } from 'lucide-react'; // Lock 아이콘 추가
 import { usePreferenceStore } from '../store/usePreferenceStore';
 import { getAccessToken } from '../../../services/authStorage';
 
-export default function PreferenceForm() {
+interface PreferenceFormProps {
+    isLocked?: boolean; // 확정 여부를 받는 prop 추가
+}
+
+export default function PreferenceForm({ isLocked = false }: PreferenceFormProps) {
     const {
         formData,
         updatePreference,
@@ -20,6 +24,9 @@ export default function PreferenceForm() {
 
     const styleOptions = ['맛집', '카페', '관광', '휴식', '사진스팟', '쇼핑', '액티비티'];
     const timeOptions = ['오전', '오후', '저녁'];
+
+    // 로딩 중이거나 방이 잠긴 경우 폼 조작을 비활성화
+    const isDisabled = isLoading || isLocked;
 
     // 로컬 스토리지가 아닌, 프로젝트 전용 getAccessToken 함수를 사용합니다.
     useEffect(() => {
@@ -44,6 +51,8 @@ export default function PreferenceForm() {
     const handleAddTag = (e: React.KeyboardEvent, type: 'go' | 'avoid') => {
         if (e.key === 'Enter') {
             e.preventDefault();
+            if (isDisabled) return; // 비활성화 상태면 태그 추가 금지
+
             const value = type === 'go' ? mustGoInput.trim() : mustAvoidInput.trim();
             if (!value) return;
 
@@ -67,6 +76,14 @@ export default function PreferenceForm() {
                 </div>
             )}
 
+            {/* 확정되었을 때 폼 최상단에 보여줄 경고 배너 */}
+            {isLocked && (
+                <div className="flex items-center gap-2 p-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-600">
+                    <Lock size={16} />
+                    <span className="text-sm font-bold">여행이 확정되어 더 이상 선호도를 수정할 수 없습니다.</span>
+                </div>
+            )}
+
             <section>
                 <div className="flex justify-between items-end mb-6">
                     <h3 className="text-lg font-bold text-gray-900">여행 예산 (1인 기준)</h3>
@@ -81,8 +98,8 @@ export default function PreferenceForm() {
                     step="50000"
                     value={formData.budgetMax}
                     onChange={(e) => updatePreference('budgetMax', Number(e.target.value))}
-                    disabled={isLoading}
-                    className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-gray-900 disabled:opacity-50"
+                    disabled={isDisabled}
+                    className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <div className="flex justify-between mt-3 text-[10px] font-bold text-gray-300 px-1">
                     <span>5만원</span>
@@ -98,8 +115,8 @@ export default function PreferenceForm() {
                         <button
                             key={style}
                             onClick={() => toggleArrayItem('styles', style)}
-                            disabled={isLoading}
-                            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 ${formData.styles.includes(style)
+                            disabled={isDisabled}
+                            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${formData.styles.includes(style)
                                 ? 'bg-gray-900 text-white shadow-md'
                                 : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
                                 }`}
@@ -119,9 +136,9 @@ export default function PreferenceForm() {
                             value={mustGoInput}
                             onChange={(e) => setMustGoInput(e.target.value)}
                             onKeyDown={(e) => handleAddTag(e, 'go')}
-                            disabled={isLoading}
+                            disabled={isDisabled}
                             placeholder="장소를 입력하고 Enter"
-                            className="w-full h-12 pl-4 pr-10 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-blue-500 outline-none text-sm transition-all disabled:opacity-50"
+                            className="w-full h-12 pl-4 pr-10 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-blue-500 outline-none text-sm transition-all disabled:opacity-50 disabled:bg-gray-100"
                         />
                         <Plus size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
                     </div>
@@ -129,7 +146,7 @@ export default function PreferenceForm() {
                         {formData.mustGo.map((tag, index) => (
                             <span key={index} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100">
                                 {tag}
-                                <button onClick={() => removeArrayItem('mustGo', index)} disabled={isLoading}><X size={12} /></button>
+                                <button onClick={() => removeArrayItem('mustGo', index)} disabled={isDisabled} className="disabled:opacity-50 disabled:cursor-not-allowed"><X size={12} /></button>
                             </span>
                         ))}
                     </div>
@@ -143,9 +160,9 @@ export default function PreferenceForm() {
                             value={mustAvoidInput}
                             onChange={(e) => setMustAvoidInput(e.target.value)}
                             onKeyDown={(e) => handleAddTag(e, 'avoid')}
-                            disabled={isLoading}
+                            disabled={isDisabled}
                             placeholder="키워드를 입력하고 Enter"
-                            className="w-full h-12 pl-4 pr-10 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-red-500 outline-none text-sm transition-all disabled:opacity-50"
+                            className="w-full h-12 pl-4 pr-10 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-red-500 outline-none text-sm transition-all disabled:opacity-50 disabled:bg-gray-100"
                         />
                         <Plus size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
                     </div>
@@ -153,7 +170,7 @@ export default function PreferenceForm() {
                         {formData.mustAvoid.map((tag, index) => (
                             <span key={index} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-100">
                                 {tag}
-                                <button onClick={() => removeArrayItem('mustAvoid', index)} disabled={isLoading}><X size={12} /></button>
+                                <button onClick={() => removeArrayItem('mustAvoid', index)} disabled={isDisabled} className="disabled:opacity-50 disabled:cursor-not-allowed"><X size={12} /></button>
                             </span>
                         ))}
                     </div>
@@ -164,16 +181,16 @@ export default function PreferenceForm() {
                 <h3 className="text-lg font-bold text-gray-900 mb-6">주요 활동 시간대</h3>
                 <div className="flex gap-8">
                     {timeOptions.map((time) => (
-                        <label key={time} className="flex items-center gap-3 cursor-pointer group">
+                        <label key={time} className={`flex items-center gap-3 group ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                             <button
                                 onClick={() => toggleArrayItem('activeTimes', time)}
-                                disabled={isLoading}
-                                className="focus:outline-none disabled:opacity-50"
+                                disabled={isDisabled}
+                                className="focus:outline-none disabled:cursor-not-allowed"
                             >
                                 {formData.activeTimes.includes(time) ? (
                                     <CheckSquare size={24} className="text-gray-900" />
                                 ) : (
-                                    <Square size={24} className="text-gray-200 group-hover:text-gray-300" />
+                                    <Square size={24} className={`text-gray-200 ${!isDisabled && 'group-hover:text-gray-300'}`} />
                                 )}
                             </button>
                             <span className="text-base font-bold text-gray-700">{time}</span>
@@ -187,9 +204,9 @@ export default function PreferenceForm() {
                 <textarea
                     value={formData.freeText}
                     onChange={(e) => updatePreference('freeText', e.target.value)}
-                    disabled={isLoading}
+                    disabled={isDisabled}
                     placeholder="예: 뚜벅이 여행이라 이동 동선이 짧았으면 좋겠어요."
-                    className="w-full h-32 p-5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-gray-200 outline-none text-sm resize-none transition-all disabled:opacity-50"
+                    className="w-full h-32 p-5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:border-gray-200 outline-none text-sm resize-none transition-all disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
             </section>
         </div>

@@ -7,9 +7,16 @@ import { CheckSquare, Loader2 } from 'lucide-react';
 interface BranchListViewProps {
     onSelectBranch: (branch: any) => void;
     onOpenCreateModal: () => void;
+    isLocked?: boolean;
+    confirmedBranchId?: number | null; // 확정된 브랜치 ID를 받는 prop 추가
 }
 
-export default function BranchListView({ onSelectBranch, onOpenCreateModal }: BranchListViewProps) {
+export default function BranchListView({
+    onSelectBranch,
+    onOpenCreateModal,
+    isLocked = false,
+    confirmedBranchId = null
+}: BranchListViewProps) {
     const { branches, isLoading } = useBranchStore();
 
     const [isCompareMode, setIsCompareMode] = useState(false);
@@ -28,6 +35,19 @@ export default function BranchListView({ onSelectBranch, onOpenCreateModal }: Br
         });
     };
 
+    // 1. 브랜치 목록 중 확정된 브랜치의 status를 'confirmed'로 덮어씌웁니다.
+    const branchesWithOverride = branches.map(branch => ({
+        ...branch,
+        status: branch.id === confirmedBranchId ? 'confirmed' : branch.status
+    }));
+
+    // 2. status가 'confirmed'인 브랜치를 최상단으로 정렬합니다.
+    const sortedBranches = [...branchesWithOverride].sort((a, b) => {
+        if (a.status === 'confirmed' && b.status !== 'confirmed') return -1;
+        if (a.status !== 'confirmed' && b.status === 'confirmed') return 1;
+        return 0;
+    });
+
     if (isCompareMode) {
         const compareBranches = branches.filter(b => selectedForCompare.includes(b.id));
         return (
@@ -39,9 +59,7 @@ export default function BranchListView({ onSelectBranch, onOpenCreateModal }: Br
     }
 
     return (
-        /* 부모에서 500px을 잡아주었으므로 w-full로 꽉 차게 설정합니다. */
         <div className="w-full flex flex-col h-full bg-stone-50/50 relative">
-
             <div className="p-7 border-b border-gray-100 bg-white shrink-0 flex flex-col gap-5">
                 <div className="min-w-0">
                     <h2 className="text-2xl font-bold text-gray-900">브랜치 목록</h2>
@@ -62,7 +80,7 @@ export default function BranchListView({ onSelectBranch, onOpenCreateModal }: Br
 
                     <button
                         onClick={onOpenCreateModal}
-                        disabled={isLoading}
+                        disabled={isLoading || isLocked}
                         className="flex-1 justify-center py-3 bg-gray-900 text-white text-sm font-bold rounded-xl shadow-md hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         + 새 브랜치
@@ -76,12 +94,12 @@ export default function BranchListView({ onSelectBranch, onOpenCreateModal }: Br
                         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
                         <span className="text-sm font-bold">브랜치 목록을 불러오는 중입니다...</span>
                     </div>
-                ) : branches.length === 0 ? (
+                ) : sortedBranches.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center py-20 text-gray-400">
                         등록된 브랜치가 없습니다. 새 브랜치를 만들어보세요.
                     </div>
                 ) : (
-                    branches.map(branch => {
+                    sortedBranches.map(branch => {
                         const isSelected = selectedForCompare.includes(branch.id);
                         return (
                             <div key={branch.id} className="relative group">
@@ -94,7 +112,7 @@ export default function BranchListView({ onSelectBranch, onOpenCreateModal }: Br
 
                                 <div className="pl-8">
                                     <BranchCard
-                                        branch={branch}
+                                        branch={branch} // 덮어씌워진 status 데이터가 전달됩니다.
                                         onViewDetail={() => onSelectBranch(branch)}
                                     />
                                 </div>

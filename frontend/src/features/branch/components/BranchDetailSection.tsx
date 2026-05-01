@@ -1,14 +1,15 @@
-import { ArrowLeft, MapPin, Wallet, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
 
 interface BranchDetailSectionProps {
     branch: Branch;
+    isLocked?: boolean; // 방 확정 상태 추가
     onBack: () => void;
 }
 
-export default function BranchDetailSection({ branch, onBack }: BranchDetailSectionProps) {
+export default function BranchDetailSection({ branch, isLocked = false, onBack }: BranchDetailSectionProps) {
     const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, isLoading } = useBranchStore();
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
@@ -28,6 +29,10 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
     };
     const totalVotes = voteCounts.agree + voteCounts.hold + voteCounts.disagree;
 
+    // 브랜치 자체가 확정되었거나 방 전체가 잠겨있으면 수정을 막습니다.
+    const isEditDisabled = branch.status === 'confirmed' || isLocked;
+    const isVoteDisabled = isLoading || isEditDisabled;
+
     const handleEdit = () => {
         navigate(`/trip-rooms/${tripRoomId}/branch/edit`, {
             state: { editBranch: branch }
@@ -35,13 +40,13 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
     };
 
     const handleVote = async (type: 'agree' | 'hold' | 'disagree') => {
-        if (!tripRoomId) return;
+        if (!tripRoomId || isVoteDisabled) return;
         const success = await voteBranch(Number(tripRoomId), branch.id, type);
         if (success) alert('투표가 반영되었습니다.');
     };
 
     const handleFinalize = async () => {
-        if (!tripRoomId) return;
+        if (!tripRoomId || isLocked) return;
         if (window.confirm('이 브랜치를 최종 여행 일정으로 확정하시겠습니까?')) {
             const success = await finalizeBranch(Number(tripRoomId), branch.id);
             if (success) {
@@ -52,6 +57,14 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
 
     return (
         <div className="flex flex-col h-full bg-white relative z-10">
+            {/* 로딩 오버레이 추가 */}
+            {isLoading && (
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
+                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+                    <span className="text-sm font-bold text-gray-700">요청을 처리하고 있습니다...</span>
+                </div>
+            )}
+
             {/* 상단 헤더: 제목 및 목록/수정 버튼 */}
             <div className="px-8 py-6 border-b border-gray-100 shrink-0">
                 <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors mb-4">
@@ -66,15 +79,18 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
                         )}
                         <h2 className="text-2xl font-bold text-gray-900 truncate">{branch.title}</h2>
                     </div>
-                    {branch.status !== 'confirmed' && (
-                        <button
-                            onClick={handleEdit}
-                            className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100 shadow-sm"
-                        >
-                            <Edit2 size={14} />
-                            <span>수정</span>
-                        </button>
-                    )}
+                    {/* 조건문으로 숨기지 않고 disabled와 스타일로 회색 처리 */}
+                    <button
+                        onClick={handleEdit}
+                        disabled={isEditDisabled}
+                        className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm ${isEditDisabled
+                                ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed opacity-60'
+                                : 'text-gray-600 bg-gray-50 hover:bg-gray-100 border-gray-100'
+                            }`}
+                    >
+                        <Edit2 size={14} />
+                        <span>수정</span>
+                    </button>
                 </div>
                 <p className="text-sm text-gray-500 mt-2 truncate">{branch.description}</p>
             </div>
@@ -104,13 +120,12 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-3">
                         <CalendarX2 size={48} strokeWidth={1.5} className="text-gray-300" />
                         <span className="text-sm font-medium">이날은 등록된 일정이 없습니다.</span>
-                        {branch.status !== 'confirmed' && (
+                        {!isEditDisabled && (
                             <span className="text-xs text-gray-400 text-center">우측 상단의 수정 버튼을 눌러<br />장소를 추가해 보세요.</span>
                         )}
                     </div>
                 ) : (
                     currentRoute.map((item, index) => (
-                        // 수정됨: 중복 키 에러를 방지하기 위해 id와 index를 결합하여 고유한 키값 생성
                         <div key={`route-item-${item.id}-${index}`} className="relative flex gap-5">
                             <div className="flex flex-col items-center">
                                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 z-10" />
@@ -137,6 +152,11 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
                         <CheckCircle2 size={24} className="text-green-600" />
                         <span className="text-sm font-bold text-green-800">이 일정이 최종 여행 코스로 확정되었습니다.</span>
                     </div>
+                ) : isLocked ? (
+                    // 다른 브랜치가 선택되어 방 전체가 잠긴 경우 안내 메시지 노출
+                    <div className="flex flex-col items-center justify-center gap-2 py-4 bg-gray-50 border border-gray-200 rounded-xl">
+                        <span className="text-sm font-bold text-gray-600">여행 일정이 확정되어 투표가 종료되었습니다.</span>
+                    </div>
                 ) : (
                     <>
                         <div className="flex justify-between items-end mb-4">
@@ -162,15 +182,15 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
                             <span className="text-red-500">반대 {voteCounts.disagree}명</span>
                         </div>
 
-                        {/* 2. 내 투표 액션 */}
+                        {/* 2. 내 투표 액션 (잠긴 경우 비활성화) */}
                         <div className="flex gap-2 mb-4">
-                            <button onClick={() => handleVote('agree')} disabled={isLoading} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-blue-50 text-xs font-bold text-gray-600 transition-colors">
+                            <button onClick={() => handleVote('agree')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-blue-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 <ThumbsUp size={14} /> 찬성
                             </button>
-                            <button onClick={() => handleVote('hold')} disabled={isLoading} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-xs font-bold text-gray-600 transition-colors">
+                            <button onClick={() => handleVote('hold')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 <Minus size={14} /> 보류
                             </button>
-                            <button onClick={() => handleVote('disagree')} disabled={isLoading} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-red-50 text-xs font-bold text-gray-600 transition-colors">
+                            <button onClick={() => handleVote('disagree')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-red-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 <ThumbsDown size={14} /> 반대
                             </button>
                         </div>
@@ -179,8 +199,8 @@ export default function BranchDetailSection({ branch, onBack }: BranchDetailSect
                         {isOwner && (
                             <button
                                 onClick={handleFinalize}
-                                disabled={isLoading}
-                                className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-md flex justify-center items-center gap-2"
+                                disabled={isVoteDisabled}
+                                className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <CheckCircle2 size={16} /> 이 일정으로 최종 확정하기
                             </button>

@@ -6,11 +6,15 @@ import PreferenceMemberView from './PreferenceMemberView';
 import PreferenceForm from './PreferenceForm';
 import { MemberPreference } from '../../../types/preference';
 import { usePreferenceStore } from '../store/usePreferenceStore';
+import api from '../../../api/axiosInstance';
 
 export default function PreferenceSection() {
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const navigate = useNavigate();
     const [viewMode, setViewMode] = useState<string | number>('form');
+
+    // 방 잠금 상태를 관리하는 state 추가
+    const [isLocked, setIsLocked] = useState(false);
 
     const {
         teamPreferences,
@@ -20,10 +24,21 @@ export default function PreferenceSection() {
         initializeFormWithExisting
     } = usePreferenceStore();
 
-    // 1. 마운트 시 서버에서 선호도 데이터를 가져옵니다.
+    // 1. 마운트 시 서버에서 선호도 데이터와 방 상태를 가져옵니다.
     useEffect(() => {
         if (tripRoomId) {
-            fetchPreferences(Number(tripRoomId));
+            const numericId = Number(tripRoomId);
+            fetchPreferences(numericId);
+
+            // api 객체를 사용하여 현재 방의 상태 확인
+            api.get(`/trip-rooms/${numericId}`)
+                .then(response => {
+                    const roomStatus = response.data.status;
+                    if (roomStatus === 'locked' || roomStatus === 'confirmed') {
+                        setIsLocked(true);
+                    }
+                })
+                .catch(error => console.error("방 정보 조회 실패:", error));
         }
     }, [tripRoomId, fetchPreferences]);
 
@@ -101,13 +116,13 @@ export default function PreferenceSection() {
                                 </div>
                                 <button
                                     onClick={handleSave}
-                                    disabled={isLoading}
-                                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300"
+                                    disabled={isLoading || isLocked} // 확정 시 버튼 비활성화
+                                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
                                 >
                                     {isLoading ? '저장 중...' : '저장하기'}
                                 </button>
                             </header>
-                            <PreferenceForm />
+                            <PreferenceForm isLocked={isLocked} />
                         </>
                     )}
 

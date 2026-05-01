@@ -5,35 +5,64 @@ import BranchDetailSection from './BranchDetailSection';
 import CreateBranchModal from './CreateBranchModal';
 import BranchMap from './BranchMap';
 import { useNavigate, useParams } from 'react-router-dom';
+import api from '../../../api/axiosInstance';
 
 export default function BranchSection() {
     const { tripRoomId } = useParams();
     const navigate = useNavigate();
 
-    // 스토어에서 fetchBranches 함수를 추가로 가져옵니다.
     const { selectedBranch, setSelectedBranch, fetchBranches } = useBranchStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-    // 컴포넌트가 렌더링되거나 tripRoomId가 변경될 때 서버에서 최신 브랜치 목록을 불러옵니다.
+    const [isLocked, setIsLocked] = useState(false);
+    // 확정된 브랜치의 ID를 저장할 state를 추가합니다.
+    const [confirmedBranchId, setConfirmedBranchId] = useState<number | null>(null);
+
     useEffect(() => {
         if (tripRoomId) {
-            fetchBranches(Number(tripRoomId));
+            const numericId = Number(tripRoomId);
+            fetchBranches(numericId);
+
+            api.get(`/trip-rooms/${numericId}`)
+                .then(response => {
+                    const roomStatus = response.data.status;
+                    if (roomStatus === 'locked' || roomStatus === 'confirmed') {
+                        setIsLocked(true);
+                    }
+
+                    // 백엔드에서 넘겨주는 summary 데이터에서 확정된 브랜치 ID를 추출하여 저장합니다.
+                    const selectedId = response.data.summary?.selectedBranchId;
+                    if (selectedId) {
+                        setConfirmedBranchId(selectedId);
+                    }
+                })
+                .catch(error => console.error("방 정보 조회 실패:", error));
         }
     }, [tripRoomId, fetchBranches]);
 
+    // 상세 화면에 넘겨줄 브랜치 객체의 status를 강제로 'confirmed'로 덮어씌웁니다.
+    const activeBranch = selectedBranch
+        ? {
+            ...selectedBranch,
+            status: selectedBranch.id === confirmedBranchId ? 'confirmed' : selectedBranch.status
+        }
+        : null;
+
     return (
         <div className="flex w-full h-full overflow-hidden">
-            {/* 넓이를 500px로 늘리고, 화면 축소 시 찌그러짐을 방지하는 속성을 추가했습니다. */}
             <div className="w-[500px] min-w-[500px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
-                {selectedBranch ? (
+                {activeBranch ? (
                     <BranchDetailSection
-                        branch={selectedBranch}
+                        branch={activeBranch} // 덮어씌운 브랜치 데이터를 전달합니다.
+                        isLocked={isLocked}
                         onBack={() => setSelectedBranch(null)}
                     />
                 ) : (
                     <BranchListView
                         onSelectBranch={setSelectedBranch}
                         onOpenCreateModal={() => setIsCreateModalOpen(true)}
+                        isLocked={isLocked}
+                        confirmedBranchId={confirmedBranchId} // 목록 화면에도 확정 ID를 전달합니다.
                     />
                 )}
             </div>
