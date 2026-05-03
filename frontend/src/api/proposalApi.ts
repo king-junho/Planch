@@ -16,5 +16,11 @@ export const proposalApi = {
     }) => {
         const response = await api.post(`/trip-rooms/${tripRoomId}/proposals`, data);
         return response.data;
+    },
+
+    // 3. 장소 제안 삭제
+    deleteProposal: async (tripRoomId: number, proposalId: number) => {
+        const response = await api.delete(`/trip-rooms/${tripRoomId}/proposals/${proposalId}`);
+        return response.data;
     }
 };

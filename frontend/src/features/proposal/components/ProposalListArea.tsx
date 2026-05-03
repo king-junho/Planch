@@ -6,15 +6,21 @@ export default function ProposalListArea() {
     const { proposals, isLoading } = useProposalStore();
     const [currentUserId, setCurrentUserId] = useState<number | undefined>(undefined);
 
+    // 임시 방장 권한 (실제 구현 시 전역 상태나 상위 컴포넌트에서 받아옵니다)
+    const isHost = true;
+
     // 컴포넌트가 화면에 뜰 때 로컬 스토리지의 토큰에서 내 유저 ID를 추출합니다.
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        // 프로젝트 설정에 맞게 planch.accessToken으로 변경
+        const token = localStorage.getItem('planch.accessToken');
         if (token) {
             try {
                 // JWT 토큰의 payload 부분을 디코딩하여 유저 정보를 꺼냅니다.
                 const payload = JSON.parse(atob(token.split('.')[1]));
-                if (payload && payload.sub) {
-                    setCurrentUserId(Number(payload.sub));
+                // 백엔드 토큰 구조에 맞춰 유연하게 ID 추출
+                const myId = Number(payload.sub || payload.userId || payload.id);
+                if (myId) {
+                    setCurrentUserId(myId);
                 }
             } catch (error) {
                 console.error("토큰 디코딩 실패:", error);
@@ -43,7 +49,8 @@ export default function ProposalListArea() {
                         <ProposalCard
                             key={prop.id || prop.proposalId || index}
                             proposal={prop}
-                            currentUserId={currentUserId} // 찾아낸 내 ID를 카드로 전달합니다.
+                            currentUserId={currentUserId}
+                            isHost={isHost} // 방장 여부를 하위 컴포넌트로 전달
                         />
                     ))
                 )}

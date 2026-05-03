@@ -4,12 +4,11 @@ import { ProposalResponse } from '../../../types/proposal';
 
 interface ProposalCardProps {
     proposal: ProposalResponse;
-    // 선택 사항: 로그인한 유저 ID를 받아와서 내 글에만 삭제 버튼이 보이게 할 수 있습니다.
     currentUserId?: number;
+    isHost?: boolean;
 }
 
-export default function ProposalCard({ proposal, currentUserId }: ProposalCardProps) {
-    // 스토어에서 삭제 함수를 가져옵니다.
+export default function ProposalCard({ proposal, currentUserId, isHost = false }: ProposalCardProps) {
     const { setFocusedProposal, deleteProposal } = useProposalStore();
 
     // 백엔드 실제 데이터와 프론트엔드 임시 데이터 구조 차이 방어 코드
@@ -19,16 +18,18 @@ export default function ProposalCard({ proposal, currentUserId }: ProposalCardPr
     const address = proposal?.address || proposal?.place?.address || '주소 정보 없음';
     const proposerName = proposal?.proposerUser?.name || proposal?.proposer?.nickname || '알 수 없는 사용자';
 
-    // 제안 ID와 방 ID 추출
     const proposalId = proposal?.id || proposal?.proposalId;
     const tripRoomId = proposal?.tripRoomId;
 
-    // 본인이 작성한 제안인지 확인 (currentUserId가 넘어왔을 때만 비교)
-    const isMyProposal = currentUserId && proposal?.proposerUserId
-        ? proposal.proposerUserId === currentUserId
-        : true;
+    // TypeScript 에러 방지 및 안전한 ID 추출 로직
+    const proposerId = proposal?.proposerUserId || proposal?.proposerUser?.id || proposal?.proposer?.userId;
 
-    // 삭제 버튼 클릭 핸들러
+    // 본인이 작성한 제안인지 확인
+    const isMyProposal = currentUserId && proposerId ? proposerId === currentUserId : false;
+
+    // 본인이 작성했거나, 현재 유저가 방장일 경우에만 삭제 가능하도록 설정
+    const canDelete = isMyProposal || isHost;
+
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation(); // 상위 요소 클릭 이벤트 버블링 방지
 
@@ -51,15 +52,14 @@ export default function ProposalCard({ proposal, currentUserId }: ProposalCardPr
                     </span>
                 </div>
 
-                {/* 우측 상단: 작성자 뱃지 및 삭제 버튼 */}
                 <div className="flex items-center gap-1.5">
                     <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
                         <User size={12} className="text-gray-400" />
                         <span className="text-gray-600 text-[11px] font-bold">{proposerName}</span>
                     </div>
 
-                    {/* 내 제안일 때만 휴지통 아이콘 표시 */}
-                    {isMyProposal && (
+                    {/* 권한이 검증된 경우에만 휴지통 아이콘 렌더링 */}
+                    {canDelete && (
                         <button
                             onClick={handleDelete}
                             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"

@@ -69,7 +69,7 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
 
     // API: 장소 제안 추가
     addProposal: async (tripRoomId, payload: ProposalPayload) => {
-        if (get().isLoading) return false; // 이미 진행 중이면 추가 요청 차단
+        if (get().isLoading) return false;
 
         const { selectedPlace } = get();
         if (!selectedPlace) return false;
@@ -116,19 +116,19 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
         try {
             await api.delete(`/trip-rooms/${tripRoomId}/proposals/${proposalId}`);
 
-            // 삭제 성공 시 목록 새로고침
             await get().fetchProposals(tripRoomId);
 
-            // 삭제한 항목이 현재 상세 보기 중인 항목이라면 상태 초기화
             const currentFocused = get().focusedProposal;
             if (currentFocused && (currentFocused.id === proposalId || currentFocused.proposalId === proposalId)) {
                 set({ focusedProposal: null });
             }
 
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error("장소 제안 삭제 실패:", error);
-            alert("삭제에 실패했습니다. 본인의 제안인지 확인해주세요.");
+            // 백엔드에서 전달하는 상세 에러 메시지를 팝업으로 노출
+            const errorMessage = error.response?.data?.message || "삭제에 실패했습니다. 본인의 제안인지 확인해주세요.";
+            alert(errorMessage);
             return false;
         } finally {
             set({ isLoading: false });

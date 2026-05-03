@@ -12,19 +12,19 @@ interface BranchDetailSectionProps {
 }
 
 export default function BranchDetailSection({ branch, isLocked = false, onBack }: BranchDetailSectionProps) {
-    // 스토어에서 fetchBranches를 추가로 가져와 삭제 후 목록을 갱신합니다.
     const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, isLoading, fetchBranches } = useBranchStore();
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
 
-    // 1. 토큰에서 내 정보 가져오기
     const [myUserId, setMyUserId] = useState<number | null>(null);
+    // 브랜치 삭제 진행 상태를 관리하는 state
+    const [isDeleting, setIsDeleting] = useState(false);
+
     useEffect(() => {
         const token = localStorage.getItem('planch.accessToken');
         if (token) {
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
-                // 백엔드 토큰 구조에 맞춰 sub, id, userId 중 하나를 사용합니다.
                 setMyUserId(Number(payload.sub || payload.userId || payload.id));
             } catch (error) {
                 console.error("토큰 파싱 에러:", error);
@@ -37,14 +37,12 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const minDay = Math.min(...availableDays);
     const currentRoute = branch.routes?.[selectedDay] || [];
 
-    // 임시 방장 권한 처리 (실제 환경에서는 상위 상태나 토큰을 이용해 확인)
     const isOwner = true;
 
-    // 2. 권한 설정
-    // 작성자(본인)이거나 방장(isOwner)일 경우 삭제 가능
+    // 본인이 작성한 브랜치인지 확인
     const isCreator = myUserId && (branch as any).userId === myUserId;
     const canDelete = isCreator || isOwner;
-    const canUnlock = isOwner; // 방장만 확정 해제 가능
+    const canUnlock = isOwner;
 
     const voteCounts = {
         agree: branch.agreeCount || 0,
@@ -53,9 +51,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     };
     const totalVotes = voteCounts.agree + voteCounts.hold + voteCounts.disagree;
 
-    // 브랜치 자체가 확정되었거나 방 전체가 잠겨있으면 수정 및 투표를 막습니다.
     const isEditDisabled = branch.status === 'confirmed' || isLocked;
-    const isVoteDisabled = isLoading || isEditDisabled;
+    const isVoteDisabled = isLoading || isDeleting || isEditDisabled;
 
     const handleEdit = () => {
         navigate(`/trip-rooms/${tripRoomId}/branch/edit`, {
@@ -63,36 +60,35 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         });
     };
 
-    // 브랜치 삭제 핸들러
+    // 브랜치 삭제 기능
     const handleDelete = async () => {
         if (!tripRoomId || isEditDisabled) return;
 
         if (window.confirm('이 브랜치를 정말 삭제하시겠습니까? (삭제 후 복구할 수 없습니다)')) {
+            setIsDeleting(true);
             try {
-                // API 명세에 따라 삭제 엔드포인트를 맞춰주세요.
+                // 삭제 API 호출 
                 await api.delete(`/branches/${branch.id}`);
                 alert('브랜치가 삭제되었습니다.');
 
-                // 목록 화면으로 돌아가기 & 스토어 데이터 최신화
-                fetchBranches(Number(tripRoomId));
+                await fetchBranches(Number(tripRoomId));
                 onBack();
             } catch (error) {
                 console.error('브랜치 삭제 실패:', error);
                 alert('브랜치 삭제 권한이 없거나 오류가 발생했습니다.');
+            } finally {
+                setIsDeleting(false);
             }
         }
     };
 
-    // 여행방 확정 해제(Unlock) 핸들러
     const handleUnlock = async () => {
         if (!tripRoomId) return;
 
         if (window.confirm('이 여행방의 최종 일정을 확정 해제하시겠습니까?\n투표와 브랜치 추가가 다시 활성화됩니다.')) {
             try {
-                // 백엔드 명세에 맞춰 확정 해제 API 호출
                 await api.post(`/trip-rooms/${tripRoomId}/unlock`);
                 alert('일정 확정이 해제되었습니다.');
-                // 방 상태가 변경되었으므로 페이지를 새로고침하거나 최상위 상태를 갱신합니다.
                 window.location.reload();
             } catch (error) {
                 console.error('확정 해제 실패:', error);
@@ -113,17 +109,21 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
             const success = await finalizeBranch(Number(tripRoomId), branch.id);
             if (success) {
                 alert('최종 일정으로 확정되었습니다.');
-                window.location.reload(); // 확정 상태 즉시 반영을 위한 리로드
+                window.location.reload();
             }
         }
     };
 
+    const showOverlay = isLoading || isDeleting;
+
     return (
         <div className="flex flex-col h-full bg-white relative z-10">
-            {isLoading && (
+            {showOverlay && (
                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
                     <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-                    <span className="text-sm font-bold text-gray-700">요청을 처리하고 있습니다...</span>
+                    <span className="text-sm font-bold text-gray-700">
+                        {isDeleting ? '삭제 중입니다...' : '요청을 처리하고 있습니다...'}
+                    </span>
                 </div>
             )}
 
@@ -142,7 +142,6 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* 삭제 버튼 (잠금 상태가 아닐 때, 권한이 있을 때만 노출) */}
                         {canDelete && !isLocked && (
                             <button
                                 onClick={handleDelete}
@@ -153,7 +152,6 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             </button>
                         )}
 
-                        {/* 수정 버튼 */}
                         <button
                             onClick={handleEdit}
                             disabled={isEditDisabled}
@@ -225,7 +223,6 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             <CheckCircle2 size={24} className="text-green-600" />
                             <span className="text-sm font-bold text-green-800">이 일정이 최종 여행 코스로 확정되었습니다.</span>
                         </div>
-                        {/* 확정 상태 && 방장일 경우 확정 해제 버튼 */}
                         {canUnlock && (
                             <button
                                 onClick={handleUnlock}
@@ -238,7 +235,6 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 ) : isLocked ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-4 bg-gray-50 border border-gray-200 rounded-xl">
                         <span className="text-sm font-bold text-gray-600">여행 일정이 확정되어 투표가 종료되었습니다.</span>
-                        {/* 다른 브랜치로 인해 방이 확정된 상태 && 방장일 경우 확정 해제 버튼 */}
                         {canUnlock && (
                             <button
                                 onClick={handleUnlock}
