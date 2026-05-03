@@ -20,6 +20,70 @@ interface SaveMyPreferenceInput{
   freeTextNote?: string;
 }
 
+export const unlockTripRoomService = async (tripRoomId : number, userId: number)=>{
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where:{id: tripRoomId},
+    select:{
+      id:true,
+      hostUserId:true,
+      status:true,
+      selectedBranchId:true,
+    },
+  });
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+
+  if(tripRoom.hostUserId !== userId){
+    throw new Error("Host only");
+  }
+
+  if(tripRoom.status !== "locked"){
+    throw new Error("Trip room is not locked");
+  }
+
+  await prisma.$transaction(async (tx)=>{
+    await tx.tripRoom.update({
+      where:{id: tripRoomId},
+      data:{
+        status : "voting",
+      },
+    });
+    if(tripRoom.selectedBranchId){
+      await tx.planBranch.update({
+        where: {id: tripRoom.selectedBranchId},
+        data:{
+          status: "voting",
+        },
+      });
+    }
+
+    await tx.decisionLog.create({
+      data:{
+        tripRoomId,
+        userId,
+        actionType: "trip_room_unlock",
+        targetType:"trip_room",
+        targetId:tripRoomId,
+        beforeData:{
+          status: "locked",
+          selectedBranchId: tripRoom.selectedBranchId,
+        },
+        afterData:{
+          status:"voting",
+          selectedBranchId: tripRoom.selectedBranchId,
+        },
+      },
+    });
+  });
+  return{
+    tripRoomId,
+    status:"voting" as const,
+    selectedBranchId: tripRoom.selectedBranchId,
+    unlocked: true as const,
+  };
+};
+
 export const getMyTripRoomsService = async (userId:number) => {
   const tripRooms = await prisma.tripRoom.findMany({
     where:{
