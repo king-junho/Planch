@@ -8,7 +8,7 @@ interface BranchListViewProps {
     onSelectBranch: (branch: any) => void;
     onOpenCreateModal: () => void;
     isLocked?: boolean;
-    confirmedBranchId?: number | null; // 확정된 브랜치 ID를 받는 prop 추가
+    confirmedBranchId?: number | null;
 }
 
 export default function BranchListView({
@@ -35,13 +35,23 @@ export default function BranchListView({
         });
     };
 
-    // 1. 브랜치 목록 중 확정된 브랜치의 status를 'confirmed'로 덮어씌웁니다.
-    const branchesWithOverride = branches.map(branch => ({
-        ...branch,
-        status: branch.id === confirmedBranchId ? 'confirmed' : branch.status
-    }));
+    // TS 에러 해결: locked 비교 제거 및 undefined 처리
+    const branchesWithOverride = branches.map(branch => {
+        let currentStatus = branch.status;
 
-    // 2. status가 'confirmed'인 브랜치를 최상단으로 정렬합니다.
+        if (isLocked && branch.id === confirmedBranchId) {
+            currentStatus = 'confirmed';
+        } else if (!isLocked && currentStatus === 'confirmed') {
+            currentStatus = 'voting';
+        }
+
+        return {
+            ...branch,
+            // Branch 타입에 맞게 강제 캐스팅
+            status: (currentStatus || 'voting') as "confirmed" | "voting" | "pending"
+        };
+    });
+
     const sortedBranches = [...branchesWithOverride].sort((a, b) => {
         if (a.status === 'confirmed' && b.status !== 'confirmed') return -1;
         if (a.status !== 'confirmed' && b.status === 'confirmed') return 1;
@@ -112,7 +122,7 @@ export default function BranchListView({
 
                                 <div className="pl-8">
                                     <BranchCard
-                                        branch={branch} // 덮어씌워진 status 데이터가 전달됩니다.
+                                        branch={branch}
                                         onViewDetail={() => onSelectBranch(branch)}
                                     />
                                 </div>

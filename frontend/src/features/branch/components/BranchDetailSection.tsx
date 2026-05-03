@@ -1,4 +1,5 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
@@ -16,12 +17,34 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
 
+    // 1. 토큰에서 내 정보 가져오기
+    const [myUserId, setMyUserId] = useState<number | null>(null);
+    useEffect(() => {
+        const token = localStorage.getItem('planch.accessToken');
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                // 백엔드 토큰 구조에 맞춰 sub, id, userId 중 하나를 사용합니다.
+                setMyUserId(Number(payload.sub || payload.userId || payload.id));
+            } catch (error) {
+                console.error("토큰 파싱 에러:", error);
+            }
+        }
+    }, []);
+
     const availableDays = branch.routes ? Object.keys(branch.routes).map(Number) : [1];
     const maxDay = Math.max(...availableDays);
     const minDay = Math.min(...availableDays);
     const currentRoute = branch.routes?.[selectedDay] || [];
 
+    // 임시 방장 권한 처리 (실제 환경에서는 상위 상태나 토큰을 이용해 확인)
     const isOwner = true;
+
+    // 2. 권한 설정
+    // 작성자(본인)이거나 방장(isOwner)일 경우 삭제 가능
+    const isCreator = myUserId && (branch as any).userId === myUserId;
+    const canDelete = isCreator || isOwner;
+    const canUnlock = isOwner; // 방장만 확정 해제 가능
 
     const voteCounts = {
         agree: branch.agreeCount || 0,
@@ -30,15 +53,9 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     };
     const totalVotes = voteCounts.agree + voteCounts.hold + voteCounts.disagree;
 
-    // 브랜치 자체가 확정되었거나 방 전체가 잠겨있으면 수정 및 삭제를 막습니다.
+    // 브랜치 자체가 확정되었거나 방 전체가 잠겨있으면 수정 및 투표를 막습니다.
     const isEditDisabled = branch.status === 'confirmed' || isLocked;
     const isVoteDisabled = isLoading || isEditDisabled;
-
-    // 삭제 권한 체크
-    // 실제 프로젝트에서는 로컬 스토리지의 토큰에서 userId를 꺼내어
-    // branch.userId(작성자) 또는 tripRoom.hostId(방장)와 일치하는지 비교해야 합니다.
-    // 임시로 true로 설정해 두었습니다.
-    const canDelete = true;
 
     const handleEdit = () => {
         navigate(`/trip-rooms/${tripRoomId}/branch/edit`, {
@@ -46,7 +63,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         });
     };
 
-    // 브랜치 삭제 핸들러 추가
+    // 브랜치 삭제 핸들러
     const handleDelete = async () => {
         if (!tripRoomId || isEditDisabled) return;
 
@@ -61,7 +78,25 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 onBack();
             } catch (error) {
                 console.error('브랜치 삭제 실패:', error);
-                alert('브랜치 삭제 중 오류가 발생했습니다.');
+                alert('브랜치 삭제 권한이 없거나 오류가 발생했습니다.');
+            }
+        }
+    };
+
+    // 여행방 확정 해제(Unlock) 핸들러
+    const handleUnlock = async () => {
+        if (!tripRoomId) return;
+
+        if (window.confirm('이 여행방의 최종 일정을 확정 해제하시겠습니까?\n투표와 브랜치 추가가 다시 활성화됩니다.')) {
+            try {
+                // 백엔드 명세에 맞춰 확정 해제 API 호출
+                await api.post(`/trip-rooms/${tripRoomId}/unlock`);
+                alert('일정 확정이 해제되었습니다.');
+                // 방 상태가 변경되었으므로 페이지를 새로고침하거나 최상위 상태를 갱신합니다.
+                window.location.reload();
+            } catch (error) {
+                console.error('확정 해제 실패:', error);
+                alert('확정 해제 권한이 없거나 오류가 발생했습니다.');
             }
         }
     };
@@ -78,6 +113,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
             const success = await finalizeBranch(Number(tripRoomId), branch.id);
             if (success) {
                 alert('최종 일정으로 확정되었습니다.');
+                window.location.reload(); // 확정 상태 즉시 반영을 위한 리로드
             }
         }
     };
@@ -106,15 +142,11 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* 삭제 버튼 */}
-                        {canDelete && (
+                        {/* 삭제 버튼 (잠금 상태가 아닐 때, 권한이 있을 때만 노출) */}
+                        {canDelete && !isLocked && (
                             <button
                                 onClick={handleDelete}
-                                disabled={isEditDisabled}
-                                className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm ${isEditDisabled
-                                        ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed opacity-60'
-                                        : 'text-red-600 bg-white hover:bg-red-50 border-red-100 hover:border-red-200'
-                                    }`}
+                                className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm text-red-600 bg-white hover:bg-red-50 border-red-100 hover:border-red-200"
                             >
                                 <Trash2 size={14} />
                                 <span>삭제</span>
@@ -188,13 +220,33 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
             <div className="p-6 border-t border-gray-200 bg-white shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
                 {branch.status === 'confirmed' ? (
-                    <div className="flex flex-col items-center justify-center gap-2 py-4 bg-green-50 border border-green-200 rounded-xl">
-                        <CheckCircle2 size={24} className="text-green-600" />
-                        <span className="text-sm font-bold text-green-800">이 일정이 최종 여행 코스로 확정되었습니다.</span>
+                    <div className="flex flex-col items-center justify-center gap-3 py-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 size={24} className="text-green-600" />
+                            <span className="text-sm font-bold text-green-800">이 일정이 최종 여행 코스로 확정되었습니다.</span>
+                        </div>
+                        {/* 확정 상태 && 방장일 경우 확정 해제 버튼 */}
+                        {canUnlock && (
+                            <button
+                                onClick={handleUnlock}
+                                className="flex items-center gap-1.5 px-4 py-2 mt-1 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                            >
+                                <Unlock size={14} /> 확정 해제하기
+                            </button>
+                        )}
                     </div>
                 ) : isLocked ? (
-                    <div className="flex flex-col items-center justify-center gap-2 py-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="flex flex-col items-center justify-center gap-3 py-4 bg-gray-50 border border-gray-200 rounded-xl">
                         <span className="text-sm font-bold text-gray-600">여행 일정이 확정되어 투표가 종료되었습니다.</span>
+                        {/* 다른 브랜치로 인해 방이 확정된 상태 && 방장일 경우 확정 해제 버튼 */}
+                        {canUnlock && (
+                            <button
+                                onClick={handleUnlock}
+                                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                            >
+                                <Unlock size={14} /> 방 확정 해제하기
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <>

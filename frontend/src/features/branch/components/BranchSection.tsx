@@ -15,7 +15,6 @@ export default function BranchSection() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const [isLocked, setIsLocked] = useState(false);
-    // 확정된 브랜치의 ID를 저장할 state를 추가합니다.
     const [confirmedBranchId, setConfirmedBranchId] = useState<number | null>(null);
 
     useEffect(() => {
@@ -26,25 +25,35 @@ export default function BranchSection() {
             api.get(`/trip-rooms/${numericId}`)
                 .then(response => {
                     const roomStatus = response.data.status;
-                    if (roomStatus === 'locked' || roomStatus === 'confirmed') {
-                        setIsLocked(true);
-                    }
+                    const currentRoomLocked = roomStatus === 'locked' || roomStatus === 'confirmed';
+                    setIsLocked(currentRoomLocked);
 
-                    // 백엔드에서 넘겨주는 summary 데이터에서 확정된 브랜치 ID를 추출하여 저장합니다.
                     const selectedId = response.data.summary?.selectedBranchId;
-                    if (selectedId) {
+                    if (currentRoomLocked && selectedId) {
                         setConfirmedBranchId(selectedId);
+                    } else {
+                        setConfirmedBranchId(null);
                     }
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
         }
     }, [tripRoomId, fetchBranches]);
 
-    // 상세 화면에 넘겨줄 브랜치 객체의 status를 강제로 'confirmed'로 덮어씌웁니다.
+    // TS 에러 해결: locked 비교 제거 및 undefined 처리
+    let overrideStatus = selectedBranch?.status;
+    if (selectedBranch) {
+        if (isLocked && selectedBranch.id === confirmedBranchId) {
+            overrideStatus = 'confirmed';
+        } else if (!isLocked && overrideStatus === 'confirmed') {
+            overrideStatus = 'voting';
+        }
+    }
+
+    // TS 에러 해결: 상태값을 확실한 타입으로 단언해줍니다.
     const activeBranch = selectedBranch
         ? {
             ...selectedBranch,
-            status: selectedBranch.id === confirmedBranchId ? 'confirmed' : selectedBranch.status
+            status: (overrideStatus || 'voting') as "confirmed" | "voting" | "pending"
         }
         : null;
 
@@ -53,7 +62,7 @@ export default function BranchSection() {
             <div className="w-[500px] min-w-[500px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
                 {activeBranch ? (
                     <BranchDetailSection
-                        branch={activeBranch} // 덮어씌운 브랜치 데이터를 전달합니다.
+                        branch={activeBranch}
                         isLocked={isLocked}
                         onBack={() => setSelectedBranch(null)}
                     />
@@ -62,7 +71,7 @@ export default function BranchSection() {
                         onSelectBranch={setSelectedBranch}
                         onOpenCreateModal={() => setIsCreateModalOpen(true)}
                         isLocked={isLocked}
-                        confirmedBranchId={confirmedBranchId} // 목록 화면에도 확정 ID를 전달합니다.
+                        confirmedBranchId={confirmedBranchId}
                     />
                 )}
             </div>
