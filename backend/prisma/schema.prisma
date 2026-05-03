@@ -5,6 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum RoomStatus {
@@ -42,12 +44,20 @@ enum VoteType {
   disagree
 }
 
+enum ProposalSource{
+  user
+  ai
+}
+
+
+
 model User {
   id           Int                @id @default(autoincrement())
   email        String             @unique
   passwordHash String             @map("password_hash")
   name         String
   createdAt    DateTime           @default(now()) @map("created_at")
+  chatMessages  ChatMessage[]
 
   hostedRooms  TripRoom[]         @relation("TripHost")
   memberships  TripMember[]
@@ -55,6 +65,7 @@ model User {
   proposals    PlaceProposal[]    @relation("ProposalAuthor")
   votes        BranchVote[]
   decisionLogs DecisionLog[]
+  createdBranches PlanBranch[]    @relation("BranchCreator")
 
   @@map("users")
 }
@@ -66,7 +77,11 @@ model TripRoom {
   endDate    DateTime?    @map("end_date") @db.Date
   hostUserId Int          @map("host_user_id")
   status     RoomStatus   @default(draft)
+  selectedBranchId  Int?  @map("selected_branch_id")
   createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+  thumbnailUrl  String?   @map("thumbnail_url")
+  chatRoom    ChatRoom?
 
   hostUser     User               @relation("TripHost", fields: [hostUserId], references: [id], onDelete: Cascade)
   members      TripMember[]
@@ -75,6 +90,7 @@ model TripRoom {
   proposals    PlaceProposal[]
   branches     PlanBranch[]
   decisionLogs DecisionLog[]
+  selectedBranch  PlanBranch? @relation("SelectedBranch",fields:[selectedBranchId],references:[id],onDelete:SetNull)
 
   @@map("trip_rooms")
 }
@@ -103,6 +119,7 @@ model InviteLink {
 
   tripRoom TripRoom @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
 
+  @@unique([tripRoomId])
   @@map("invite_links")
 }
 
@@ -112,10 +129,12 @@ model MemberPreference {
   userId        Int       @map("user_id")
   budgetMin     Int?      @map("budget_min")
   budgetMax     Int?      @map("budget_max")
-  styles        Json?
-  mustVisit     Json?     @map("must_visit")
-  avoid         Json?
-  availableTime Json?     @map("available_time")
+  styles        String[]    @default([])
+  mustVisit     String[]    @default([])
+  avoid         String[]    @default([])
+  availableTime String[]    @default([])
+  freeTextNote  String?   @map("free_text_note")
+  createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   tripRoom TripRoom @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
@@ -134,6 +153,7 @@ model Place {
   longitude    Decimal  @db.Decimal(10, 7)
   category     String?
   createdAt    DateTime @default(now()) @map("created_at")
+  externalPlaceId String? @unique @map("external_place_id")
 
   proposals    PlaceProposal[]
   branchPlaces BranchPlace[]
@@ -142,18 +162,20 @@ model Place {
 }
 
 model PlaceProposal {
-  id                Int            @id @default(autoincrement())
-  tripRoomId        Int            @map("trip_room_id")
-  proposerUserId    Int            @map("proposer_user_id")
-  placeId           Int            @map("place_id")
-  estimatedCost     Int?           @map("estimated_cost")
-  estimatedDuration Int?           @map("estimated_duration")
+  id                Int             @id @default(autoincrement())
+  tripRoomId        Int             @map("trip_room_id")
+  proposerUserId    Int?            @map("proposer_user_id")
+  placeId           Int             @map("place_id")
+  estimatedCost     Int?            @map("estimated_cost")
+  estimatedDuration Int?            @map("estimated_duration")
   comment           String?
-  status            ProposalStatus @default(pending)
-  createdAt         DateTime       @default(now()) @map("created_at")
+  aiReason          String?         @map("ai_reason")
+  source            ProposalSource  @default(user)
+  status            ProposalStatus  @default(pending)
+  createdAt         DateTime        @default(now()) @map("created_at")
 
   tripRoom     TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
-  proposerUser User          @relation("ProposalAuthor", fields: [proposerUserId], references: [id], onDelete: Cascade)
+  proposerUser User?         @relation("ProposalAuthor", fields: [proposerUserId], references: [id], onDelete: SetNull)
   place        Place         @relation(fields: [placeId], references: [id], onDelete: Cascade)
   branchPlaces BranchPlace[]
 
@@ -165,6 +187,7 @@ model PlanBranch {
   tripRoomId      Int             @map("trip_room_id")
   name            String          @db.VarChar(100)
   createdBy       BranchCreatedBy @map("created_by")
+  createdUserId   Int?            @map("created_user_id")
   totalCost       Int?            @map("total_cost")
   totalTravelTime Int?            @map("total_travel_time")
   preferenceScore Int?            @map("preference_score")
@@ -174,8 +197,10 @@ model PlanBranch {
   createdAt       DateTime        @default(now()) @map("created_at")
 
   tripRoom     TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
+  creator      User?         @relation("BranchCreator", fields: [createdUserId], references: [id], onDelete: SetNull)
   branchPlaces BranchPlace[]
   votes        BranchVote[]
+  selectedByRooms TripRoom[] @relation("SelectedBranch")
 
   @@map("plan_branches")
 }
@@ -191,6 +216,9 @@ model BranchPlace {
   endTime           String?  @map("end_time") @db.VarChar(20)
   estimatedCost     Int?     @map("estimated_cost")
   estimatedDuration Int?     @map("estimated_duration")
+  distanceMeters    Int?     @map("distance_meters")
+  durationSeconds   Int?     @map("duration_seconds")
+  routePolyline     String?  @map("route_polyline")
 
   branch   PlanBranch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
   place    Place         @relation(fields: [placeId], references: [id], onDelete: Cascade)
@@ -230,3 +258,29 @@ model DecisionLog {
 
   @@map("decision_logs")
 }
+
+model ChatRoom {
+  id         Int           @id @default(autoincrement())
+  tripRoomId Int           @unique @map("trip_room_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  tripRoom   TripRoom      @relation(fields: [tripRoomId], references: [id], onDelete: Cascade)
+  chatMessages   ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id           Int       @id @default(autoincrement())
+  chatRoomId    Int      @map("chat_room_id")
+  senderUserId  Int      @map("sender_user_id")
+  content       String   @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  chatRoom      ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  senderUser    User     @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
