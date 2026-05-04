@@ -22,6 +22,10 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
   return formatter.format(new Date(startDate ?? endDate ?? ""));
 }
 
+function toDateInputText(date: string | null) {
+  return date ? date.slice(0, 10) : "";
+}
+
 function statusLabel(status: string) {
   if (status === "draft") return "준비중";
   if (status === "voting") return "진행중";
@@ -49,8 +53,8 @@ export default function TripRoomPage() {
   );
   const [tripInfo, setTripInfo] = useState({
     destination: "",
-    date: "",
-    duration: "",
+    startDate: "",
+    endDate: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -78,6 +82,11 @@ export default function TripRoomPage() {
         const response = await getTripRoomDetail(numericTripRoomId);
         if (isMounted) {
           setTripRoomDetail(response);
+          setTripInfo({
+            destination: response.title,
+            startDate: toDateInputText(response.startDate),
+            endDate: toDateInputText(response.endDate),
+          });
         }
       } catch (caughtError) {
         if (!isMounted) return;
@@ -119,7 +128,7 @@ export default function TripRoomPage() {
   }, [tripRoomDetail]);
 
   function handleTripInfoChange(
-    field: "destination" | "date" | "duration",
+    field: "destination" | "startDate" | "endDate",
     value: string
   ) {
     setTripInfo((current) => ({ ...current, [field]: value }));
@@ -248,44 +257,49 @@ export default function TripRoomPage() {
                   <div>
                     <h2 className="text-xl font-semibold text-stone-900">여행 정보</h2>
                     <p className="mt-2 text-sm text-stone-500">
-                      여행지, 날짜, 기간을 메인페이지에서 바로 정리할 수 있어요.
+                      여행지와 여행 일정을 메인페이지에서 바로 정리할 수 있어요.
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                <div className="mt-6 grid gap-5 sm:grid-cols-3">
                   {[
                     {
                       field: "destination" as const,
                       label: "여행지",
                       placeholder: "예: 부산 해운대",
+                      type: "text",
                     },
                     {
-                      field: "date" as const,
-                      label: "여행날짜",
-                      placeholder: "예: 2026-05-20",
+                      field: "startDate" as const,
+                      label: "여행 시작일",
+                      placeholder: "",
+                      type: "date",
                     },
                     {
-                      field: "duration" as const,
-                      label: "여행기간",
-                      placeholder: "예: 2박 3일",
+                      field: "endDate" as const,
+                      label: "여행 종료일",
+                      placeholder: "",
+                      type: "date",
                     },
                   ].map((item) => (
-                    <div
-                      className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4"
+                    <label
+                      className="block"
                       key={item.label}
                     >
-                      <p className="text-sm font-medium text-stone-600">{item.label}</p>
+                      <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                        {item.label}
+                      </span>
                       <input
-                        className="mt-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
                         onChange={(event) =>
                           handleTripInfoChange(item.field, event.target.value)
                         }
                         placeholder={item.placeholder}
-                        type="text"
+                        type={item.type}
                         value={tripInfo[item.field]}
                       />
-                    </div>
+                    </label>
                   ))}
                 </div>
 
