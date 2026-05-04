@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { clearAuthSession, getAccessToken } from "../services/authStorage";
 import { createTripRoom, getMyTripRooms } from "../services/tripRoomApi";
@@ -8,6 +8,7 @@ function TripRoomCard({
   tripRoomId,
   status,
   title,
+  thumbnailUrl,
   memberCount,
   memberNamesPreview,
   remainingMemberCount,
@@ -15,6 +16,7 @@ function TripRoomCard({
   tripRoomId: number;
   status: string;
   title: string;
+  thumbnailUrl: string | null;
   memberCount: number;
   memberNamesPreview: string[];
   remainingMemberCount: number;
@@ -43,7 +45,7 @@ function TripRoomCard({
         <img
           alt={title}
           className="h-full w-full object-cover"
-          src="https://placehold.co/258x194"
+          src={thumbnailUrl || "https://placehold.co/258x194"}
         />
         <div className="absolute inset-0 bg-black/5" />
       </div>
@@ -62,9 +64,6 @@ function TripRoomCard({
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-sm font-medium leading-[21px] text-stone-700">
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-stone-500 text-[10px]">
-              인
-            </span>
             <span>현재 참여 인원 : {memberCount}명</span>
           </div>
           <p className="text-sm leading-[21px] text-stone-500">
@@ -84,7 +83,7 @@ export default function TripRoomListPage() {
   const [tripTitle, setTripTitle] = useState("");
   const [tripStartDate, setTripStartDate] = useState("");
   const [tripEndDate, setTripEndDate] = useState("");
-  const [selectedImageName, setSelectedImageName] = useState("");
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [listError, setListError] = useState("");
@@ -137,17 +136,14 @@ export default function TripRoomListPage() {
     };
   }, [navigate]);
 
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    setSelectedImageName(file?.name ?? "");
-  }
-
   function handleLogout() {
     clearAuthSession();
     navigate("/login", { replace: true });
   }
 
   async function handleCreateTripRoom() {
+    const trimmedThumbnailUrl = thumbnailUrl.trim();
+
     if (!tripTitle.trim()) {
       setCreateError("title은 필수입니다.");
       return;
@@ -161,14 +157,14 @@ export default function TripRoomListPage() {
         title: tripTitle.trim(),
         startDate: tripStartDate || undefined,
         endDate: tripEndDate || undefined,
-        thumbnailUrl: null,
+        thumbnailUrl: trimmedThumbnailUrl || null,
       });
 
       setIsCreateModalOpen(false);
       setTripTitle("");
       setTripStartDate("");
       setTripEndDate("");
-      setSelectedImageName("");
+      setThumbnailUrl("");
 
       navigate(`/trip-rooms/${createdTripRoom.tripRoomId}`, {
         replace: true,
@@ -271,6 +267,7 @@ export default function TripRoomListPage() {
                     tripRoomId={tripRoom.tripRoomId}
                     status={tripRoom.status}
                     title={tripRoom.title}
+                    thumbnailUrl={tripRoom.thumbnailUrl}
                     memberCount={tripRoom.memberCount}
                     memberNamesPreview={tripRoom.memberNamesPreview}
                     remainingMemberCount={tripRoom.remainingMemberCount}
@@ -346,25 +343,26 @@ export default function TripRoomListPage() {
                 <p className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
                   대표 사진
                 </p>
-                <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 px-6 py-6 text-center">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-                    <span className="text-2xl text-stone-600">⌁</span>
-                  </span>
-                  <div>
-                    <p className="text-[15px] font-medium leading-[22.5px] text-stone-700">
-                      {selectedImageName || "클릭하여 사진 업로드"}
-                    </p>
-                    <p className="mt-1 text-[13px] font-medium leading-[19.5px] text-stone-400">
-                      JPG, PNG 형식 지원 (최대 5MB)
-                    </p>
-                  </div>
-                  <input
-                    accept="image/png,image/jpeg"
-                    className="hidden"
-                    onChange={handleImageChange}
-                    type="file"
-                  />
-                </label>
+                <input
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
+                  onChange={(event) => setThumbnailUrl(event.target.value)}
+                  placeholder="https://example.com/trip-thumbnail.jpg"
+                  type="url"
+                  value={thumbnailUrl}
+                />
+                <div className="mt-3 h-40 overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                  {thumbnailUrl.trim() ? (
+                    <img
+                      alt="대표 사진 미리보기"
+                      className="h-full w-full object-cover"
+                      src={thumbnailUrl.trim()}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-6 text-center text-[13px] font-medium leading-[19.5px] text-stone-400">
+                      이미지 URL을 입력하면 미리보기가 표시됩니다.
+                    </div>
+                  )}
+                </div>
               </div>
 
               {createError ? (
