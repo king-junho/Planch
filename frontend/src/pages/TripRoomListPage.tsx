@@ -4,74 +4,6 @@ import { clearAuthSession, getAccessToken } from "../services/authStorage";
 import { createTripRoom, getMyTripRooms } from "../services/tripRoomApi";
 import { TripRoomListItem } from "../types/tripRoom";
 
-type ChatMessage = {
-  id: number;
-  author: string;
-  text: string;
-  time: string;
-  isMine?: boolean;
-};
-
-type ChatRoom = {
-  id: number;
-  title: string;
-  previewParticipants: string;
-  unreadCount: number;
-  messages: ChatMessage[];
-};
-
-const initialChatRooms: ChatRoom[] = [
-  {
-    id: 1,
-    title: "동아리 MT",
-    previewParticipants: "김준호, 복성준, 김호영...",
-    unreadCount: 3,
-    messages: [
-      {
-        id: 1,
-        author: "김준호",
-        text: "다들 언제쯤 도착해? 로비에서 기다리는 중!",
-        time: "오후 2:30",
-      },
-      {
-        id: 2,
-        author: "나",
-        text: "나 지금 거의 다 왔어! 5분만 기다려줘",
-        time: "오후 2:32",
-        isMine: true,
-      },
-    ],
-  },
-  {
-    id: 2,
-    title: "캡스톤 MT",
-    previewParticipants: "김준호, 복성준, 김호영...",
-    unreadCount: 40,
-    messages: [
-      {
-        id: 1,
-        author: "복성준",
-        text: "회의 자료는 내가 정리해서 올릴게",
-        time: "오후 1:10",
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: "중학교 동창 여행",
-    previewParticipants: "김준호, 복성준, 김호영...",
-    unreadCount: 10,
-    messages: [
-      {
-        id: 1,
-        author: "최병욱",
-        text: "숙소 후보 세 군데 비교해보자",
-        time: "오전 11:12",
-      },
-    ],
-  },
-];
-
 function TripRoomCard({
   tripRoomId,
   status,
@@ -148,10 +80,6 @@ export default function TripRoomListPage() {
   const navigate = useNavigate();
   const isLoggedIn = Boolean(getAccessToken());
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isChatListOpen, setIsChatListOpen] = useState(false);
-  const [activeChatRoomId, setActiveChatRoomId] = useState<number | null>(null);
-  const [chatRooms, setChatRooms] = useState(initialChatRooms);
-  const [messageDraft, setMessageDraft] = useState("");
   const [tripRooms, setTripRooms] = useState<TripRoomListItem[]>([]);
   const [tripTitle, setTripTitle] = useState("");
   const [tripStartDate, setTripStartDate] = useState("");
@@ -161,9 +89,6 @@ export default function TripRoomListPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [listError, setListError] = useState("");
   const [isListLoading, setIsListLoading] = useState(true);
-
-  const activeChatRoom =
-    chatRooms.find((chatRoom) => chatRoom.id === activeChatRoomId) ?? null;
 
   useEffect(() => {
     let isMounted = true;
@@ -215,38 +140,6 @@ export default function TripRoomListPage() {
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setSelectedImageName(file?.name ?? "");
-  }
-
-  function handleChatRoomOpen(chatRoomId: number) {
-    setIsChatListOpen(true);
-    setActiveChatRoomId(chatRoomId);
-  }
-
-  function handleChatSend() {
-    if (!messageDraft.trim() || !activeChatRoomId) {
-      return;
-    }
-
-    setChatRooms((currentChatRooms) =>
-      currentChatRooms.map((chatRoom) =>
-        chatRoom.id === activeChatRoomId
-          ? {
-              ...chatRoom,
-              messages: [
-                ...chatRoom.messages,
-                {
-                  id: Date.now(),
-                  author: "나",
-                  text: messageDraft.trim(),
-                  time: "방금",
-                  isMine: true,
-                },
-              ],
-            }
-          : chatRoom
-      )
-    );
-    setMessageDraft("");
   }
 
   function handleLogout() {
@@ -505,126 +398,6 @@ export default function TripRoomListPage() {
         </div>
       ) : null}
 
-      {activeChatRoom && isChatListOpen ? (
-        <div className="fixed bottom-28 right-[396px] z-40 hidden w-[300px] xl:flex xl:flex-col xl:items-end xl:gap-4">
-          <div className="flex h-[496px] w-[300px] flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
-            <div className="flex h-[65px] items-center gap-2 border-b border-stone-200 px-4">
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-full text-xl text-stone-900"
-                onClick={() => setActiveChatRoomId(null)}
-                type="button"
-              >
-                ‹
-              </button>
-              <div className="truncate text-[15px] font-bold leading-[22.5px] text-stone-900">
-                {activeChatRoom.title}
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-6 overflow-y-auto bg-[#FCFCFC] px-4 py-4">
-              {activeChatRoom.messages.map((message) =>
-                message.isMine ? (
-                  <div className="flex flex-col items-end gap-1" key={message.id}>
-                    <div className="flex items-end gap-2">
-                      <span className="text-[11px] leading-[16.5px] tracking-[0.06px] text-stone-400">
-                        {message.time}
-                      </span>
-                      <div className="max-w-[199.5px] rounded-bl-2xl rounded-br-2xl rounded-tl-2xl rounded-tr bg-stone-900 px-[14px] py-[10px] text-sm leading-[19.25px] text-white shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-                        {message.text}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1" key={message.id}>
-                    <p className="pl-1 text-xs leading-[18px] text-stone-400">
-                      {message.author}
-                    </p>
-                    <div className="flex items-end gap-2">
-                      <div className="max-w-[199.5px] rounded-bl-2xl rounded-br-2xl rounded-tl rounded-tr-2xl border border-stone-200 bg-white px-[15px] py-[11px] text-sm leading-[19.25px] text-stone-900 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-                        {message.text}
-                      </div>
-                      <span className="text-[11px] leading-[16.5px] tracking-[0.06px] text-stone-400">
-                        {message.time}
-                      </span>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 border-t border-stone-200 bg-white px-3 py-3">
-              <input
-                className="h-[43px] flex-1 rounded-full bg-stone-100 px-4 text-sm text-stone-900 outline-none placeholder:text-stone-500"
-                onChange={(event) => setMessageDraft(event.target.value)}
-                placeholder="메시지 입력..."
-                type="text"
-                value={messageDraft}
-              />
-              <button
-                className="flex h-[37px] w-[37px] items-center justify-center rounded-full bg-stone-900 text-sm text-white"
-                onClick={handleChatSend}
-                type="button"
-              >
-                ↑
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isChatListOpen ? (
-        <div className="fixed bottom-28 right-8 z-40 hidden w-[300px] xl:flex xl:flex-col xl:items-end xl:gap-4">
-          <div className="flex h-[496px] w-[300px] flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
-            <div className="flex h-[65px] items-center border-b border-stone-100 px-6">
-              <h3 className="text-base font-bold leading-6 text-stone-900">채팅</h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {chatRooms.map((chatRoom) => (
-                <button
-                  className="flex h-20 w-full items-center justify-between px-6 text-left transition hover:bg-stone-50"
-                  key={chatRoom.id}
-                  onClick={() => handleChatRoomOpen(chatRoom.id)}
-                  type="button"
-                >
-                  <div className="space-y-1">
-                    <p className="text-[15px] font-medium leading-[22.5px] text-stone-900">
-                      {chatRoom.title}
-                    </p>
-                    <p className="text-[13px] leading-[19.5px] text-stone-400">
-                      {chatRoom.previewParticipants}
-                    </p>
-                  </div>
-                  <span className="text-sm font-medium leading-[21px] text-stone-900">
-                    {chatRoom.unreadCount}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="fixed bottom-8 right-8 z-40 flex flex-col items-end gap-4">
-        <button
-          className={
-            isChatListOpen
-              ? "flex h-[60px] w-[60px] items-center justify-center rounded-full bg-stone-900 text-2xl text-white shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
-              : "flex h-[60px] w-[60px] items-center justify-center rounded-full border border-stone-200 bg-white text-2xl text-stone-900 shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
-          }
-          onClick={() => {
-            setIsChatListOpen((current) => !current);
-            if (isChatListOpen) {
-              setActiveChatRoomId(null);
-            }
-          }}
-          type="button"
-        >
-          <span className="text-sm font-semibold uppercase">
-            {isChatListOpen ? "x" : "chat"}
-          </span>
-        </button>
-      </div>
     </div>
   );
 }

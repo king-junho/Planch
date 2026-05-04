@@ -12,6 +12,20 @@ export function getAccessToken() {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+export function getAuthUser(): AuthUser | null {
+  const rawUser = localStorage.getItem(AUTH_USER_KEY);
+
+  if (!rawUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawUser) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
 export function clearAuthSession() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
