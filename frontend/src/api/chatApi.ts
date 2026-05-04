@@ -32,7 +32,7 @@ export async function getChatMessages(
 ): Promise<ChatMessagesResponse> {
   try {
     const response = await api.get<ChatMessagesResponse>(
-      `/trip-rooms/${tripRoomId}/chat`
+      `/trip-rooms/${tripRoomId}/chat`  
     );
     return response.data;
   } catch (caughtError) {

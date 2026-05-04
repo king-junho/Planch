@@ -29,5 +29,5 @@ export type ChatMessage = {
 export type ChatMessagesResponse = {
   tripRoomId: number;
   tripRoomTitle: string;
-  messages: ChatMessage[];
+  chatMessages: ChatMessage[];
 };

@@ -1,6 +1,4 @@
-import { createDeflate } from "node:zlib";
 import prisma from "../lib/prisma";
-import { authenticate } from "../middlewares/authMiddleware";
 
 export const getMyChatRoomsService = async(userId : number) => {
     const tripRooms = await prisma.tripRoom.findMany({
@@ -23,7 +21,7 @@ export const getMyChatRoomsService = async(userId : number) => {
                 select:{
                     id: true,
                     updatedAt:true,
-                    messages:{
+                    chatMessages:{
                         orderBy:{
                             createdAt:"desc",
                         },
@@ -44,7 +42,7 @@ export const getMyChatRoomsService = async(userId : number) => {
     });
 
     return tripRooms.map((tripRoom)=>{
-        const lastMessage = tripRoom.chatRoom?.messages[0];
+        const lastMessage = tripRoom.chatRoom?.chatMessages[0];
 
         return {
             chatRoomId: tripRoom.chatRoom?.id ?? null,
@@ -106,7 +104,7 @@ export const getTripRoomChatMessagesService = async (tripRoomId:number, userId:n
             data:{
                 tripRoomId,
                 tripRoomTitle: tripRoom.title,
-                messages:[],
+                chatMessages:[],
             },
         };
     }
@@ -135,7 +133,7 @@ export const getTripRoomChatMessagesService = async (tripRoomId:number, userId:n
         data:{
             tripRoomId,
             tripRoomTitle: tripRoom.title,
-            messages: messages.map((message)=>({
+            chatMessages: messages.map((message)=>({
                 messageId: message.id,
                 tripRoomId,
                 sender:{

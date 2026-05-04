@@ -96,6 +96,16 @@ export default function FloatingChatRooms() {
   }, [canShow]);
 
   useEffect(() => {
+  const savedTripRoomId = localStorage.getItem("activeTripRoomId");
+  if (!savedTripRoomId) return;
+
+  const parsed = Number(savedTripRoomId);
+  if (Number.isNaN(parsed)) return;
+
+  setActiveTripRoomId(parsed);
+}, []);
+
+  useEffect(() => {
     activeTripRoomIdRef.current = activeTripRoomId;
   }, [activeTripRoomId]);
 
@@ -114,7 +124,7 @@ export default function FloatingChatRooms() {
         behavior: "smooth",
       });
     });
-  }, [activeTripRoomId, activeChat?.messages.length]);
+  }, [activeTripRoomId, activeChat?.chatMessages.length]);
 
   useEffect(() => {
     if (!canShow || !isOpen) {
@@ -154,6 +164,14 @@ export default function FloatingChatRooms() {
       isMounted = false;
     };
   }, [canShow, isOpen]);
+
+  useEffect(() => {
+  if (!canShow || !isOpen || !activeTripRoomId) {
+    return;
+  }
+
+  void loadMessages(activeTripRoomId);
+}, [canShow, isOpen, activeTripRoomId]);
 
   useEffect(() => {
     if (!canShow || !activeTripRoomId) {
@@ -223,7 +241,7 @@ export default function FloatingChatRooms() {
       const response = await getChatMessages(tripRoomId);
       setActiveChat({
         ...response,
-        messages: Array.isArray(response.messages) ? response.messages : [],
+        chatMessages: Array.isArray(response.chatMessages) ? response.chatMessages : [],
       });
     } catch (caughtError) {
       setMessageErrorMessage(
@@ -237,6 +255,7 @@ export default function FloatingChatRooms() {
   }
 
   function handleChatRoomClick(tripRoomId: number) {
+    localStorage.setItem("activeTripRoomId", String(tripRoomId));
     setActiveTripRoomId(tripRoomId);
     setActiveChat(null);
     setMessageDraft("");
@@ -308,52 +327,52 @@ export default function FloatingChatRooms() {
   }
 
   function appendMessage(message: ChatMessage) {
-    setActiveChat((current) => {
-      if (!current && activeTripRoomIdRef.current === message.tripRoomId) {
-        return {
-          tripRoomId: message.tripRoomId,
-          tripRoomTitle:
-            chatRoomsRef.current.find(
-              (chatRoom) => chatRoom.tripRoomId === message.tripRoomId
-            )?.tripRoomTitle ?? "채팅",
-          messages: [message],
-        };
-      }
-
-      if (!current || current.tripRoomId !== message.tripRoomId) {
-        return current;
-      }
-
-      if (
-        current.messages.some(
-          (currentMessage) => currentMessage.messageId === message.messageId
-        )
-      ) {
-        return current;
-      }
-
+  setActiveChat((current) => {
+    if (!current && activeTripRoomIdRef.current === message.tripRoomId) {
       return {
-        ...current,
-        messages: [...current.messages, message],
+        tripRoomId: message.tripRoomId,
+        tripRoomTitle:
+          chatRoomsRef.current.find(
+            (chatRoom) => chatRoom.tripRoomId === message.tripRoomId
+          )?.tripRoomTitle ?? "채팅",
+        chatMessages: [message],
       };
-    });
+    }
 
-    setChatRooms((current) =>
-      current.map((chatRoom) =>
-        chatRoom.tripRoomId === message.tripRoomId
-          ? {
-              ...chatRoom,
-              lastMessage: {
-                content: message.content,
-                senderName: getSenderName(message),
-                createdAt: message.createdAt,
-              },
-              updatedAt: message.createdAt,
-            }
-          : chatRoom
+    if (!current || current.tripRoomId !== message.tripRoomId) {
+      return current;
+    }
+
+    if (
+      current.chatMessages.some(
+        (currentMessage) => currentMessage.messageId === message.messageId
       )
-    );
-  }
+    ) {
+      return current;
+    }
+
+    return {
+      ...current,
+      chatMessages: [...current.chatMessages, message],
+    };
+  });
+
+  setChatRooms((current) =>
+    current.map((chatRoom) =>
+      chatRoom.tripRoomId === message.tripRoomId
+        ? {
+            ...chatRoom,
+            lastMessage: {
+              content: message.content,
+              senderName: getSenderName(message),
+              createdAt: message.createdAt,
+            },
+            updatedAt: message.createdAt,
+          }
+        : chatRoom
+    )
+  );
+}
 
   async function handleSendMessage() {
     const content = messageDraft.trim();
@@ -487,13 +506,13 @@ export default function FloatingChatRooms() {
                   <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-600">
                     {messageErrorMessage}
                   </div>
-                ) : !activeChat || activeChat.messages.length === 0 ? (
+                ) : !activeChat || activeChat.chatMessages.length === 0 ? (
                   <div className="flex h-full items-center justify-center px-6 text-center text-sm leading-6 text-stone-500">
                     아직 메시지가 없습니다.
                   </div>
                 ) : (
                   <div className="space-y-5">
-                    {activeChat?.messages.map((message) => renderMessage(message))}
+                    {activeChat?.chatMessages.map((message) => renderMessage(message))}
                   </div>
                 )}
               </div>

@@ -80,10 +80,6 @@ export const deleteProposalService = async (
     throw new Error("Proposal is used in branch");
   }
 
-  await prisma.placeProposal.delete({
-    where: { id: proposalId },
-  });
-
   await prisma.$transaction([
   prisma.decisionLog.create({
     data: {
