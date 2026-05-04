@@ -8,6 +8,14 @@ interface CreateTripRoomInput {
   thumbnailUrl?: string | null;
 }
 
+interface UpdateTripRoomInput {
+  tripRoomId: number;
+  userId: number;
+  title?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
 interface SaveMyPreferenceInput{
   tripRoomId:number;
   userId:number;
@@ -19,6 +27,97 @@ interface SaveMyPreferenceInput{
   availableTime?: string[];
   freeTextNote?: string;
 }
+
+function parseOptionalDate(value: string | null | undefined, fieldName: "startDate" | "endDate") {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === "") {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error(fieldName === "startDate" ? "Invalid startDate" : "Invalid endDate");
+  }
+
+  return parsedDate;
+}
+
+export const updateTripRoomService = async ({
+  tripRoomId,
+  userId,
+  title,
+  startDate,
+  endDate,
+}: UpdateTripRoomInput) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: { id: tripRoomId },
+    select: {
+      id: true,
+      hostUserId: true,
+      status: true,
+      startDate: true,
+      endDate: true,
+    },
+  });
+
+  if (!tripRoom) {
+    throw new Error("Trip room not found");
+  }
+
+  if (tripRoom.hostUserId !== userId) {
+    throw new Error("Forbidden");
+  }
+
+  if (tripRoom.status === "locked") {
+    throw new Error("Trip room is locked");
+  }
+
+  const parsedStartDate = parseOptionalDate(startDate, "startDate");
+  const parsedEndDate = parseOptionalDate(endDate, "endDate");
+  const mergedStartDate =
+    parsedStartDate !== undefined ? parsedStartDate : tripRoom.startDate;
+  const mergedEndDate =
+    parsedEndDate !== undefined ? parsedEndDate : tripRoom.endDate;
+
+  if (mergedStartDate && mergedEndDate && mergedEndDate < mergedStartDate) {
+    throw new Error("End date before start date");
+  }
+
+  const updatedTripRoom = await prisma.tripRoom.update({
+    where: { id: tripRoomId },
+    data: {
+      ...(title !== undefined ? { title: title.trim() } : {}),
+      ...(parsedStartDate !== undefined ? { startDate: parsedStartDate } : {}),
+      ...(parsedEndDate !== undefined ? { endDate: parsedEndDate } : {}),
+    },
+    select: {
+      id: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+      status: true,
+      thumbnailUrl: true,
+      selectedBranchId: true,
+      updatedAt: true,
+    },
+  });
+
+  return {
+    tripRoomId: updatedTripRoom.id,
+    title: updatedTripRoom.title,
+    startDate: updatedTripRoom.startDate,
+    endDate: updatedTripRoom.endDate,
+    status: updatedTripRoom.status,
+    thumbnailUrl: updatedTripRoom.thumbnailUrl,
+    selectedBranchId: updatedTripRoom.selectedBranchId ?? null,
+    updatedAt: updatedTripRoom.updatedAt,
+    saved: true as const,
+  };
+};
 
 export const unlockTripRoomService = async (tripRoomId : number, userId: number)=>{
   const tripRoom = await prisma.tripRoom.findUnique({

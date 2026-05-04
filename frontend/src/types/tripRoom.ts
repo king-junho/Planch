@@ -5,6 +5,12 @@ export type CreateTripRoomRequest = {
   thumbnailUrl: string | null;
 };
 
+export type UpdateTripRoomRequest = {
+  title?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
 export type TripRoomListItem = {
   tripRoomId: number;
   title: string;
@@ -79,4 +85,16 @@ export type CreateInviteLinkResponse = {
   inviteUrl: string;
   token: string;
   expiresAt: string;
+};
+
+export type UpdateTripRoomResponse = {
+  tripRoomId: number;
+  title: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: string;
+  thumbnailUrl: string | null;
+  selectedBranchId: number | null;
+  updatedAt: string;
+  saved: boolean;
 };

@@ -7,6 +7,8 @@ import {
   TripRoomDetailResponse,
   TripRoomListItem,
   TripRoomSummary,
+  UpdateTripRoomRequest,
+  UpdateTripRoomResponse,
 } from "../types/tripRoom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -111,6 +113,43 @@ export async function getTripRoomDetail(
   }
 
   return (await response.json()) as TripRoomDetailResponse;
+}
+
+export async function updateTripRoom(
+  tripRoomId: number,
+  request: UpdateTripRoomRequest
+): Promise<UpdateTripRoomResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms/${tripRoomId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    let message = "여행 정보 저장에 실패했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as UpdateTripRoomResponse;
 }
 
 export async function joinTripRoomByInviteLink(

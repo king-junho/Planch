@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
-import { getTripRoomDetail } from "../services/tripRoomApi";
+import { getTripRoomDetail, updateTripRoom } from "../services/tripRoomApi";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
@@ -138,6 +138,26 @@ export default function TripRoomPage() {
   function handleTripInfoSave() {
     setTripInfoMessage("여행 정보가 저장되었습니다.");
     setToast({ type: "success", message: "여행 정보가 저장되었습니다." });
+  }
+
+  async function handleTripInfoSaveRequest() {
+    try {
+      await updateTripRoom(numericTripRoomId, {
+        title: tripInfo.destination,
+        startDate: tripInfo.startDate || null,
+        endDate: tripInfo.endDate || null,
+      });
+
+      handleTripInfoSave();
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행 정보 저장에 실패했습니다.";
+
+      setTripInfoMessage(message);
+      setToast({ type: "error", message });
+    }
   }
 
   if (isLoading) {
@@ -309,7 +329,7 @@ export default function TripRoomPage() {
                   </div>
                   <button
                     className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white"
-                    onClick={handleTripInfoSave}
+                    onClick={handleTripInfoSaveRequest}
                     type="button"
                   >
                     여행 정보 저장하기

@@ -3,12 +3,82 @@ import {
   getMyTripRoomsService,
   getTripRoomDetailService,
   createTripRoomService,
+  updateTripRoomService,
   finalizeTripRoomService,
   saveMyPreferenceService,
   getPreferenceListService,
   unlockTripRoomService,
 } from "../services/tripRoomService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+
+export const updateTripRoom = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tripRoomId = Number(req.params.tripRoomId);
+    const userId = req.user?.id;
+    const { title, startDate, endDate } = req.body;
+
+    if (Number.isNaN(tripRoomId)) {
+      return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
+    }
+
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({ message: "title은 문자열이어야 합니다." });
+    }
+
+    if (typeof title === "string" && !title.trim()) {
+      return res.status(400).json({ message: "title은 빈 문자열일 수 없습니다." });
+    }
+
+    if (startDate !== undefined && startDate !== null && typeof startDate !== "string") {
+      return res.status(400).json({ message: "startDate는 문자열 또는 null이어야 합니다." });
+    }
+
+    if (endDate !== undefined && endDate !== null && typeof endDate !== "string") {
+      return res.status(400).json({ message: "endDate는 문자열 또는 null이어야 합니다." });
+    }
+
+    const result = await updateTripRoomService({
+      tripRoomId,
+      userId,
+      title,
+      startDate,
+      endDate,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Trip room not found") {
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Forbidden") {
+      return res.status(403).json({ message: "호스트만 여행 정보를 수정할 수 있습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "확정된 여행방은 여행 정보를 수정할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Invalid startDate") {
+      return res.status(400).json({ message: "유효하지 않은 startDate입니다." });
+    }
+
+    if (error instanceof Error && error.message === "Invalid endDate") {
+      return res.status(400).json({ message: "유효하지 않은 endDate입니다." });
+    }
+
+    if (error instanceof Error && error.message === "End date before start date") {
+      return res.status(400).json({ message: "endDate는 startDate보다 빠를 수 없습니다." });
+    }
+
+    console.error("updateTripRoom error:", error);
+    return res.status(500).json({ message: "여행 정보 저장 중 서버 오류가 발생했습니다." });
+  }
+};
 
 export const unlockTripRoom = async(req:AuthenticatedRequest, res:Response) => {
   try{

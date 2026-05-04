@@ -3,6 +3,7 @@ import {
     getMyTripRooms,
     getTripRoomDetail,
     createTripRoom,
+    updateTripRoom,
     finalizeTripRoom,
     saveMyPreference,
     getPreferenceList,
@@ -18,6 +19,7 @@ router.get("/", authenticate, getMyTripRooms);
 router.post("/",authenticate, createTripRoom);
 
 router.get("/:tripRoomId", authenticate,getTripRoomDetail);
+router.put("/:tripRoomId", authenticate, updateTripRoom);
 
 router.put("/:tripRoomId/preferences/me",authenticate ,saveMyPreference);
 router.get("/:tripRoomId/preferences",authenticate ,getPreferenceList);
