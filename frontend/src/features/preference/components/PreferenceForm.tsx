@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckSquare, Square, Plus, Loader2, Lock } from 'lucide-react'; // Lock 아이콘 추가
+import { X, CheckSquare, Square, Plus, Loader2, Lock } from 'lucide-react';
 import { usePreferenceStore } from '../store/usePreferenceStore';
 import { getAccessToken } from '../../../services/authStorage';
 
 interface PreferenceFormProps {
-    isLocked?: boolean; // 확정 여부를 받는 prop 추가
+    isLocked?: boolean;
 }
 
 export default function PreferenceForm({ isLocked = false }: PreferenceFormProps) {
@@ -16,7 +16,7 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
         removeArrayItem,
         initializeFormWithExisting,
         teamPreferences,
-        isLoading // 스토어에서 로딩 상태를 가져옵니다.
+        isLoading
     } = usePreferenceStore();
 
     const [mustGoInput, setMustGoInput] = useState('');
@@ -25,10 +25,8 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
     const styleOptions = ['맛집', '카페', '관광', '휴식', '사진스팟', '쇼핑', '액티비티'];
     const timeOptions = ['오전', '오후', '저녁'];
 
-    // 로딩 중이거나 방이 잠긴 경우 폼 조작을 비활성화
     const isDisabled = isLoading || isLocked;
 
-    // 로컬 스토리지가 아닌, 프로젝트 전용 getAccessToken 함수를 사용합니다.
     useEffect(() => {
         if (teamPreferences.length > 0) {
             const token = getAccessToken();
@@ -51,7 +49,7 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
     const handleAddTag = (e: React.KeyboardEvent, type: 'go' | 'avoid') => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (isDisabled) return; // 비활성화 상태면 태그 추가 금지
+            if (isDisabled) return;
 
             const value = type === 'go' ? mustGoInput.trim() : mustAvoidInput.trim();
             if (!value) return;
@@ -68,7 +66,6 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
 
     return (
         <div className="flex flex-col gap-12 relative min-h-[400px]">
-            {/* 로딩 오버레이 추가 */}
             {isLoading && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm rounded-xl">
                     <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-2" />
@@ -76,7 +73,6 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
                 </div>
             )}
 
-            {/* 확정되었을 때 폼 최상단에 보여줄 경고 배너 */}
             {isLocked && (
                 <div className="flex items-center gap-2 p-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-600">
                     <Lock size={16} />
@@ -117,8 +113,8 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
                             onClick={() => toggleArrayItem('styles', style)}
                             disabled={isDisabled}
                             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${formData.styles.includes(style)
-                                ? 'bg-gray-900 text-white shadow-md'
-                                : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
+                                    ? 'bg-gray-900 text-white shadow-md'
+                                    : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
                                 }`}
                         >
                             {style}
@@ -179,22 +175,25 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
 
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-6">주요 활동 시간대</h3>
-                <div className="flex gap-8">
+                {/* 이 부분이 수정되었습니다 */}
+                <div className="flex gap-4">
                     {timeOptions.map((time) => (
-                        <label key={time} className={`flex items-center gap-3 group ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                            <button
-                                onClick={() => toggleArrayItem('activeTimes', time)}
-                                disabled={isDisabled}
-                                className="focus:outline-none disabled:cursor-not-allowed"
-                            >
-                                {formData.activeTimes.includes(time) ? (
-                                    <CheckSquare size={24} className="text-gray-900" />
-                                ) : (
-                                    <Square size={24} className={`text-gray-200 ${!isDisabled && 'group-hover:text-gray-300'}`} />
-                                )}
-                            </button>
+                        <button
+                            key={time}
+                            onClick={() => toggleArrayItem('activeTimes', time)}
+                            disabled={isDisabled}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl group transition-all outline-none border border-transparent ${isDisabled
+                                    ? 'cursor-not-allowed opacity-50'
+                                    : 'cursor-pointer hover:bg-gray-50 hover:border-gray-100'
+                                }`}
+                        >
+                            {formData.activeTimes.includes(time) ? (
+                                <CheckSquare size={24} className="text-gray-900 shrink-0" />
+                            ) : (
+                                <Square size={24} className={`text-gray-200 shrink-0 ${!isDisabled && 'group-hover:text-gray-300'}`} />
+                            )}
                             <span className="text-base font-bold text-gray-700">{time}</span>
-                        </label>
+                        </button>
                     ))}
                 </div>
             </section>
