@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import { useProposalStore } from '../store/useProposalStore';
 import ProposalCard from './ProposalCard';
 
-export default function ProposalListArea() {
+interface ProposalListAreaProps {
+    hostUserId?: number; // 상위 컴포넌트에서 방장의 유저 ID를 전달받습니다.
+}
+
+export default function ProposalListArea({ hostUserId }: ProposalListAreaProps) {
     const { proposals, isLoading } = useProposalStore();
     const [currentUserId, setCurrentUserId] = useState<number | undefined>(undefined);
 
-    // 임시 방장 권한 (실제 구현 시 전역 상태나 상위 컴포넌트에서 받아옵니다)
-    const isHost = true;
-
     // 컴포넌트가 화면에 뜰 때 로컬 스토리지의 토큰에서 내 유저 ID를 추출합니다.
     useEffect(() => {
-        // 프로젝트 설정에 맞게 planch.accessToken으로 변경
         const token = localStorage.getItem('planch.accessToken');
         if (token) {
             try {
@@ -27,6 +27,9 @@ export default function ProposalListArea() {
             }
         }
     }, []);
+
+    // 현재 로그인한 내 ID와 상위에서 넘겨받은 방장 ID가 일치할 때만 true가 됩니다.
+    const isHost = currentUserId !== undefined && hostUserId !== undefined && currentUserId === hostUserId;
 
     if (isLoading) {
         return <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">데이터를 불러오는 중...</div>;
@@ -50,7 +53,7 @@ export default function ProposalListArea() {
                             key={prop.id || prop.proposalId || index}
                             proposal={prop}
                             currentUserId={currentUserId}
-                            isHost={isHost} // 방장 여부를 하위 컴포넌트로 전달
+                            isHost={isHost}
                         />
                     ))
                 )}
