@@ -1,7 +1,12 @@
 import { Prisma } from "../generated/prisma/client";
 
 export interface BranchPlaceInput {
-  placeId: number;
+  placeId?: number;
+  placeName?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  category?: string;
   proposalId?: number | null;
   dayNo: number;
   orderIndex: number;
@@ -53,7 +58,7 @@ export const toBranchLogJson = (
 ): Prisma.InputJsonValue => ({
   name: name.trim(),
   places: places.map((place) => ({
-    placeId: place.placeId,
+    placeId: place.placeId as number,
     proposalId: place.proposalId ?? null,
     dayNo: place.dayNo,
     orderIndex: place.orderIndex,

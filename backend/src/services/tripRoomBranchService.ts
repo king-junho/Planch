@@ -14,7 +14,6 @@ import {
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-
 interface BranchPlaceDraft {
   placeId: number;
   proposalId: number | null;
@@ -38,18 +37,19 @@ export const createBranchService = async ({
   userId,
   name,
   places,
-}:CreateBranchInput)=> {
+}: CreateBranchInput) => {
   const tripRoom = await prisma.tripRoom.findUnique({
-    where:{id:tripRoomId},
-    select:{
-      id:true,
-      status:true,
+    where: { id: tripRoomId },
+    select: {
+      id: true,
+      status: true,
     },
   });
 
-  if(!tripRoom){
+  if (!tripRoom) {
     throw new Error("Trip room not found");
   }
+
   const membership = await prisma.tripMember.findUnique({
     where: {
       tripRoomId_userId: {
@@ -61,44 +61,82 @@ export const createBranchService = async ({
       id: true,
     },
   });
-  if(!membership){
+
+  if (!membership) {
     throw new Error("Forbidden");
   }
-  if(tripRoom.status === "locked"){
+
+  if (tripRoom.status === "locked") {
     throw new Error("Trip room is locked");
   }
 
-  if(!name.trim()){
+  if (!name.trim()) {
     throw new Error("Branch name is required");
   }
-  if(!Array.isArray(places) || places.length === 0){
+
+  if (!Array.isArray(places) || places.length === 0) {
     throw new Error("Places are required");
   }
 
-  const {totalCost, totalTravelTime} = calculateBranchMetrics(places);
+  const resolvedPlaces = await Promise.all(
+    places.map(async (place) => {
+      let finalPlaceId = place.placeId;
+
+      if (!finalPlaceId) {
+        if (!place.placeName || !place.address) {
+          throw new Error("새로운 장소를 등록하기 위한 장소 이름과 주소가 필요합니다.");
+        }
+
+        let existingPlace = await prisma.place.findFirst({
+          where: { name: place.placeName, address: place.address },
+        });
+
+        if (existingPlace) {
+          finalPlaceId = existingPlace.id;
+        } else {
+          const newPlace = await prisma.place.create({
+            data: {
+              name: place.placeName,
+              address: place.address,
+              latitude: Number(place.latitude) || 0,
+              longitude: Number(place.longitude) || 0,
+              category: place.category || "기타",
+            },
+          });
+          finalPlaceId = newPlace.id;
+        }
+      }
+
+      return {
+        ...place,
+        placeId: finalPlaceId as number,
+      };
+    })
+  );
+
+  const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlaces);
 
   const branch = await prisma.planBranch.create({
     data: {
       tripRoomId,
       name: name.trim(),
       createdBy: "user",
-      createdUserId: userId,
       totalCost,
       totalTravelTime,
       status: "voting",
       branchPlaces: {
-        create: places.map((place) => ({
+        create: resolvedPlaces.map((place) => ({
           placeId: place.placeId,
           proposalId: place.proposalId ?? null,
           dayNo: place.dayNo,
           orderIndex: place.orderIndex,
-          startTime: place.startTime,
-          endTime: place.endTime,
-          estimatedCost: place.estimatedCost,
-          estimatedDuration: place.estimatedDuration,
-          distanceMeters: place.distanceMeters,
-          durationSeconds: place.durationSeconds,
-          routePolyline: place.routePolyline,
+          startTime: place.startTime ?? null,
+          endTime: place.endTime ?? null,
+          estimatedCost: place.estimatedCost ?? null,
+          estimatedDuration: place.estimatedDuration ?? null,
+          distanceMeters: place.distanceMeters ?? null,
+          durationSeconds: place.durationSeconds ?? null,
+          routePolyline: place.routePolyline ?? null,
         })),
       },
     },
@@ -106,28 +144,26 @@ export const createBranchService = async ({
       id: true,
     },
   });
-  
+
   await prisma.decisionLog.create({
-  data: {
-    tripRoomId,
-    userId,
-    actionType: DECISION_LOG_ACTION.BRANCH_CREATE,
-    targetType: DECISION_LOG_TARGET.BRANCH,
-    targetId: branch.id,
-    afterData: toBranchLogJson(name, places),
-  },
-});
+    data: {
+      tripRoomId,
+      userId,
+      actionType: DECISION_LOG_ACTION.BRANCH_CREATE,
+      targetType: DECISION_LOG_TARGET.BRANCH,
+      targetId: branch.id,
+      afterData: toBranchLogJson(name, resolvedPlaces),
+    },
+  });
 
   const result = await getBranchDetailService(branch.id, userId);
 
-  if(!result.found || !result.authorized){
+  if (!result.found || !result.authorized) {
     throw new Error("Created branch fetch failed");
-   }
+  }
 
-   return result.data;
-  };
-
-
+  return result.data;
+};
 
 export const getBranchListService = async (tripRoomId: number, userId: number) => {
   const membership = await prisma.tripMember.findUnique({
@@ -173,21 +209,21 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
   });
 
   return {
-  found: true as const,
-  authorized: true as const,
-  data: branches.map((branch) => ({
-    branchId: branch.id,
-    name: branch.name,
-    createdBy: branch.createdBy,
-    status: branch.status,
-    totalCost: branch.totalCost,
-    totalTravelTime: branch.totalTravelTime,
-    preferenceScore: branch.preferenceScore,
-    densityScore: branch.densityScore,
-    aiReason: branch.aiReason,
-    voteSummary: buildVoteSummary(branch.votes),
-  })),
-};
+    found: true as const,
+    authorized: true as const,
+    data: branches.map((branch) => ({
+      branchId: branch.id,
+      name: branch.name,
+      createdBy: branch.createdBy,
+      status: branch.status,
+      totalCost: branch.totalCost,
+      totalTravelTime: branch.totalTravelTime,
+      preferenceScore: branch.preferenceScore,
+      densityScore: branch.densityScore,
+      aiReason: branch.aiReason,
+      voteSummary: buildVoteSummary(branch.votes),
+    })),
+  };
 };
 
 export const getBranchCompareService = async (tripRoomId: number, userId: number) => {
@@ -540,7 +576,7 @@ export const generateAiBranchesService = async (
     throw new Error("No proposals available");
   }
 
-  if(tripRoom.status === "locked"){
+  if (tripRoom.status === "locked") {
     throw new Error("Trip room is locked");
   }
 
@@ -632,24 +668,24 @@ export const generateAiBranchesService = async (
   );
 
   await prisma.$transaction(
-  createdBranches.map((branch, index) =>
-    prisma.decisionLog.create({
-      data: {
-        tripRoomId,
-        userId,
-        actionType: DECISION_LOG_ACTION.AI_BRANCH_GENERATED,
-        targetType: DECISION_LOG_TARGET.BRANCH,
-        targetId: branch.id,
-        afterData: {
-          name: branchDrafts[index]?.name ?? null,
-          totalCost: branchDrafts[index]?.totalCost ?? null,
-          totalTravelTime: branchDrafts[index]?.totalTravelTime ?? null,
-          aiReason: branchDrafts[index]?.aiReason ?? null,
+    createdBranches.map((branch, index) =>
+      prisma.decisionLog.create({
+        data: {
+          tripRoomId,
+          userId,
+          actionType: DECISION_LOG_ACTION.AI_BRANCH_GENERATED,
+          targetType: DECISION_LOG_TARGET.BRANCH,
+          targetId: branch.id,
+          afterData: {
+            name: branchDrafts[index]?.name ?? null,
+            totalCost: branchDrafts[index]?.totalCost ?? null,
+            totalTravelTime: branchDrafts[index]?.totalTravelTime ?? null,
+            aiReason: branchDrafts[index]?.aiReason ?? null,
+          },
         },
-      },
-    })
-  )
-);
+      })
+    )
+  );
 
   return {
     generated: true,

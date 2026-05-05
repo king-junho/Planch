@@ -1,4 +1,5 @@
-import prisma from "../lib/prisma";import {
+import prisma from "../lib/prisma";
+import {
   UpdateBranchInput,
   calculateBranchMetrics,
   toBranchLogJson,
@@ -20,7 +21,7 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
       createdUserId: true,
       status: true,
       tripRoom: {
-        select:{
+        select: {
           hostUserId: true,
           status: true,
           selectedBranchId: true,
@@ -29,38 +30,38 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
     },
   });
 
-  if(!branch){
+  if (!branch) {
     throw new Error("Branch not found");
   }
 
   const membership = await prisma.tripMember.findUnique({
-    where:{
-      tripRoomId_userId:{
+    where: {
+      tripRoomId_userId: {
         tripRoomId: branch.tripRoomId,
         userId,
       },
     },
-    select:{
-      id:true,
+    select: {
+      id: true,
     },
   });
 
-  if(!membership){
+  if (!membership) {
     throw new Error("Forbidden");
   }
 
   const isHost = branch.tripRoom.hostUserId === userId;
   const isOwner = branch.createdUserId === userId;
 
-  if(!isHost && !isOwner){
+  if (!isHost && !isOwner) {
     throw new Error("Delete forbidden");
   }
 
-  if(branch.tripRoom.status === "locked"){
+  if (branch.tripRoom.status === "locked") {
     throw new Error("Trip room is locked");
   }
 
-  if(branch.status === "locked"){
+  if (branch.status === "locked") {
     throw new Error("Branch is locked");
   }
 
@@ -70,7 +71,7 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
 
   await prisma.$transaction([
     prisma.decisionLog.create({
-      data:{
+      data: {
         tripRoomId: branch.tripRoomId,
         userId,
         actionType: DECISION_LOG_ACTION.BRANCH_DELETE,
@@ -79,13 +80,13 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
       },
     }),
     prisma.planBranch.delete({
-      where:{id:branchId},
+      where: { id: branchId },
     }),
   ]);
 
   return {
     branchId,
-    deleted:true as const,
+    deleted: true as const,
   };
 };
 
@@ -146,12 +147,55 @@ export const updateBranchService = async ({
   }
 
   const before = await getBranchDetailService(branchId, userId);
-  
+
   if (!before.found || !before.authorized) {
     throw new Error("Branch fetch failed");
   }
 
-  const {totalCost, totalTravelTime} = calculateBranchMetrics(places);
+  const resolvedPlaces = await Promise.all(
+    places.map(async (place) => {
+      let finalPlaceId = place.placeId;
+      let existingPlace = null;
+
+      if (finalPlaceId) {
+        existingPlace = await prisma.place.findUnique({
+          where: { id: finalPlaceId },
+        });
+      }
+
+      if (!existingPlace) {
+        if (!place.placeName || !place.address) {
+          throw new Error("새로운 장소를 등록하기 위한 장소 이름과 주소가 필요합니다.");
+        }
+
+        existingPlace = await prisma.place.findFirst({
+          where: { name: place.placeName, address: place.address },
+        });
+
+        if (existingPlace) {
+          finalPlaceId = existingPlace.id;
+        } else {
+          const newPlace = await prisma.place.create({
+            data: {
+              name: place.placeName,
+              address: place.address,
+              latitude: Number(place.latitude) || 0,
+              longitude: Number(place.longitude) || 0,
+              category: place.category || "기타",
+            },
+          });
+          finalPlaceId = newPlace.id;
+        }
+      }
+
+      return {
+        ...place,
+        placeId: finalPlaceId as number,
+      };
+    })
+  );
+
+  const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlaces);
 
   await prisma.$transaction([
     prisma.branchPlace.deleteMany({
@@ -166,19 +210,19 @@ export const updateBranchService = async ({
       },
     }),
     prisma.branchPlace.createMany({
-      data: places.map((place) => ({
+      data: resolvedPlaces.map((place) => ({
         branchId,
         placeId: place.placeId,
         proposalId: place.proposalId ?? null,
         dayNo: place.dayNo,
         orderIndex: place.orderIndex,
-        startTime: place.startTime,
-        endTime: place.endTime,
-        estimatedCost: place.estimatedCost,
-        estimatedDuration: place.estimatedDuration,
-        distanceMeters: place.distanceMeters,
-        durationSeconds: place.durationSeconds,
-        routePolyline: place.routePolyline,
+        startTime: place.startTime ?? null,
+        endTime: place.endTime ?? null,
+        estimatedCost: place.estimatedCost ?? null,
+        estimatedDuration: place.estimatedDuration ?? null,
+        distanceMeters: place.distanceMeters ?? null,
+        durationSeconds: place.durationSeconds ?? null,
+        routePolyline: place.routePolyline ?? null,
       })),
     }),
   ]);
@@ -196,7 +240,7 @@ export const updateBranchService = async ({
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branchId,
       beforeData: toBranchDetailLogJson(before.data),
-      afterData: toBranchLogJson(name, places),
+      afterData: toBranchLogJson(name, resolvedPlaces),
     },
   });
 
@@ -211,15 +255,15 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
       tripRoomId: true,
       name: true,
       status: true,
-      createdBy:true,
+      createdBy: true,
       aiReason: true,
       totalCost: true,
       totalTravelTime: true,
       preferenceScore: true,
       densityScore: true,
-      votes:{
-        select:{
-          voteType:true,
+      votes: {
+        select: {
+          voteType: true,
         },
       },
       branchPlaces: {
@@ -279,45 +323,45 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
   }
 
   const voteSummary = buildVoteSummary(branch.votes);
-  
+
   return {
-  found: true as const,
-  authorized: true as const,
-  data: {
-    branchId: branch.id,
-    name: branch.name,
-    status: branch.status,
-    createdBy: branch.createdBy,
-    aiReason: branch.aiReason,
-    metrics: {
-      totalCost: branch.totalCost,
-      totalTravelTime: branch.totalTravelTime,
-      preferenceScore: branch.preferenceScore,
-      densityScore: branch.densityScore,
-    },
-    voteSummary,
-    places: branch.branchPlaces.map((branchPlace) => ({
-      dayNo: branchPlace.dayNo,
-      orderIndex: branchPlace.orderIndex,
-      startTime: branchPlace.startTime,
-      endTime: branchPlace.endTime,
-      proposalId: branchPlace.proposalId,
-      estimatedCost: branchPlace.estimatedCost,
-      estimatedDuration: branchPlace.estimatedDuration,
-      distanceMeters: branchPlace.distanceMeters,
-      durationSeconds: branchPlace.durationSeconds,
-      routePolyline: branchPlace.routePolyline,
-      place: {
-        id: branchPlace.place.id,
-        name: branchPlace.place.name,
-        address: branchPlace.place.address,
-        category: branchPlace.place.category,
-        latitude: Number(branchPlace.place.latitude),
-        longitude: Number(branchPlace.place.longitude),
+    found: true as const,
+    authorized: true as const,
+    data: {
+      branchId: branch.id,
+      name: branch.name,
+      status: branch.status,
+      createdBy: branch.createdBy,
+      aiReason: branch.aiReason,
+      metrics: {
+        totalCost: branch.totalCost,
+        totalTravelTime: branch.totalTravelTime,
+        preferenceScore: branch.preferenceScore,
+        densityScore: branch.densityScore,
       },
-    })),
-  },
-};
+      voteSummary,
+      places: branch.branchPlaces.map((branchPlace) => ({
+        dayNo: branchPlace.dayNo,
+        orderIndex: branchPlace.orderIndex,
+        startTime: branchPlace.startTime,
+        endTime: branchPlace.endTime,
+        proposalId: branchPlace.proposalId,
+        estimatedCost: branchPlace.estimatedCost,
+        estimatedDuration: branchPlace.estimatedDuration,
+        distanceMeters: branchPlace.distanceMeters,
+        durationSeconds: branchPlace.durationSeconds,
+        routePolyline: branchPlace.routePolyline,
+        place: {
+          id: branchPlace.place.id,
+          name: branchPlace.place.name,
+          address: branchPlace.place.address,
+          category: branchPlace.place.category,
+          latitude: Number(branchPlace.place.latitude),
+          longitude: Number(branchPlace.place.longitude),
+        },
+      })),
+    },
+  };
 };
 
 export const saveBranchVoteService = async (
@@ -331,9 +375,9 @@ export const saveBranchVoteService = async (
       id: true,
       tripRoomId: true,
       status: true,
-      tripRoom:{
-        select:{
-          status : true,
+      tripRoom: {
+        select: {
+          status: true,
         },
       },
     },
@@ -345,9 +389,9 @@ export const saveBranchVoteService = async (
     };
   }
 
-  if (!branch.tripRoom){
-    return{
-      found:false as const,
+  if (!branch.tripRoom) {
+    return {
+      found: false as const,
     };
   }
 
@@ -370,7 +414,7 @@ export const saveBranchVoteService = async (
     };
   }
 
-  if(branch.status ==="locked" || branch.tripRoom.status==="locked"){
+  if (branch.status === "locked" || branch.tripRoom.status === "locked") {
     return {
       found: true as const,
       authorized: true as const,
@@ -403,7 +447,7 @@ export const saveBranchVoteService = async (
   return {
     found: true as const,
     authorized: true as const,
-    locked : false as const,
+    locked: false as const,
     vote,
   };
 };
