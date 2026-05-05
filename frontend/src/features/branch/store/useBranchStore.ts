@@ -36,6 +36,7 @@ interface BranchState {
     updateBranch: (branchId: number, tripRoomId: number, title: string) => Promise<boolean>;
     voteBranch: (tripRoomId: number, branchId: number, voteType: 'agree' | 'hold' | 'disagree') => Promise<boolean>;
     finalizeBranch: (tripRoomId: number, branchId: number) => Promise<boolean>;
+    deleteBranch: (tripRoomId: number, branchId: number) => Promise<boolean>; // 삭제 함수 추가
 }
 
 export const useBranchStore = create<BranchState>((set, get) => ({
@@ -247,7 +248,6 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                 orderIndex: index + 1,
                 startTime: route.time,
                 estimatedCost: parseNumber(route.cost),
-                // 카카오맵 검색 장소를 위한 추가 데이터
                 placeName: route.title || route.place,
                 address: route.desc,
                 latitude: route.latitude,
@@ -324,6 +324,33 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             return true;
         } catch (error) {
             console.error("일정 확정 처리 실패:", error);
+            return false;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    // 브랜치 삭제 구현부 추가
+    deleteBranch: async (tripRoomId, branchId) => {
+        if (get().isLoading) return false;
+
+        set({ isLoading: true });
+        try {
+            await api.delete(`/branches/${branchId}`);
+
+            await get().fetchBranches(tripRoomId);
+            set({ selectedBranch: null });
+
+            return true;
+        } catch (error: any) {
+            console.error("브랜치 삭제 실패:", error);
+            if (error.response?.status === 403) {
+                alert("방장이나 작성자만 일정을 삭제할 수 있습니다.");
+            } else if (error.response?.status === 409) {
+                alert("확정된 여행방이나 브랜치는 삭제할 수 없습니다.");
+            } else {
+                alert("삭제 처리 중 오류가 발생했습니다.");
+            }
             return false;
         } finally {
             set({ isLoading: false });
