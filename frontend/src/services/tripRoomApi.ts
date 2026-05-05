@@ -3,6 +3,7 @@ import { ApiErrorResponse } from "../types/auth";
 import {
   CreateTripRoomRequest,
   CreateInviteLinkResponse,
+  DecisionLogItem,
   JoinInviteLinkResponse,
   TripRoomDetailResponse,
   TripRoomListItem,
@@ -182,4 +183,38 @@ export async function createInviteLink(
   }
 
   return (await response.json()) as CreateInviteLinkResponse;
+}
+
+export async function getTripRoomDecisionLogs(
+  tripRoomId: number
+): Promise<DecisionLogItem[]> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms/${tripRoomId}/logs`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = "결정 로그 조회 실패";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as DecisionLogItem[];
 }
