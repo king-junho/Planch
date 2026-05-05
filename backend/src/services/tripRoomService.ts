@@ -1,3 +1,4 @@
+import { before } from "node:test";
 import prisma from "../lib/prisma";
 
 interface CreateTripRoomInput {
@@ -45,6 +46,66 @@ function parseOptionalDate(value: string | null | undefined, fieldName: "startDa
 
   return parsedDate;
 }
+
+export const getDecisionService = async(tripRoomId: number, userId: number)=> {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where :{id: tripRoomId},
+    select:{id: true},
+  });
+
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+
+  const membership = await prisma.tripMember.findUnique({
+    where:{
+      tripRoomId_userId:{
+        tripRoomId,
+        userId,
+      },
+    },
+    select:{id: true},
+  });
+
+  if(!membership){
+    throw new Error("Forbidden");
+  }
+
+  const logs = await prisma.decisionLog.findMany({
+    where: {tripRoomId},
+    orderBy: {
+      createdAt: "desc",
+    },
+    select:{
+      id: true,
+      tripRoomId: true,
+      actionType: true,
+      targetType: true,
+      targetId: true,
+      beforeData: true,
+      afterData: true,
+      createdAt: true,
+      user:{
+        select:{
+          id:true,
+          name:true,
+        },
+      },
+    },
+  });
+
+  return logs.map((log) => ({
+    logId: log.id,
+    tripRoomId: log.tripRoomId,
+    actionType: log.actionType,
+    targetType: log.targetType,
+    targetId: log.targetId,
+    actor: log.user,
+    beforeData: log.beforeData,
+    afterData: log.afterData,
+    createdAt: log.createdAt,
+  }));
+};
 
 export const updateTripRoomService = async ({
   tripRoomId,
