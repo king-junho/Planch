@@ -6,6 +6,11 @@ import prisma from "../lib/prisma";import {
   buildVoteSummary,
 } from "./branchShared";
 
+import {
+  DECISION_LOG_ACTION,
+  DECISION_LOG_TARGET,
+} from "../constants/decisionLog";
+
 export const deleteBranchService = async (branchId: number, userId: number) => {
   const branch = await prisma.planBranch.findUnique({
     where: { id: branchId },
@@ -68,8 +73,8 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
       data:{
         tripRoomId: branch.tripRoomId,
         userId,
-        actionType: "branch_delete",
-        targetType: "branch",
+        actionType: DECISION_LOG_ACTION.BRANCH_DELETE,
+        targetType: DECISION_LOG_TARGET.BRANCH,
         targetId: branchId,
       },
     }),
@@ -187,8 +192,8 @@ export const updateBranchService = async ({
     data: {
       tripRoomId: branch.tripRoomId,
       userId,
-      actionType: "branch_update",
-      targetType: "branch",
+      actionType: DECISION_LOG_ACTION.BRANCH_UPDATE,
+      targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branchId,
       beforeData: toBranchDetailLogJson(before.data),
       afterData: toBranchLogJson(name, places),

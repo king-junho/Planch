@@ -1,15 +1,16 @@
-﻿import { StringFilter } from "../generated/prisma/commonInputTypes";
-import { TripMemberScalarFieldEnum } from "../generated/prisma/internal/prismaNamespace";
-import prisma from "../lib/prisma";
+﻿import prisma from "../lib/prisma";
 import OpenAI from "openai";
 import { getBranchDetailService } from "./branchService";
-import{Prisma} from "../generated/prisma/client";
 import {
   CreateBranchInput,
   calculateBranchMetrics,
   toBranchLogJson,
   buildVoteSummary,
 } from "./branchShared";
+import {
+  DECISION_LOG_ACTION,
+  DECISION_LOG_TARGET,
+} from "../constants/decisionLog";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -110,8 +111,8 @@ export const createBranchService = async ({
   data: {
     tripRoomId,
     userId,
-    actionType: "branch_create",
-    targetType: "branch",
+    actionType: DECISION_LOG_ACTION.BRANCH_CREATE,
+    targetType: DECISION_LOG_TARGET.BRANCH,
     targetId: branch.id,
     afterData: toBranchLogJson(name, places),
   },
@@ -629,6 +630,26 @@ export const generateAiBranchesService = async (
       }),
     ),
   );
+
+  await prisma.$transaction(
+  createdBranches.map((branch, index) =>
+    prisma.decisionLog.create({
+      data: {
+        tripRoomId,
+        userId,
+        actionType: DECISION_LOG_ACTION.AI_BRANCH_GENERATED,
+        targetType: DECISION_LOG_TARGET.BRANCH,
+        targetId: branch.id,
+        afterData: {
+          name: branchDrafts[index]?.name ?? null,
+          totalCost: branchDrafts[index]?.totalCost ?? null,
+          totalTravelTime: branchDrafts[index]?.totalTravelTime ?? null,
+          aiReason: branchDrafts[index]?.aiReason ?? null,
+        },
+      },
+    })
+  )
+);
 
   return {
     generated: true,

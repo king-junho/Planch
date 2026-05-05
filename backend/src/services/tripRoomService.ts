@@ -1,5 +1,8 @@
-import { before } from "node:test";
 import prisma from "../lib/prisma";
+import {
+  DECISION_LOG_ACTION,
+  DECISION_LOG_TARGET,
+} from "../constants/decisionLog";
 
 interface CreateTripRoomInput {
   title: string;
@@ -222,8 +225,8 @@ export const unlockTripRoomService = async (tripRoomId : number, userId: number)
       data:{
         tripRoomId,
         userId,
-        actionType: "trip_room_unlock",
-        targetType:"trip_room",
+        actionType: DECISION_LOG_ACTION.TRIP_ROOM_UNLOCK,
+        targetType: DECISION_LOG_TARGET.TRIP_ROOM,
         targetId:tripRoomId,
         beforeData:{
           status: "locked",
@@ -345,6 +348,24 @@ export const finalizeTripRoomService = async (tripRoomId: number, branchId: numb
       },
     }),
   ]);
+
+  await prisma.decisionLog.create({
+    data:{
+      tripRoomId,
+      userId,
+      actionType : DECISION_LOG_ACTION.TRIP_ROOM_FINALIZE,
+      targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+      targetId: tripRoomId,
+      beforeData:{
+        status: "voting",
+        selectedBranchId: null,
+      },
+      afterData:{
+        status: "locked",
+        selectedBranchId: branchId,
+      },
+    },
+  });
 
   return {
     tripRoomId,
@@ -641,6 +662,22 @@ export const createTripRoomService = async ({
         },
       },
       members: true,
+    },
+  });
+
+  await prisma.decisionLog.create({
+    data: {
+      tripRoomId: newTripRoom.id,
+      userId: hostUserId,
+      actionType: DECISION_LOG_ACTION.ROOM_CREATED,
+      targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+      targetId: newTripRoom.id,
+      afterData: {
+        title: newTripRoom.title,
+        startDate: newTripRoom.startDate,
+        endDate: newTripRoom.endDate,
+        status: newTripRoom.status,
+      },
     },
   });
   return {

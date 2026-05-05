@@ -1,7 +1,9 @@
-import { buildHeaders } from "openai/internal/headers";
 import prisma from "../lib/prisma";
 import OpenAI from 'openai';
-import { authenticate } from "../middlewares/authMiddleware";
+import {
+  DECISION_LOG_ACTION,
+  DECISION_LOG_TARGET,
+} from "../constants/decisionLog";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -85,8 +87,8 @@ export const deleteProposalService = async (
     data: {
       tripRoomId,
       userId,
-      actionType: "proposal_delete",
-      targetType: "place_proposal",
+      actionType: DECISION_LOG_ACTION.PROPOSAL_DELETE,
+      targetType: DECISION_LOG_TARGET.PROPOSAL,
       targetId: proposalId,
     },
   }),
@@ -501,6 +503,24 @@ export const createProposalService = async ({
           id: true,
           name: true,
         },
+      },
+    },
+  });
+
+  await prisma.decisionLog.create({
+    data:{
+      tripRoomId,
+      userId: proposerUserId,
+      actionType: DECISION_LOG_ACTION.PLACE_PROPOSED,
+      targetType: DECISION_LOG_TARGET.PROPOSAL,
+      targetId: proposal.id,
+      afterData:{
+        placeId: proposal.placeId,
+        estimatedCost: proposal.estimatedCost,
+        estimatedDuration: proposal.estimatedDuration,
+        comment : proposal.comment,
+        source : proposal.source,
+        status : proposal.status,
       },
     },
   });
