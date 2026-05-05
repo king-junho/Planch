@@ -98,3 +98,33 @@ export type UpdateTripRoomResponse = {
   updatedAt: string;
   saved: boolean;
 };
+
+export type DecisionLogActionType =
+  | "room_created"
+  | "place_proposed"
+  | "ai_branch_generated"
+  | "branch_create"
+  | "branch_update"
+  | "branch_delete"
+  | "proposal_delete"
+  | "trip_room_finalize"
+  | "trip_room_unlock";
+
+export type DecisionLogTargetType = "trip_room" | "proposal" | "branch";
+
+export type DecisionLogData = Record<string, unknown> | null;
+
+export type DecisionLogItem = {
+  logId: number;
+  tripRoomId: number;
+  actionType: DecisionLogActionType;
+  targetType: DecisionLogTargetType;
+  targetId: number;
+  actor: {
+    id: number;
+    name: string;
+  };
+  beforeData: DecisionLogData;
+  afterData: DecisionLogData;
+  createdAt: string;
+};

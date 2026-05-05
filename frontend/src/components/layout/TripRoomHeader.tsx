@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  CalendarClock,
   CheckCircle2,
   Menu,
   Sparkles,
@@ -9,7 +8,11 @@ import {
   X,
 } from "lucide-react";
 import { clearAuthSession, getAccessToken } from "../../services/authStorage";
-import { createInviteLink } from "../../services/tripRoomApi";
+import {
+  createInviteLink,
+  getTripRoomDecisionLogs,
+} from "../../services/tripRoomApi";
+import { DecisionLogData, DecisionLogItem } from "../../types/tripRoom";
 
 type TripRoomHeaderProps = {
   activeItem: "main" | "preference" | "proposal" | "branch";
@@ -40,49 +43,6 @@ const statusOptions: { key: TripRoomStatus; label: string }[] = [
   { key: "completed", label: "완료" },
 ];
 
-const dummyActivityLogs: ActivityLogItem[] = [
-  {
-    id: 1,
-    actor: "병욱",
-    action: "장소 제안 추가",
-    detail: "성수동 카페거리와 서울숲 산책 코스를 후보에 넣었어요.",
-    timeAgo: "방금 전",
-    tone: "blue",
-  },
-  {
-    id: 2,
-    actor: "준호",
-    action: "선호 입력 수정",
-    detail: "숙소 예산을 1박 12만원 이하로 낮추고 야경 선호를 추가했어요.",
-    timeAgo: "12분 전",
-    tone: "emerald",
-  },
-  {
-    id: 3,
-    actor: "Planch AI",
-    action: "브랜치 초안 생성",
-    detail: "느긋한 맛집 중심 일정 2개와 액티비티 중심 일정 1개를 만들었어요.",
-    timeAgo: "34분 전",
-    tone: "amber",
-  },
-  {
-    id: 4,
-    actor: "성준",
-    action: "여행 정보 수정",
-    detail: "여행 기간을 6월 14일 - 6월 16일로 조정했어요.",
-    timeAgo: "1시간 전",
-    tone: "stone",
-  },
-  {
-    id: 5,
-    actor: "호영",
-    action: "멤버 초대",
-    detail: "초대 링크로 새 멤버 1명을 여행방에 추가했어요.",
-    timeAgo: "어제",
-    tone: "stone",
-  },
-];
-
 function statusLabel(status: TripRoomStatus) {
   return statusOptions.find((option) => option.key === status)?.label ?? status;
 }
@@ -92,6 +52,161 @@ function activityToneClass(tone: ActivityLogItem["tone"]) {
   if (tone === "emerald") return "bg-emerald-500";
   if (tone === "amber") return "bg-amber-500";
   return "bg-stone-400";
+}
+
+function readLogDataValue(data: DecisionLogData, key: string) {
+  if (!data || typeof data !== "object") return null;
+
+  const value = data[key];
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function formatRelativeTime(value: string) {
+  const createdAt = new Date(value);
+  const createdTime = createdAt.getTime();
+
+  if (Number.isNaN(createdTime)) return "";
+
+  const diffMs = Date.now() - createdTime;
+  if (diffMs < 60 * 1000) return "방금 전";
+
+  const diffMinutes = Math.floor(diffMs / (60 * 1000));
+  if (diffMinutes < 60) return `${diffMinutes}분 전`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}시간 전`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}일 전`;
+
+  return createdAt.toLocaleDateString("ko-KR", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function toActivityLogItem(log: DecisionLogItem): ActivityLogItem {
+  const beforeName = readLogDataValue(log.beforeData, "name");
+  const afterName = readLogDataValue(log.afterData, "name");
+  const placeName =
+    readLogDataValue(log.afterData, "placeName") ??
+    readLogDataValue(log.afterData, "name") ??
+    readLogDataValue(log.beforeData, "placeName") ??
+    readLogDataValue(log.beforeData, "name");
+  const selectedBranchId =
+    readLogDataValue(log.afterData, "selectedBranchId") ??
+    readLogDataValue(log.beforeData, "selectedBranchId");
+  const timeAgo = formatRelativeTime(log.createdAt);
+
+  switch (log.actionType) {
+    case "room_created":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "여행방 생성",
+        detail: "새 여행방을 만들었어요.",
+        timeAgo,
+        tone: "blue",
+      };
+    case "place_proposed":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "장소 제안 추가",
+        detail: placeName
+          ? `${placeName}을 후보 장소로 제안했어요.`
+          : "새 후보 장소를 제안했어요.",
+        timeAgo,
+        tone: "blue",
+      };
+    case "ai_branch_generated":
+      return {
+        id: log.logId,
+        actor: "Planch AI",
+        action: "브랜치 초안 생성",
+        detail: "AI가 여행 일정 브랜치 초안을 만들었어요.",
+        timeAgo,
+        tone: "amber",
+      };
+    case "branch_create":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "브랜치 생성",
+        detail: afterName
+          ? `${afterName} 브랜치를 만들었어요.`
+          : "새 브랜치를 만들었어요.",
+        timeAgo,
+        tone: "emerald",
+      };
+    case "branch_update":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "브랜치 수정",
+        detail:
+          beforeName && afterName && beforeName !== afterName
+            ? `${beforeName}에서 ${afterName}로 브랜치 이름을 바꿨어요.`
+            : "브랜치 정보를 수정했어요.",
+        timeAgo,
+        tone: "emerald",
+      };
+    case "branch_delete":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "브랜치 삭제",
+        detail: beforeName
+          ? `${beforeName} 브랜치를 삭제했어요.`
+          : "브랜치를 삭제했어요.",
+        timeAgo,
+        tone: "stone",
+      };
+    case "proposal_delete":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "장소 제안 삭제",
+        detail: placeName
+          ? `${placeName} 장소 제안을 삭제했어요.`
+          : "장소 제안을 삭제했어요.",
+        timeAgo,
+        tone: "stone",
+      };
+    case "trip_room_finalize":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "여행방 확정",
+        detail: selectedBranchId
+          ? `${selectedBranchId}번 브랜치로 여행방을 확정했어요.`
+          : "여행방을 확정했어요.",
+        timeAgo,
+        tone: "amber",
+      };
+    case "trip_room_unlock":
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "여행방 확정 해제",
+        detail: "확정된 여행방을 다시 투표 상태로 열었어요.",
+        timeAgo,
+        tone: "amber",
+      };
+    default:
+      return {
+        id: log.logId,
+        actor: log.actor.name,
+        action: "활동 기록",
+        detail: `${log.targetType} 항목이 변경되었어요.`,
+        timeAgo,
+        tone: "stone",
+      };
+  }
 }
 
 export default function TripRoomHeader({
@@ -107,6 +222,9 @@ export default function TripRoomHeader({
   const [inviteUrl, setInviteUrl] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [isInviteLoading, setIsInviteLoading] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
+  const [activityLogError, setActivityLogError] = useState("");
+  const [isActivityLogLoading, setIsActivityLogLoading] = useState(false);
   const isLoggedIn = Boolean(getAccessToken());
 
   useEffect(() => {
@@ -128,6 +246,51 @@ export default function TripRoomHeader({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const numericTripRoomId = Number(tripRoomId);
+    if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
+      setActivityLogError("유효하지 않은 tripRoomId입니다.");
+      setActivityLogs([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadActivityLogs() {
+      setIsActivityLogLoading(true);
+      setActivityLogError("");
+
+      try {
+        const logs = await getTripRoomDecisionLogs(numericTripRoomId);
+        if (!isMounted) return;
+
+        setActivityLogs(logs.map(toActivityLogItem));
+      } catch (caughtError) {
+        if (!isMounted) return;
+
+        const message =
+          caughtError instanceof Error && caughtError.message.trim()
+            ? caughtError.message
+            : "결정 로그를 불러오지 못했습니다.";
+
+        setActivityLogError(message);
+        setActivityLogs([]);
+      } finally {
+        if (isMounted) {
+          setIsActivityLogLoading(false);
+        }
+      }
+    }
+
+    loadActivityLogs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isMenuOpen, tripRoomId]);
 
   useEffect(() => {
     if (!isInviteOpen) return;
@@ -261,40 +424,50 @@ export default function TripRoomHeader({
                         최근 변경 기록
                       </h2>
                     </div>
-                    <div className="flex items-center gap-1.5 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs text-stone-600">
-                      <CalendarClock size={14} />
-                      더미
-                    </div>
                   </div>
 
-                  <ol className="relative border-l border-stone-200 pl-5">
-                    {dummyActivityLogs.map((log) => (
-                      <li className="relative pb-5 last:pb-1" key={log.id}>
-                        <span
-                          className={`absolute -left-[24px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-white ${activityToneClass(
-                            log.tone
-                          )}`}
-                        />
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          <span className="inline-flex items-center gap-1 text-sm font-semibold text-stone-950">
-                            {log.actor === "Planch AI" ? (
-                              <Sparkles size={14} className="text-amber-500" />
-                            ) : (
-                              <UserRoundPen size={14} className="text-stone-500" />
-                            )}
-                            {log.actor}
-                          </span>
-                          <span className="text-xs text-stone-400">{log.timeAgo}</span>
-                        </div>
-                        <p className="mt-1 text-sm font-medium text-stone-700">
-                          {log.action}
-                        </p>
-                        <p className="mt-1 text-xs leading-5 text-stone-500">
-                          {log.detail}
-                        </p>
-                      </li>
-                    ))}
-                  </ol>
+                  {isActivityLogLoading ? (
+                    <p className="rounded-lg bg-stone-50 px-3 py-4 text-sm text-stone-500">
+                      최근 변경 기록을 불러오는 중입니다.
+                    </p>
+                  ) : activityLogError ? (
+                    <p className="rounded-lg bg-red-50 px-3 py-4 text-sm text-red-600">
+                      {activityLogError}
+                    </p>
+                  ) : activityLogs.length === 0 ? (
+                    <p className="rounded-lg bg-stone-50 px-3 py-4 text-sm text-stone-500">
+                      아직 기록된 활동 로그가 없습니다.
+                    </p>
+                  ) : (
+                    <ol className="relative border-l border-stone-200 pl-5">
+                      {activityLogs.map((log) => (
+                        <li className="relative pb-5 last:pb-1" key={log.id}>
+                          <span
+                            className={`absolute -left-[24px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-white ${activityToneClass(
+                              log.tone
+                            )}`}
+                          />
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-stone-950">
+                              {log.actor === "Planch AI" ? (
+                                <Sparkles size={14} className="text-amber-500" />
+                              ) : (
+                                <UserRoundPen size={14} className="text-stone-500" />
+                              )}
+                              {log.actor}
+                            </span>
+                            <span className="text-xs text-stone-400">{log.timeAgo}</span>
+                          </div>
+                          <p className="mt-1 text-sm font-medium text-stone-700">
+                            {log.action}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-stone-500">
+                            {log.detail}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                 </section>
               </div>
             </div>
