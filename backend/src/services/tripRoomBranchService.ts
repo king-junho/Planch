@@ -81,13 +81,20 @@ export const createBranchService = async ({
   const resolvedPlaces = await Promise.all(
     places.map(async (place) => {
       let finalPlaceId = place.placeId;
+      let existingPlace = null;
 
-      if (!finalPlaceId) {
+      if (finalPlaceId) {
+        existingPlace = await prisma.place.findUnique({
+          where: { id: finalPlaceId },
+        });
+      }
+
+      if (!existingPlace) {
         if (!place.placeName || !place.address) {
           throw new Error("새로운 장소를 등록하기 위한 장소 이름과 주소가 필요합니다.");
         }
 
-        let existingPlace = await prisma.place.findFirst({
+        existingPlace = await prisma.place.findFirst({
           where: { name: place.placeName, address: place.address },
         });
 
@@ -628,7 +635,6 @@ export const generateAiBranchesService = async (
       .filter((branch: GeneratedBranchDraft) => branch.places.length > 0)
       .slice(0, safeBranchCount);
   } catch (error) {
-    console.error("generateAiBranches OpenAI error:", error);
     throw new Error("OpenAI branch generation failed");
   }
 
