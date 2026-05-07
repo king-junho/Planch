@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { Branch, RouteItem } from '../../../types/branch';
 import api from '../../../api/axiosInstance';
 
-// 문자열에서 숫자만 파싱하는 유틸 함수
 const parseNumber = (value: string | number | null | undefined): number => {
     if (!value) return 0;
     if (typeof value === 'number') return value;
@@ -36,7 +35,8 @@ interface BranchState {
     updateBranch: (branchId: number, tripRoomId: number, title: string) => Promise<boolean>;
     voteBranch: (tripRoomId: number, branchId: number, voteType: 'agree' | 'hold' | 'disagree') => Promise<boolean>;
     finalizeBranch: (tripRoomId: number, branchId: number) => Promise<boolean>;
-    deleteBranch: (tripRoomId: number, branchId: number) => Promise<boolean>; // 삭제 함수 추가
+    deleteBranch: (tripRoomId: number, branchId: number) => Promise<boolean>;
+    generateAiBranches: (tripRoomId: number, branchCount?: number) => Promise<boolean>;
 }
 
 export const useBranchStore = create<BranchState>((set, get) => ({
@@ -330,7 +330,6 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         }
     },
 
-    // 브랜치 삭제 구현부 추가
     deleteBranch: async (tripRoomId, branchId) => {
         if (get().isLoading) return false;
 
@@ -350,6 +349,32 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                 alert("확정된 여행방이나 브랜치는 삭제할 수 없습니다.");
             } else {
                 alert("삭제 처리 중 오류가 발생했습니다.");
+            }
+            return false;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    generateAiBranches: async (tripRoomId, branchCount = 3) => {
+        if (get().isLoading) return false;
+
+        set({ isLoading: true });
+        try {
+            await api.post(`/trip-rooms/${tripRoomId}/branches/generate-ai`, {
+                branchCount
+            });
+
+            await get().fetchBranches(tripRoomId);
+            return true;
+        } catch (error: any) {
+            console.error("AI 브랜치 생성 실패:", error);
+            if (error.response?.status === 403) {
+                alert("방장만 AI 추천 일정을 생성할 수 있습니다.");
+            } else if (error.response?.status === 400) {
+                alert("AI가 일정을 구성하기 위해서는 먼저 장소를 제안해 주세요.");
+            } else {
+                alert("AI 추천 일정 생성 중 오류가 발생했습니다.");
             }
             return false;
         } finally {
