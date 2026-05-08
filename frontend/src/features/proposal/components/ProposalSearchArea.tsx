@@ -4,7 +4,7 @@ import { useProposalStore } from '../store/useProposalStore';
 
 interface ProposalSearchAreaProps {
     tripRoomId: string;
-    isLocked?: boolean; // 확정 여부를 받는 prop 추가
+    isLocked?: boolean;
 }
 
 export default function ProposalSearchArea({ tripRoomId, isLocked = false }: ProposalSearchAreaProps) {
@@ -19,9 +19,8 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
 
     const [searchText, setSearchText] = useState('');
     const [memoText, setMemoText] = useState('');
-    const [isSaving, setIsSaving] = useState(false); // 저장 진행 상태 관리
+    const [isSaving, setIsSaving] = useState(false);
 
-    // 방이 확정된 상태라면 검색창 대신 안내 메시지를 보여줍니다.
     if (isLocked) {
         return (
             <div className="flex items-center justify-center h-24 mb-8 bg-gray-50 border border-gray-200 rounded-xl">
@@ -30,30 +29,30 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
         );
     }
 
-    // 검색 실행 함수
     const handleSearch = () => {
         if (!searchText.trim()) return;
+
+        setSelectedPlace(null);
+        setMemoText('');
+
         setKeyword(searchText);
     };
 
-    // 장소 선택 시 초기화 로직
     const handleSelectPlace = (place: any) => {
         setSelectedPlace({ ...place, isViewing: true });
         setSearchText(place.place_name);
     };
 
-    // 최종 등록 함수
     const handleSubmit = async () => {
-        if (isSaving) return; // 이미 저장 중이면 무시
+        if (isSaving) return;
         if (!selectedPlace) return;
 
-        // 메모가 비어있거나 공백만 있는지 확인
         if (!memoText.trim()) {
             alert('추천 이유나 메모를 반드시 입력해주세요.');
             return;
         }
 
-        setIsSaving(true); // 저장 시작(잠금)
+        setIsSaving(true);
 
         const payload = {
             placeId: Number(selectedPlace.id),
@@ -73,7 +72,7 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
             setSelectedPlace(null);
         }
 
-        setIsSaving(false); // 저장 종료(잠금 해제)
+        setIsSaving(false);
     };
 
     return (
@@ -84,7 +83,10 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
                     type="text"
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    onKeyDown={(e) => {
+                        if (e.nativeEvent.isComposing) return;
+                        if (e.key === 'Enter') handleSearch();
+                    }}
                     placeholder="어디로 가고 싶으신가요?"
                     className="w-full h-12 pl-12 pr-12 bg-white rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-sm transition-all"
                 />

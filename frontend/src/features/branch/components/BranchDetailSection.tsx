@@ -12,12 +12,11 @@ interface BranchDetailSectionProps {
 }
 
 export default function BranchDetailSection({ branch, isLocked = false, onBack }: BranchDetailSectionProps) {
-    const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, isLoading, fetchBranches } = useBranchStore();
+    const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, deleteBranch, isLoading, fetchBranches } = useBranchStore();
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
 
     const [myUserId, setMyUserId] = useState<number | null>(null);
-    // 브랜치 삭제 진행 상태를 관리하는 state
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
@@ -39,7 +38,6 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
     const isOwner = true;
 
-    // 본인이 작성한 브랜치인지 확인
     const isCreator = myUserId && (branch as any).userId === myUserId;
     const canDelete = isCreator || isOwner;
     const canUnlock = isOwner;
@@ -60,24 +58,18 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         });
     };
 
-    // 브랜치 삭제 기능
+    // 스토어의 deleteBranch를 호출하도록 수정
     const handleDelete = async () => {
         if (!tripRoomId || isEditDisabled) return;
 
         if (window.confirm('이 브랜치를 정말 삭제하시겠습니까? (삭제 후 복구할 수 없습니다)')) {
             setIsDeleting(true);
-            try {
-                // 삭제 API 호출 
-                await api.delete(`/branches/${branch.id}`);
-                alert('브랜치가 삭제되었습니다.');
+            const success = await deleteBranch(Number(tripRoomId), branch.id);
+            setIsDeleting(false);
 
-                await fetchBranches(Number(tripRoomId));
+            if (success) {
+                alert('브랜치가 삭제되었습니다.');
                 onBack();
-            } catch (error) {
-                console.error('브랜치 삭제 실패:', error);
-                alert('브랜치 삭제 권한이 없거나 오류가 발생했습니다.');
-            } finally {
-                setIsDeleting(false);
             }
         }
     };
@@ -156,8 +148,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             onClick={handleEdit}
                             disabled={isEditDisabled}
                             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm ${isEditDisabled
-                                    ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed opacity-60'
-                                    : 'text-gray-600 bg-gray-50 hover:bg-gray-100 border-gray-100'
+                                ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed opacity-60'
+                                : 'text-gray-600 bg-gray-50 hover:bg-gray-100 border-gray-100'
                                 }`}
                         >
                             <Edit2 size={14} />

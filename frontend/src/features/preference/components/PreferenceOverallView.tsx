@@ -1,14 +1,17 @@
-import { CheckCircle2, XCircle, Sparkles, Plus, Wallet, Clock, Star } from 'lucide-react';
+import { CheckCircle2, XCircle, Sparkles, Plus, Wallet, Clock, Star, Loader2 } from 'lucide-react';
 import { usePreferenceStore } from '../store/usePreferenceStore';
+import { useBranchStore } from '../../branch/store/useBranchStore';
 
 interface PreferenceOverallViewProps {
     onOpenAiModal: () => void;
     onCreateManual: () => void;
-    isLocked?: boolean; // 확정 여부를 받는 prop 추가
+    isLocked?: boolean;
 }
 
 export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, isLocked = false }: PreferenceOverallViewProps) {
     const { teamPreferences } = usePreferenceStore();
+    const { isLoading } = useBranchStore(); // 추가됨
+
     const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
     // 1. 최소 공통 예산 계산 (모든 팀원이 수용 가능한 최대치)
@@ -41,6 +44,8 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
     const allMustGo = Array.from(new Set(safePreferences.flatMap(p => p.mustVisit || []))).filter(Boolean);
     const allAvoid = Array.from(new Set(safePreferences.flatMap(p => p.avoid || []))).filter(Boolean);
 
+    const isButtonDisabled = isLocked || isLoading;
+
     return (
         <div className="max-w-3xl mx-auto flex flex-col gap-10 animate-in fade-in duration-300 pb-20">
             <div className="flex flex-col gap-2">
@@ -61,20 +66,21 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
                 <div className="flex gap-3 shrink-0">
                     <button
                         onClick={onOpenAiModal}
-                        disabled={isLocked}
-                        className={`flex items-center gap-2 px-6 py-3.5 border rounded-xl font-bold shadow-sm transition-all ${isLocked
-                                ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
-                                : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
+                        disabled={isButtonDisabled}
+                        className={`flex items-center gap-2 px-6 py-3.5 border rounded-xl font-bold shadow-sm transition-all ${isButtonDisabled
+                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
+                            : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
                             }`}
                     >
-                        <Sparkles size={18} /> AI 맞춤 추천
+                        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        AI 맞춤 추천
                     </button>
                     <button
                         onClick={onCreateManual}
-                        disabled={isLocked}
-                        className={`flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold shadow-sm transition-all ${isLocked
-                                ? 'bg-gray-300 text-gray-50 cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                        disabled={isButtonDisabled}
+                        className={`flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold shadow-sm transition-all ${isButtonDisabled
+                            ? 'bg-gray-300 text-gray-50 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
                             }`}
                     >
                         <Plus size={18} /> 직접 만들기
