@@ -474,12 +474,12 @@ export default function TripRoomHeader({
           ) : null}
         </div>
 
-        <nav className="hidden flex-1 items-center justify-center gap-2 md:flex">
+        <nav className="flex flex-1 items-center justify-center gap-2">
           {navItems.map((item) => {
             const isActive = activeItem === item.key;
             const sharedClassName = isActive
-              ? "rounded-lg bg-stone-100 px-4 py-2 text-base font-normal text-stone-900"
-              : "rounded-lg px-4 py-2 text-base font-normal text-stone-900";
+              ? "whitespace-nowrap rounded-lg bg-stone-100 px-4 py-2 text-base font-normal text-stone-900"
+              : "whitespace-nowrap rounded-lg px-4 py-2 text-base font-normal text-stone-900";
 
             if (item.key === "main") {
               return (
@@ -534,7 +534,7 @@ export default function TripRoomHeader({
 
           <div className="relative">
             <button
-              className="rounded-lg px-4 py-2 text-base font-normal text-stone-900"
+              className="whitespace-nowrap rounded-lg px-4 py-2 text-base font-normal text-stone-900"
               onClick={() => setIsInviteOpen((current) => !current)}
               type="button"
             >
@@ -586,7 +586,7 @@ export default function TripRoomHeader({
           </div>
         </nav>
 
-        <div className="hidden w-[220px] items-center justify-end gap-3 lg:flex">
+        <div className="flex w-[220px] items-center justify-end gap-3">
           {isLoggedIn ? (
             <button
               className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
