@@ -544,15 +544,20 @@ export default function TripRoomHeader({
             {isInviteOpen ? (
               <div className="absolute right-0 top-12 z-30 w-[360px] rounded-2xl border border-stone-200 bg-white p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
                 <p className="text-sm font-semibold text-stone-900">현재 여행방 초대링크</p>
-                <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600">
-                  {isInviteLoading
-                    ? "초대 링크를 생성하는 중입니다."
-                    : inviteError
-                    ? inviteError
-                    : inviteUrl || "초대 링크가 없습니다."}
-                </div>
+                <input
+                  className="mt-3 w-full min-w-0 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600 outline-none"
+                  readOnly
+                  type="text"
+                  value={
+                    isInviteLoading
+                      ? "초대 링크를 생성하는 중입니다."
+                      : inviteError
+                      ? inviteError
+                      : inviteUrl || "초대 링크가 없습니다."
+                  }
+                />
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-xs text-stone-500">
+                  <span className="min-w-0 text-xs text-stone-500">
                     {copyMessage ||
                       (inviteError
                         ? "호스트 권한과 인증 상태를 확인해 주세요."
