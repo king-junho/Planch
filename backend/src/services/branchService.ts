@@ -5,6 +5,7 @@ import {
   toBranchLogJson,
   toBranchDetailLogJson,
   buildVoteSummary,
+  calculatePreferenceScore,
 } from "./branchShared";
 
 import {
@@ -105,6 +106,7 @@ export const updateBranchService = async ({
       tripRoom: {
         select: {
           status: true,
+          preferences: true,
         },
       },
     },
@@ -197,6 +199,8 @@ export const updateBranchService = async ({
 
   const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlaces);
 
+  const preferenceScore = calculatePreferenceScore(resolvedPlaces, branch.tripRoom.preferences);
+
   await prisma.$transaction([
     prisma.branchPlace.deleteMany({
       where: { branchId },
@@ -207,6 +211,7 @@ export const updateBranchService = async ({
         name: name.trim(),
         totalCost,
         totalTravelTime,
+        preferenceScore,
       },
     }),
     prisma.branchPlace.createMany({

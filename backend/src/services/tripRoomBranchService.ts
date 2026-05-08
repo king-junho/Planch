@@ -6,6 +6,7 @@ import {
   calculateBranchMetrics,
   toBranchLogJson,
   buildVoteSummary,
+  calculatePreferenceScore,
 } from "./branchShared";
 import {
   DECISION_LOG_ACTION,
@@ -43,6 +44,7 @@ export const createBranchService = async ({
     select: {
       id: true,
       status: true,
+      preferences: true,
     },
   });
 
@@ -123,6 +125,8 @@ export const createBranchService = async ({
 
   const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlaces);
 
+  const preferenceScore = calculatePreferenceScore(resolvedPlaces, tripRoom.preferences);
+
   const branch = await prisma.planBranch.create({
     data: {
       tripRoomId,
@@ -130,6 +134,7 @@ export const createBranchService = async ({
       createdBy: "user",
       totalCost,
       totalTravelTime,
+      preferenceScore,
       status: "voting",
       branchPlaces: {
         create: resolvedPlaces.map((place) => ({

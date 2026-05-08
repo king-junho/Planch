@@ -121,3 +121,48 @@ export const buildVoteSummary = (
 
   return voteSummary;
 };
+
+export const calculatePreferenceScore = (
+  places: any[],
+  preferences: any[]
+): number => {
+  if (!preferences || preferences.length === 0) return 100;
+
+  let score = 80;
+  let totalCost = 0;
+
+  const allAvoids: string[] = [];
+  const allMustGos: string[] = [];
+  const allStyles: string[] = [];
+  const maxBudgets: number[] = [];
+
+  preferences.forEach((pref: any) => {
+    const avoid = Array.isArray(pref.avoid) ? pref.avoid : [];
+    const mustVisit = Array.isArray(pref.mustVisit) ? pref.mustVisit : [];
+    const styles = Array.isArray(pref.styles) ? pref.styles : [];
+
+    allAvoids.push(...avoid);
+    allMustGos.push(...mustVisit);
+    allStyles.push(...styles);
+    if (pref.budgetMax) maxBudgets.push(pref.budgetMax);
+  });
+
+  places.forEach((p) => {
+    totalCost += p.estimatedCost || 0;
+    const name = p.placeName || p.name || "";
+    const cat = p.category || "";
+
+    if (allAvoids.some((a) => name.includes(a))) score -= 15;
+    if (allMustGos.some((m) => name.includes(m))) score += 10;
+    if (allStyles.some((s) => cat.includes(s) || name.includes(s))) score += 5;
+  });
+
+  if (maxBudgets.length > 0) {
+    const avgMaxBudget = maxBudgets.reduce((a, b) => a + b, 0) / maxBudgets.length;
+    if (totalCost > avgMaxBudget) {
+      score -= 20;
+    }
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+};
