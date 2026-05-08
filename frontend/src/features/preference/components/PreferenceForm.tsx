@@ -65,7 +65,7 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
     };
 
     return (
-        <div className="flex flex-col gap-12 relative min-h-[400px]">
+        <div className="flex flex-col gap-12 relative min-h-[400px] w-full pb-20">
             {isLoading && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm rounded-xl">
                     <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-2" />
@@ -113,8 +113,8 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
                             onClick={() => toggleArrayItem('styles', style)}
                             disabled={isDisabled}
                             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${formData.styles.includes(style)
-                                    ? 'bg-gray-900 text-white shadow-md'
-                                    : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
+                                ? 'bg-gray-900 text-white shadow-md'
+                                : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'
                                 }`}
                         >
                             {style}
@@ -175,16 +175,15 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
 
             <section>
                 <h3 className="text-lg font-bold text-gray-900 mb-6">주요 활동 시간대</h3>
-                {/* 이 부분이 수정되었습니다 */}
-                <div className="flex gap-4">
+                <div className="flex gap-4 flex-wrap">
                     {timeOptions.map((time) => (
                         <button
                             key={time}
                             onClick={() => toggleArrayItem('activeTimes', time)}
                             disabled={isDisabled}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl group transition-all outline-none border border-transparent ${isDisabled
-                                    ? 'cursor-not-allowed opacity-50'
-                                    : 'cursor-pointer hover:bg-gray-50 hover:border-gray-100'
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl group transition-all outline-none border border-transparent shrink-0 ${isDisabled
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer hover:bg-gray-50 hover:border-gray-100'
                                 }`}
                         >
                             {formData.activeTimes.includes(time) ? (
@@ -192,7 +191,7 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
                             ) : (
                                 <Square size={24} className={`text-gray-200 shrink-0 ${!isDisabled && 'group-hover:text-gray-300'}`} />
                             )}
-                            <span className="text-base font-bold text-gray-700">{time}</span>
+                            <span className="text-base font-bold text-gray-700 whitespace-nowrap">{time}</span>
                         </button>
                     ))}
                 </div>

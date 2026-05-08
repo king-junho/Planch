@@ -4,6 +4,7 @@ import BranchListView from './BranchListView';
 import BranchDetailSection from './BranchDetailSection';
 import CreateBranchModal from './CreateBranchModal';
 import BranchMap from './BranchMap';
+import BranchCompareCanvas from './BranchCompareCanvas'; // Import 추가
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../api/axiosInstance';
 
@@ -11,11 +12,25 @@ export default function BranchSection() {
     const { tripRoomId } = useParams();
     const navigate = useNavigate();
 
-    const { selectedBranch, setSelectedBranch, fetchBranches } = useBranchStore();
+    const { branches, selectedBranch, setSelectedBranch, fetchBranches } = useBranchStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const [isLocked, setIsLocked] = useState(false);
     const [confirmedBranchId, setConfirmedBranchId] = useState<number | null>(null);
+
+    const [isCompareMode, setIsCompareMode] = useState(false);
+    const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]);
+
+    const toggleCompareSelection = (branchId: number) => {
+        setSelectedForCompare(prev => {
+            if (prev.includes(branchId)) return prev.filter(id => id !== branchId);
+            if (prev.length >= 3) {
+                alert("비교는 최대 3개까지만 가능합니다.");
+                return prev;
+            }
+            return [...prev, branchId];
+        });
+    };
 
     useEffect(() => {
         if (tripRoomId) {
@@ -39,7 +54,6 @@ export default function BranchSection() {
         }
     }, [tripRoomId, fetchBranches]);
 
-    // TS 에러 해결: locked 비교 제거 및 undefined 처리
     let overrideStatus = selectedBranch?.status;
     if (selectedBranch) {
         if (isLocked && selectedBranch.id === confirmedBranchId) {
@@ -49,7 +63,6 @@ export default function BranchSection() {
         }
     }
 
-    // TS 에러 해결: 상태값을 확실한 타입으로 단언해줍니다.
     const activeBranch = selectedBranch
         ? {
             ...selectedBranch,
@@ -57,9 +70,21 @@ export default function BranchSection() {
         }
         : null;
 
+    if (isCompareMode) {
+        const compareBranches = branches.filter(b => selectedForCompare.includes(b.id));
+        return (
+            <div className="flex w-full h-full min-w-[1000px] bg-white">
+                <BranchCompareCanvas
+                    compareBranches={compareBranches}
+                    onBack={() => setIsCompareMode(false)}
+                />
+            </div>
+        );
+    }
+
     return (
-        <div className="flex w-full h-full overflow-hidden">
-            <div className="w-[500px] min-w-[500px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
+        <div className="flex w-full h-full overflow-x-auto overflow-y-hidden min-w-[900px] custom-scrollbar">
+            <div className="w-[400px] min-w-[400px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
                 {activeBranch ? (
                     <BranchDetailSection
                         branch={activeBranch}
@@ -72,11 +97,14 @@ export default function BranchSection() {
                         onOpenCreateModal={() => setIsCreateModalOpen(true)}
                         isLocked={isLocked}
                         confirmedBranchId={confirmedBranchId}
+                        selectedForCompare={selectedForCompare}
+                        toggleCompareSelection={toggleCompareSelection}
+                        onOpenCompare={() => setIsCompareMode(true)}
                     />
                 )}
             </div>
 
-            <div className="flex-1 relative z-0">
+            <div className="flex-1 min-w-[500px] relative z-0">
                 <BranchMap />
             </div>
 

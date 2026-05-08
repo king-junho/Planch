@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { useBranchStore } from '../store/useBranchStore';
 import BranchCard from './BranchCard';
-import BranchCompareCanvas from './BranchCompareCanvas';
 import { CheckSquare, Loader2 } from 'lucide-react';
 
 interface BranchListViewProps {
@@ -9,33 +7,22 @@ interface BranchListViewProps {
     onOpenCreateModal: () => void;
     isLocked?: boolean;
     confirmedBranchId?: number | null;
+    selectedForCompare: number[];
+    toggleCompareSelection: (id: number) => void;
+    onOpenCompare: () => void;
 }
 
 export default function BranchListView({
     onSelectBranch,
     onOpenCreateModal,
     isLocked = false,
-    confirmedBranchId = null
+    confirmedBranchId = null,
+    selectedForCompare,
+    toggleCompareSelection,
+    onOpenCompare
 }: BranchListViewProps) {
     const { branches, isLoading } = useBranchStore();
 
-    const [isCompareMode, setIsCompareMode] = useState(false);
-    const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]);
-
-    const toggleCompareSelection = (branchId: number) => {
-        setSelectedForCompare(prev => {
-            if (prev.includes(branchId)) {
-                return prev.filter(id => id !== branchId);
-            }
-            if (prev.length >= 3) {
-                alert("비교는 최대 3개까지만 가능합니다.");
-                return prev;
-            }
-            return [...prev, branchId];
-        });
-    };
-
-    // TS 에러 해결: locked 비교 제거 및 undefined 처리
     const branchesWithOverride = branches.map(branch => {
         let currentStatus = branch.status;
 
@@ -47,7 +34,6 @@ export default function BranchListView({
 
         return {
             ...branch,
-            // Branch 타입에 맞게 강제 캐스팅
             status: (currentStatus || 'voting') as "confirmed" | "voting" | "pending"
         };
     });
@@ -57,16 +43,6 @@ export default function BranchListView({
         if (a.status !== 'confirmed' && b.status === 'confirmed') return 1;
         return 0;
     });
-
-    if (isCompareMode) {
-        const compareBranches = branches.filter(b => selectedForCompare.includes(b.id));
-        return (
-            <BranchCompareCanvas
-                compareBranches={compareBranches}
-                onBack={() => setIsCompareMode(false)}
-            />
-        );
-    }
 
     return (
         <div className="w-full flex flex-col h-full bg-stone-50/50 relative">
@@ -81,7 +57,7 @@ export default function BranchListView({
                 <div className="flex items-center gap-3 w-full">
                     <button
                         disabled={selectedForCompare.length < 2 || isLoading}
-                        onClick={() => setIsCompareMode(true)}
+                        onClick={onOpenCompare}
                         className="flex-1 justify-center py-3 bg-blue-50 text-blue-600 border border-blue-100 text-sm font-bold rounded-xl hover:bg-blue-100 hover:border-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         <CheckSquare size={18} />
