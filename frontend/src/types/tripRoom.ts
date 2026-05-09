@@ -81,6 +81,13 @@ export type CreateInviteLinkResponse = {
   expiresAt: string;
 };
 
+export type UnlockTripRoomResponse = {
+  tripRoomId: number;
+  status: string;
+  selectedBranchId: number | null;
+  unlocked: boolean;
+};
+
 export type DecisionLogActionType =
   | "room_created"
   | "place_proposed"

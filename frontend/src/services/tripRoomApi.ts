@@ -8,6 +8,7 @@ import {
   TripRoomDetailResponse,
   TripRoomListItem,
   TripRoomSummary,
+  UnlockTripRoomResponse,
 } from "../types/tripRoom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -217,4 +218,38 @@ export async function getTripRoomDecisionLogs(
   }
 
   return (await response.json()) as DecisionLogItem[];
+}
+
+export async function unlockTripRoom(
+  tripRoomId: number
+): Promise<UnlockTripRoomResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms/${tripRoomId}/unlock`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = "여행방 확정 해제 실패";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as UnlockTripRoomResponse;
 }

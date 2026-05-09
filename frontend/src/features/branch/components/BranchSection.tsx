@@ -33,8 +33,12 @@ export default function BranchSection() {
     };
 
     useEffect(() => {
-        if (tripRoomId) {
-            const numericId = Number(tripRoomId);
+        if (!tripRoomId) return;
+
+        const numericId = Number(tripRoomId);
+        if (!Number.isInteger(numericId) || numericId <= 0) return;
+
+        const loadRoomState = () => {
             fetchBranches(numericId);
 
             api.get(`/trip-rooms/${numericId}`)
@@ -51,7 +55,14 @@ export default function BranchSection() {
                     }
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
-        }
+        };
+
+        loadRoomState();
+        window.addEventListener("trip-room-unlocked", loadRoomState);
+
+        return () => {
+            window.removeEventListener("trip-room-unlocked", loadRoomState);
+        };
     }, [tripRoomId, fetchBranches]);
 
     let overrideStatus = selectedBranch?.status;

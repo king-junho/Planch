@@ -16,24 +16,33 @@ export const ProposalSection = ({ tripRoomId }: ProposalSectionProps) => {
     const [hostUserId, setHostUserId] = useState<number | undefined>(undefined);
 
     useEffect(() => {
-        if (tripRoomId) {
-            const numericId = Number(tripRoomId);
+        if (!tripRoomId) return;
+
+        const numericId = Number(tripRoomId);
+        if (!Number.isInteger(numericId) || numericId <= 0) return;
+
+        const loadRoomState = () => {
             fetchProposals(numericId);
 
             api.get(`/trip-rooms/${numericId}`)
                 .then(response => {
                     const roomStatus = response.data.status;
-                    if (roomStatus === 'locked' || roomStatus === 'confirmed') {
-                        setIsLocked(true);
-                    }
+                    setIsLocked(roomStatus === 'locked' || roomStatus === 'confirmed');
 
-                    const hostId = response.data.hostUserId || response.data.summary?.hostUserId;
+                    const hostId = response.data.hostUser?.id || response.data.hostUserId || response.data.summary?.hostUserId;
                     if (hostId) {
                         setHostUserId(Number(hostId));
                     }
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
-        }
+        };
+
+        loadRoomState();
+        window.addEventListener("trip-room-unlocked", loadRoomState);
+
+        return () => {
+            window.removeEventListener("trip-room-unlocked", loadRoomState);
+        };
     }, [tripRoomId, fetchProposals]);
 
     return (

@@ -24,19 +24,28 @@ export default function PreferenceSection() {
     } = usePreferenceStore();
 
     useEffect(() => {
-        if (tripRoomId) {
-            const numericId = Number(tripRoomId);
+        if (!tripRoomId) return;
+
+        const numericId = Number(tripRoomId);
+        if (!Number.isInteger(numericId) || numericId <= 0) return;
+
+        const loadRoomState = () => {
             fetchPreferences(numericId);
 
             api.get(`/trip-rooms/${numericId}`)
                 .then(response => {
                     const roomStatus = response.data.status;
-                    if (roomStatus === 'locked' || roomStatus === 'confirmed') {
-                        setIsLocked(true);
-                    }
+                    setIsLocked(roomStatus === 'locked' || roomStatus === 'confirmed');
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
-        }
+        };
+
+        loadRoomState();
+        window.addEventListener("trip-room-unlocked", loadRoomState);
+
+        return () => {
+            window.removeEventListener("trip-room-unlocked", loadRoomState);
+        };
     }, [tripRoomId, fetchPreferences]);
 
     useEffect(() => {
