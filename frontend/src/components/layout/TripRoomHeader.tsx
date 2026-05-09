@@ -9,7 +9,11 @@ import {
   UserRoundPen,
   X,
 } from "lucide-react";
-import { clearAuthSession, getAccessToken } from "../../services/authStorage";
+import {
+  clearAuthSession,
+  getAccessToken,
+  getAuthUser,
+} from "../../services/authStorage";
 import {
   createInviteLink,
   getTripRoomDetail,
@@ -271,6 +275,7 @@ export default function TripRoomHeader({
   const [activityLogError, setActivityLogError] = useState("");
   const [isActivityLogLoading, setIsActivityLogLoading] = useState(false);
   const isLoggedIn = Boolean(getAccessToken());
+  const authUser = getAuthUser();
   const currentUserId = readCurrentUserId();
   const isHost = Boolean(currentUserId && hostUserId && currentUserId === hostUserId);
 
@@ -718,15 +723,27 @@ export default function TripRoomHeader({
           </div>
         </nav>
 
-        <div className="flex w-[220px] items-center justify-end gap-3">
+        <div className="flex w-[280px] items-center justify-end gap-3">
           {isLoggedIn ? (
-            <button
-              className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
-              onClick={handleLogout}
-              type="button"
-            >
-              로그아웃
-            </button>
+            <>
+              {authUser ? (
+                <div className="min-w-0 text-right">
+                  <p className="truncate text-sm font-semibold leading-5 text-stone-900">
+                    {authUser.name}
+                  </p>
+                  <p className="truncate text-xs leading-4 text-stone-500">
+                    {authUser.email}
+                  </p>
+                </div>
+              ) : null}
+              <button
+                className="h-10 shrink-0 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+                onClick={handleLogout}
+                type="button"
+              >
+                로그아웃
+              </button>
+            </>
           ) : (
             <>
               <Link

@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { clearAuthSession, getAccessToken } from "../services/authStorage";
+import {
+  clearAuthSession,
+  getAccessToken,
+  getAuthUser,
+} from "../services/authStorage";
 import { createTripRoom, getMyTripRooms } from "../services/tripRoomApi";
 import { TripRoomListItem } from "../types/tripRoom";
 
@@ -78,6 +82,7 @@ function TripRoomCard({
 export default function TripRoomListPage() {
   const navigate = useNavigate();
   const isLoggedIn = Boolean(getAccessToken());
+  const authUser = getAuthUser();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [tripRooms, setTripRooms] = useState<TripRoomListItem[]>([]);
   const [tripTitle, setTripTitle] = useState("");
@@ -197,13 +202,25 @@ export default function TripRoomListPage() {
 
           <div className="hidden items-center gap-3 sm:flex">
             {isLoggedIn ? (
-              <button
-                className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
-                onClick={handleLogout}
-                type="button"
-              >
-                로그아웃
-              </button>
+              <>
+                {authUser ? (
+                  <div className="min-w-0 max-w-[220px] text-right">
+                    <p className="truncate text-sm font-semibold leading-5 text-stone-900">
+                      {authUser.name}
+                    </p>
+                    <p className="truncate text-xs leading-4 text-stone-500">
+                      {authUser.email}
+                    </p>
+                  </div>
+                ) : null}
+                <button
+                  className="h-10 shrink-0 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+                  onClick={handleLogout}
+                  type="button"
+                >
+                  로그아웃
+                </button>
+              </>
             ) : (
               <>
                 <Link
