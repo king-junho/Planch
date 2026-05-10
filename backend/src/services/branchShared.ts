@@ -104,6 +104,68 @@ export const calculateBranchMetrics = (places: BranchPlaceInput[]) => {
   };
 };
 
+const parseTimeToMinutes = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+};
+
+export const calculateManualBranchDurations = <T extends BranchPlaceInput>(
+  places: T[],
+): T[] => {
+  const placesWithDuration = places.map((place) => ({
+    ...place,
+    estimatedDuration: 0,
+  }));
+  const placesByDay = new Map<number, Array<{ index: number; minutes: number }>>();
+
+  places.forEach((place, index) => {
+    const minutes = parseTimeToMinutes(place.startTime);
+
+    if (minutes === null) {
+      return;
+    }
+
+    const dayPlaces = placesByDay.get(place.dayNo) ?? [];
+    dayPlaces.push({ index, minutes });
+    placesByDay.set(place.dayNo, dayPlaces);
+  });
+
+  placesByDay.forEach((dayPlaces) => {
+    const sortedDayPlaces = [...dayPlaces].sort((a, b) => a.minutes - b.minutes);
+
+    sortedDayPlaces.forEach((place, index) => {
+      const nextPlace = sortedDayPlaces[index + 1];
+      const duration =
+        nextPlace && nextPlace.minutes > place.minutes
+          ? nextPlace.minutes - place.minutes
+          : 0;
+
+      placesWithDuration[place.index] = {
+        ...placesWithDuration[place.index],
+        estimatedDuration: duration,
+      };
+    });
+  });
+
+  return placesWithDuration;
+};
+
 export const buildVoteSummary = (
   votes: { voteType: "agree" | "hold" | "disagree" }[],
 ) => {

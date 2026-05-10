@@ -7,6 +7,7 @@ import {
   toBranchLogJson,
   buildVoteSummary,
   calculatePreferenceScore,
+  calculateManualBranchDurations,
 } from "./branchShared";
 import {
   DECISION_LOG_ACTION,
@@ -18,20 +19,35 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 interface BranchPlaceDraft {
   placeId: number;
   proposalId: number | null;
+  dayNo: number;
   orderIndex: number;
-  estimatedCost: number | null;
-  estimatedDuration: number | null;
+  startTime: string;
+  estimatedCost: number;
+  estimatedDuration: number;
 }
 
 interface GeneratedBranchDraft {
   name: string;
-  totalCost: number | null;
-  totalTravelTime: number | null;
-  preferenceScore: number | null;
-  densityScore: number | null;
+  totalCost: number;
+  totalTravelTime: number;
+  preferenceScore: number;
   aiReason: string | null;
   places: BranchPlaceDraft[];
 }
+
+type AiBranchPlaceInput = Omit<BranchPlaceDraft, "orderIndex" | "startTime" | "estimatedDuration">;
+
+type AiProposalOption = {
+  id: number;
+  placeId: number;
+  estimatedCost: number | null;
+  estimatedDuration: number | null;
+};
+
+type BranchSignaturePlace = {
+  dayNo: number;
+  placeId: number;
+};
 
 export const createBranchService = async ({
   tripRoomId,
@@ -123,9 +139,11 @@ export const createBranchService = async ({
     })
   );
 
-  const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlaces);
+  const resolvedPlacesWithDurations = calculateManualBranchDurations(resolvedPlaces);
 
-  const preferenceScore = calculatePreferenceScore(resolvedPlaces, tripRoom.preferences);
+  const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlacesWithDurations);
+
+  const preferenceScore = calculatePreferenceScore(resolvedPlacesWithDurations, tripRoom.preferences);
 
   const branch = await prisma.planBranch.create({
     data: {
@@ -137,7 +155,7 @@ export const createBranchService = async ({
       preferenceScore,
       status: "voting",
       branchPlaces: {
-        create: resolvedPlaces.map((place) => ({
+        create: resolvedPlacesWithDurations.map((place) => ({
           placeId: place.placeId,
           proposalId: place.proposalId ?? null,
           dayNo: place.dayNo,
@@ -164,7 +182,7 @@ export const createBranchService = async ({
       actionType: DECISION_LOG_ACTION.BRANCH_CREATE,
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branch.id,
-      afterData: toBranchLogJson(name, resolvedPlaces),
+      afterData: toBranchLogJson(name, resolvedPlacesWithDurations),
     },
   });
 
@@ -210,7 +228,6 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
       totalCost: true,
       totalTravelTime: true,
       preferenceScore: true,
-      densityScore: true,
       aiReason: true,
       votes: {
         select: {
@@ -231,7 +248,6 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
       totalCost: branch.totalCost,
       totalTravelTime: branch.totalTravelTime,
       preferenceScore: branch.preferenceScore,
-      densityScore: branch.densityScore,
       aiReason: branch.aiReason,
       voteSummary: buildVoteSummary(branch.votes),
     })),
@@ -287,7 +303,6 @@ export const getBranchCompareService = async (tripRoomId: number, userId: number
       totalCost: true,
       totalTravelTime: true,
       preferenceScore: true,
-      densityScore: true,
       branchPlaces: {
         orderBy: [
           { dayNo: "asc" },
@@ -327,7 +342,6 @@ export const getBranchCompareService = async (tripRoomId: number, userId: number
           totalCost: branch.totalCost,
           totalTravelTime: branch.totalTravelTime,
           preferenceScore: branch.preferenceScore,
-          densityScore: branch.densityScore,
         },
         places: branch.branchPlaces.map((branchPlace) => ({
           dayNo: branchPlace.dayNo,
@@ -348,6 +362,7 @@ export const getBranchCompareService = async (tripRoomId: number, userId: number
 const buildBranchPrompt = ({
   tripRoom,
   branchCount,
+  tripDayCount,
   proposals,
 }: {
   tripRoom: {
@@ -365,8 +380,19 @@ const buildBranchPrompt = ({
         name: string;
       };
     }>;
+    branches: Array<{
+      name: string;
+      branchPlaces: Array<{
+        dayNo: number;
+        placeId: number;
+        place: {
+          name: string;
+        };
+      }>;
+    }>;
   };
   branchCount: number;
+  tripDayCount: number;
   proposals: Array<{
     id: number;
     placeId: number;
@@ -380,6 +406,8 @@ const buildBranchPrompt = ({
       name: string;
       address: string | null;
       category: string | null;
+      latitude: unknown;
+      longitude: unknown;
     };
   }>;
 }) => {
@@ -393,15 +421,42 @@ const buildBranchPrompt = ({
   const proposalSummary = proposals
     .map(
       (proposal) =>
-        `- proposalId=${proposal.id}, placeId=${proposal.placeId}, 이름=${proposal.place.name}, 카테고리=${proposal.place.category ?? "미정"}, 주소=${proposal.place.address ?? "미정"}, 비용=${proposal.estimatedCost ?? "미정"}, 체류시간=${proposal.estimatedDuration ?? "미정"}, 상태=${proposal.status}, source=${proposal.source}, 코멘트=${proposal.comment ?? ""}, 사유=${proposal.aiReason ?? ""}`,
+        `- proposalId=${proposal.id}, placeId=${proposal.placeId}, 이름=${proposal.place.name}, 카테고리=${proposal.place.category ?? "미정"}, 주소=${proposal.place.address ?? "미정"}, 위도=${proposal.place.latitude}, 경도=${proposal.place.longitude}, 비용=${proposal.estimatedCost ?? "미정"}, 체류시간=${proposal.estimatedDuration ?? "미정"}, 상태=${proposal.status}, source=${proposal.source}, 코멘트=${proposal.comment ?? ""}, 사유=${proposal.aiReason ?? ""}`,
     )
     .join("\n");
 
+  const existingBranchSummary = tripRoom.branches
+    .map((branch) => {
+      const placeSummary = branch.branchPlaces
+        .map((place) => `dayNo=${place.dayNo}: placeId=${place.placeId}(${place.place.name})`)
+        .join(", ");
+
+      return `- ${branch.name}: ${placeSummary}`;
+    })
+    .join("\n");
+
   return `
-여행방 정보를 바탕으로 ${branchCount}개의 후보 브랜치를 JSON으로 생성해줘.
+여행방 정보, 참여자 선호, 장소 제안 목록을 바탕으로 후보 브랜치 ${branchCount}개를 JSON으로만 생성해줘.
+
+중요:
+- 반드시 JSON 객체만 반환해. 설명 문장, 마크다운, 코드블록은 금지.
+- branches 배열 길이는 반드시 ${branchCount}개여야 해.
+- 각 브랜치의 places는 최소 ${tripDayCount * 2}개 이상 포함해.
+- 모든 dayNo(1부터 ${tripDayCount})를 반드시 포함해.
+- 각 dayNo마다 서로 다른 placeId를 최소 2개 이상 포함해.
+- placeId는 반드시 아래 장소 제안 목록에 있는 placeId만 사용해.
+- proposalId는 해당 placeId와 연결된 proposalId를 사용해.
+- dayNo는 1부터 ${tripDayCount} 사이의 숫자로만 작성해.
+- 기존 브랜치와 동일한 dayNo별 placeId 조합은 만들지 마.
+- 같은 dayNo 안에서는 위도/경도를 기준으로 서로 가까운 장소끼리 묶고, 이동 동선이 짧아지는 방문 순서대로 places 배열에 작성해.
+- places 배열의 같은 dayNo 내 작성 순서는 실제 방문 순서로 간주된다.
+- estimatedCost는 장소별 예상 비용을 숫자로 작성해.
+- aiReason은 해당 브랜치를 추천하는 이유를 한 문장으로 작성해. 예: 좌표 기반 동선 최적화, 선호 반영률이 높음, 예산 균형이 좋음.
+- name, totalCost, totalTravelTime, preferenceScore, densityScore, orderIndex, startTime, estimatedDuration은 작성하지 마. 이 값들은 서버에서 계산한다.
 
 여행방 제목: ${tripRoom.title}
 여행 기간: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split("T")[0] : "미정"} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split("T")[0] : "미정"}
+총 여행 일수: ${tripDayCount}
 
 참여자 선호:
 ${preferenceSummary || "- 없음"}
@@ -409,32 +464,20 @@ ${preferenceSummary || "- 없음"}
 장소 제안 목록:
 ${proposalSummary || "- 없음"}
 
-응답 규칙:
-1. JSON만 반환
-2. branchCount 개수만큼 branches 배열 생성
-3. 각 브랜치는 places를 2~4개 포함
-4. proposalId는 목록의 proposalId를 쓰고, AI가 직접 넣은 장소면 null 가능
-5. placeId는 반드시 실제 목록에 있는 값 사용
-6. totalCost, totalTravelTime, preferenceScore, densityScore는 숫자로 넣기
-7. preferenceScore, densityScore는 0~100 정수
+기존 브랜치 목록:
+${existingBranchSummary || "- 없음"}
 
 응답 형식:
 {
   "branches": [
     {
-      "name": "Plan A",
-      "totalCost": 50000,
-      "totalTravelTime": 95,
-      "preferenceScore": 84,
-      "densityScore": 72,
-      "aiReason": "이동시간이 짧고 선호 반영률이 높음",
+      "aiReason": "동선 최적화와 선호 반영률이 높아 추천합니다.",
       "places": [
         {
           "placeId": 1,
           "proposalId": 10,
-          "orderIndex": 1,
-          "estimatedCost": 15000,
-          "estimatedDuration": 90
+          "dayNo": 1,
+          "estimatedCost": 15000
         }
       ]
     }
@@ -443,22 +486,124 @@ ${proposalSummary || "- 없음"}
   `.trim();
 };
 
+const formatAiStartTime = (orderIndex: number) => {
+  const hour = 8 + orderIndex;
+
+  return `${String(hour).padStart(2, "0")}:00`;
+};
+
+const MIN_AI_PLACES_PER_DAY = 2;
+
+const normalizeAiBranchPlaces = (places: AiBranchPlaceInput[]) => {
+  const dayOrderCounts = new Map<number, number>();
+
+  return places.map((place) => {
+    const nextOrderIndex = (dayOrderCounts.get(place.dayNo) ?? 0) + 1;
+    dayOrderCounts.set(place.dayNo, nextOrderIndex);
+
+    return {
+      ...place,
+      orderIndex: nextOrderIndex,
+      startTime: formatAiStartTime(nextOrderIndex),
+      estimatedDuration: 60,
+    };
+  });
+};
+
+const countPlacesByDay = (places: AiBranchPlaceInput[]) => {
+  const counts = new Map<number, number>();
+
+  places.forEach((place) => {
+    counts.set(place.dayNo, (counts.get(place.dayNo) ?? 0) + 1);
+  });
+
+  return counts;
+};
+
+const buildBranchSignature = (places: BranchSignaturePlace[]) => {
+  const placesByDay = new Map<number, number[]>();
+
+  places.forEach((place) => {
+    const dayPlaces = placesByDay.get(place.dayNo) ?? [];
+    dayPlaces.push(place.placeId);
+    placesByDay.set(place.dayNo, dayPlaces);
+  });
+
+  return [...placesByDay.entries()]
+    .sort(([aDayNo], [bDayNo]) => aDayNo - bDayNo)
+    .map(([dayNo, placeIds]) => `${dayNo}:${placeIds.sort((a, b) => a - b).join(",")}`)
+    .join("|");
+};
+
+const ensureMinimumPlacesPerDay = (
+  places: AiBranchPlaceInput[],
+  maxDayNo: number,
+  proposals: AiProposalOption[],
+) => {
+  const result = places.map((place) => ({ ...place }));
+  const seenPlaceIds = new Set(result.map((place) => place.placeId));
+
+  for (let dayNo = 1; dayNo <= maxDayNo; dayNo += 1) {
+    let counts = countPlacesByDay(result);
+
+    while ((counts.get(dayNo) ?? 0) < MIN_AI_PLACES_PER_DAY) {
+      const donorIndex = result.findIndex((place) => {
+        if (place.dayNo === dayNo) {
+          return false;
+        }
+
+        return (counts.get(place.dayNo) ?? 0) > MIN_AI_PLACES_PER_DAY;
+      });
+
+      if (donorIndex >= 0) {
+        result[donorIndex] = {
+          ...result[donorIndex],
+          dayNo,
+        };
+        counts = countPlacesByDay(result);
+        continue;
+      }
+
+      const nextProposal = proposals.find((proposal) => !seenPlaceIds.has(proposal.placeId));
+
+      if (!nextProposal) {
+        break;
+      }
+
+      seenPlaceIds.add(nextProposal.placeId);
+      result.push({
+        placeId: nextProposal.placeId,
+        proposalId: nextProposal.id,
+        dayNo,
+        estimatedCost: nextProposal.estimatedCost ?? 0,
+      });
+      counts = countPlacesByDay(result);
+    }
+  }
+
+  return result;
+};
+
 const normalizeBranchDraft = (
   rawBranch: any,
-  fallbackName: string,
+  branchIndex: number,
+  maxDayNo: number,
   validProposalMap: Map<number, { id: number; placeId: number; estimatedCost: number | null; estimatedDuration: number | null }>,
+  validProposalByPlaceId: Map<number, { id: number; placeId: number; estimatedCost: number | null; estimatedDuration: number | null }>,
+  proposals: AiProposalOption[],
+  preferences: unknown[],
 ): GeneratedBranchDraft | null => {
   if (!rawBranch || !Array.isArray(rawBranch.places)) {
     return null;
   }
 
   const seenPlaceIds = new Set<number>();
-  const places: BranchPlaceDraft[] = [];
+  const places: AiBranchPlaceInput[] = [];
 
   for (const [index, rawPlace] of rawBranch.places.entries()) {
     const placeId = Number(rawPlace?.placeId);
 
-    if (Number.isNaN(placeId) || seenPlaceIds.has(placeId)) {
+    if (Number.isNaN(placeId) || seenPlaceIds.has(placeId) || !validProposalByPlaceId.has(placeId)) {
       continue;
     }
 
@@ -468,21 +613,26 @@ const normalizeBranchDraft = (
         : Number(rawPlace.proposalId);
 
     const matchedProposal = proposalIdValue !== null ? validProposalMap.get(proposalIdValue) : undefined;
-    const safeProposalId = matchedProposal && matchedProposal.placeId === placeId ? matchedProposal.id : null;
+    const fallbackProposal = validProposalByPlaceId.get(placeId);
+    const safeProposalId =
+      matchedProposal && matchedProposal.placeId === placeId
+        ? matchedProposal.id
+        : fallbackProposal?.id ?? null;
+    const rawDayNo = Number(rawPlace?.dayNo);
+    const dayNo = Number.isInteger(rawDayNo)
+      ? Math.max(1, Math.min(maxDayNo, rawDayNo))
+      : Math.min(maxDayNo, Math.floor(index / 3) + 1);
+    const estimatedCost =
+      typeof rawPlace?.estimatedCost === "number"
+        ? rawPlace.estimatedCost
+        : matchedProposal?.estimatedCost ?? fallbackProposal?.estimatedCost ?? 0;
 
     seenPlaceIds.add(placeId);
     places.push({
       placeId,
       proposalId: safeProposalId,
-      orderIndex: Number(rawPlace?.orderIndex) || index + 1,
-      estimatedCost:
-        typeof rawPlace?.estimatedCost === "number"
-          ? rawPlace.estimatedCost
-          : matchedProposal?.estimatedCost ?? null,
-      estimatedDuration:
-        typeof rawPlace?.estimatedDuration === "number"
-          ? rawPlace.estimatedDuration
-          : matchedProposal?.estimatedDuration ?? null,
+      dayNo,
+      estimatedCost,
     });
   }
 
@@ -490,29 +640,124 @@ const normalizeBranchDraft = (
     return null;
   }
 
-  const totalCost =
-    typeof rawBranch?.totalCost === "number"
-      ? rawBranch.totalCost
-      : places.reduce((sum, place) => sum + (place.estimatedCost ?? 0), 0);
-  const totalTravelTime =
-    typeof rawBranch?.totalTravelTime === "number"
-      ? rawBranch.totalTravelTime
-      : places.reduce((sum, place) => sum + (place.estimatedDuration ?? 0), 0);
+  const completedPlaces = ensureMinimumPlacesPerDay(places, maxDayNo, proposals);
+  const normalizedPlaces = normalizeAiBranchPlaces(completedPlaces);
+  const { totalCost, totalTravelTime } = calculateBranchMetrics(normalizedPlaces);
+  const preferenceScore = calculatePreferenceScore(normalizedPlaces, preferences);
 
   return {
-    name: typeof rawBranch?.name === "string" && rawBranch.name.trim() ? rawBranch.name.trim() : fallbackName,
+    name: `Branch ${branchIndex + 1}`,
     totalCost,
     totalTravelTime,
-    preferenceScore:
-      typeof rawBranch?.preferenceScore === "number" ? Math.max(0, Math.min(100, Math.round(rawBranch.preferenceScore))) : 70,
-    densityScore:
-      typeof rawBranch?.densityScore === "number" ? Math.max(0, Math.min(100, Math.round(rawBranch.densityScore))) : 70,
+    preferenceScore,
     aiReason:
       typeof rawBranch?.aiReason === "string" && rawBranch.aiReason.trim()
         ? rawBranch.aiReason.trim()
         : "선호와 장소 제안을 종합해 균형 있게 구성한 브랜치입니다.",
-    places,
+    places: normalizedPlaces,
   };
+};
+
+const getTripDayCount = (startDate: Date | null, endDate: Date | null) => {
+  if (!startDate || !endDate) {
+    return 1;
+  }
+
+  const start = Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate(),
+  );
+  const end = Date.UTC(
+    endDate.getUTCFullYear(),
+    endDate.getUTCMonth(),
+    endDate.getUTCDate(),
+  );
+  const diffDays = Math.floor((end - start) / 86_400_000) + 1;
+
+  return Math.max(1, diffDays);
+};
+
+const getNextBranchNumber = async (tripRoomId: number) => {
+  const existingBranches = await prisma.planBranch.findMany({
+    where: {
+      tripRoomId,
+      name: {
+        startsWith: "Branch ",
+      },
+    },
+    select: {
+      name: true,
+    },
+  });
+
+  const maxBranchNumber = existingBranches.reduce((max, branch) => {
+    const match = branch.name.match(/^Branch\s+(\d+)$/);
+
+    if (!match) {
+      return max;
+    }
+
+    return Math.max(max, Number(match[1]));
+  }, 0);
+
+  return maxBranchNumber + 1;
+};
+
+const buildFallbackBranchDrafts = (
+  existingDrafts: GeneratedBranchDraft[],
+  safeBranchCount: number,
+  tripDayCount: number,
+  proposals: AiProposalOption[],
+  preferences: unknown[],
+  usedSignatures: Set<string>,
+) => {
+  if (existingDrafts.length >= safeBranchCount || proposals.length === 0) {
+    return existingDrafts;
+  }
+
+  const drafts = [...existingDrafts];
+  drafts.forEach((draft) => {
+    const signature = buildBranchSignature(draft.places);
+
+    if (signature) {
+      usedSignatures.add(signature);
+    }
+  });
+
+  for (let attempt = 0; drafts.length < safeBranchCount && attempt < proposals.length; attempt += 1) {
+    const rotatedProposals = proposals
+      .slice(attempt)
+      .concat(proposals.slice(0, attempt));
+    const targetPlaceCount = tripDayCount * MIN_AI_PLACES_PER_DAY;
+    const selectedProposals = rotatedProposals.slice(0, Math.min(targetPlaceCount, rotatedProposals.length));
+    const places = normalizeAiBranchPlaces(selectedProposals.map((proposal, index) => ({
+      placeId: proposal.placeId,
+      proposalId: proposal.id,
+      dayNo: (index % tripDayCount) + 1,
+      estimatedCost: proposal.estimatedCost ?? 0,
+    })));
+    const signature = buildBranchSignature(places);
+
+    if (!signature || usedSignatures.has(signature)) {
+      continue;
+    }
+
+    const { totalCost, totalTravelTime } = calculateBranchMetrics(places);
+    const branchIndex = drafts.length;
+
+    drafts.push({
+      name: `Branch ${branchIndex + 1}`,
+      totalCost,
+      totalTravelTime,
+      preferenceScore: calculatePreferenceScore(places, preferences),
+      aiReason: "AI 응답이 부족해 장소 제안을 기준으로 보완 생성한 브랜치입니다.",
+      places,
+    });
+    usedSignatures.add(signature);
+  }
+
+  return drafts;
 };
 
 export const generateAiBranchesService = async (
@@ -573,6 +818,28 @@ export const generateAiBranchesService = async (
               name: true,
               address: true,
               category: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
+        },
+      },
+      branches: {
+        select: {
+          name: true,
+          branchPlaces: {
+            orderBy: [
+              { dayNo: "asc" },
+              { orderIndex: "asc" },
+            ],
+            select: {
+              dayNo: true,
+              placeId: true,
+              place: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -593,6 +860,7 @@ export const generateAiBranchesService = async (
   }
 
   const safeBranchCount = Math.min(Math.max(branchCount, 1), 5);
+  const tripDayCount = getTripDayCount(tripRoom.startDate, tripRoom.endDate);
   const validPlaceIds = new Set(tripRoom.proposals.map((proposal) => proposal.placeId));
   const validProposalMap = new Map(
     tripRoom.proposals.map((proposal) => [
@@ -604,6 +872,22 @@ export const generateAiBranchesService = async (
         estimatedDuration: proposal.estimatedDuration,
       },
     ]),
+  );
+  const validProposalByPlaceId = new Map(
+    tripRoom.proposals.map((proposal) => [
+      proposal.placeId,
+      {
+        id: proposal.id,
+        placeId: proposal.placeId,
+        estimatedCost: proposal.estimatedCost,
+        estimatedDuration: proposal.estimatedDuration,
+      },
+    ]),
+  );
+  const usedBranchSignatures = new Set(
+    tripRoom.branches
+      .map((branch) => buildBranchSignature(branch.branchPlaces))
+      .filter((signature): signature is string => Boolean(signature)),
   );
 
   let branchDrafts: GeneratedBranchDraft[] = [];
@@ -617,6 +901,7 @@ export const generateAiBranchesService = async (
           content: buildBranchPrompt({
             tripRoom,
             branchCount: safeBranchCount,
+            tripDayCount,
             proposals: tripRoom.proposals,
           }),
         },
@@ -630,7 +915,15 @@ export const generateAiBranchesService = async (
 
     branchDrafts = (parsed.branches || [])
       .map((branch: any, index: number) =>
-        normalizeBranchDraft(branch, `Plan ${String.fromCharCode(65 + index)}`, validProposalMap),
+        normalizeBranchDraft(
+          branch,
+          index,
+          tripDayCount,
+          validProposalMap,
+          validProposalByPlaceId,
+          tripRoom.proposals,
+          tripRoom.preferences,
+        ),
       )
       .filter((branch: GeneratedBranchDraft | null): branch is GeneratedBranchDraft => Boolean(branch))
       .map((branch: GeneratedBranchDraft) => ({
@@ -638,14 +931,40 @@ export const generateAiBranchesService = async (
         places: branch.places.filter((place: BranchPlaceDraft) => validPlaceIds.has(place.placeId)),
       }))
       .filter((branch: GeneratedBranchDraft) => branch.places.length > 0)
+      .filter((branch: GeneratedBranchDraft) => {
+        const signature = buildBranchSignature(branch.places);
+
+        if (!signature || usedBranchSignatures.has(signature)) {
+          return false;
+        }
+
+        usedBranchSignatures.add(signature);
+        return true;
+      })
       .slice(0, safeBranchCount);
   } catch (error) {
     throw new Error("OpenAI branch generation failed");
   }
 
+  branchDrafts = buildFallbackBranchDrafts(
+    branchDrafts,
+    safeBranchCount,
+    tripDayCount,
+    tripRoom.proposals,
+    tripRoom.preferences,
+    usedBranchSignatures,
+  );
+
   if (branchDrafts.length === 0) {
     throw new Error("OpenAI branch generation failed");
   }
+
+  const nextBranchNumber = await getNextBranchNumber(tripRoomId);
+
+  branchDrafts = branchDrafts.map((branch, index) => ({
+    ...branch,
+    name: `Branch ${nextBranchNumber + index}`,
+  }));
 
   const createdBranches = await prisma.$transaction(
     branchDrafts.map((branch) =>
@@ -657,15 +976,15 @@ export const generateAiBranchesService = async (
           totalCost: branch.totalCost,
           totalTravelTime: branch.totalTravelTime,
           preferenceScore: branch.preferenceScore,
-          densityScore: branch.densityScore,
           aiReason: branch.aiReason,
           status: "generated",
           branchPlaces: {
             create: branch.places.map((place) => ({
               placeId: place.placeId,
               proposalId: place.proposalId,
-              dayNo: 1,
+              dayNo: place.dayNo,
               orderIndex: place.orderIndex,
+              startTime: place.startTime,
               estimatedCost: place.estimatedCost,
               estimatedDuration: place.estimatedDuration,
             })),

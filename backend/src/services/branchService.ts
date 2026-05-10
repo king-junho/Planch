@@ -6,6 +6,7 @@ import {
   toBranchDetailLogJson,
   buildVoteSummary,
   calculatePreferenceScore,
+  calculateManualBranchDurations,
 } from "./branchShared";
 
 import {
@@ -197,9 +198,11 @@ export const updateBranchService = async ({
     })
   );
 
-  const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlaces);
+  const resolvedPlacesWithDurations = calculateManualBranchDurations(resolvedPlaces);
 
-  const preferenceScore = calculatePreferenceScore(resolvedPlaces, branch.tripRoom.preferences);
+  const { totalCost, totalTravelTime } = calculateBranchMetrics(resolvedPlacesWithDurations);
+
+  const preferenceScore = calculatePreferenceScore(resolvedPlacesWithDurations, branch.tripRoom.preferences);
 
   await prisma.$transaction([
     prisma.branchPlace.deleteMany({
@@ -215,7 +218,7 @@ export const updateBranchService = async ({
       },
     }),
     prisma.branchPlace.createMany({
-      data: resolvedPlaces.map((place) => ({
+      data: resolvedPlacesWithDurations.map((place) => ({
         branchId,
         placeId: place.placeId,
         proposalId: place.proposalId ?? null,
@@ -265,7 +268,6 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
       totalCost: true,
       totalTravelTime: true,
       preferenceScore: true,
-      densityScore: true,
       votes: {
         select: {
           voteType: true,
@@ -342,7 +344,6 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
         totalCost: branch.totalCost,
         totalTravelTime: branch.totalTravelTime,
         preferenceScore: branch.preferenceScore,
-        densityScore: branch.densityScore,
       },
       voteSummary,
       places: branch.branchPlaces.map((branchPlace) => ({
