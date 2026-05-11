@@ -50,7 +50,7 @@ function TripRoomCard({
         <img
         alt={title}
         className="h-full w-full object-cover"
-        src={resolveImageUrl(thumbnailUrl)}
+        src={resolveImageUrl(thumbnailUrl, "https://placehold.co/258x194")}
         />
         <div className="absolute inset-0 bg-black/5" />
       </div>

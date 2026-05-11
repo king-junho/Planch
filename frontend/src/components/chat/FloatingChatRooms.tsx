@@ -13,6 +13,7 @@ import {
   ChatMessagesResponse,
   ChatRoomListItem,
 } from "../../types/chat";
+import { resolveImageUrl } from "../../utils/image";
 
 const hiddenPathnames = new Set(["/login", "/register"]);
 const socketUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -441,6 +442,8 @@ export default function FloatingChatRooms() {
     }
   }
 
+  const activeChatRoomInfo = useMemo(() => chatRooms.find((chatRoom) => chatRoom.tripRoomId === activeTripRoomId) ?? null, [chatRooms, activeTripRoomId]);
+
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
       {isOpen ? (
@@ -455,6 +458,7 @@ export default function FloatingChatRooms() {
                   aria-label="채팅 목록으로 돌아가기"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
                   onClick={() => {
+                    localStorage.removeItem("activeTripRoomId");
                     setActiveTripRoomId(null);
                     setActiveChat(null);
                     setMessageErrorMessage("");
@@ -466,14 +470,23 @@ export default function FloatingChatRooms() {
                   <ArrowLeft className="h-4 w-4" />
                 </button>
               ) : null}
-              <div className="min-w-0">
-                <h2 className="truncate text-base font-bold leading-6 text-stone-900">
-                  {activeChat?.tripRoomTitle ?? "채팅"}
-                </h2>
-                <p className="text-xs leading-5 text-stone-400">
-                  {activeTripRoomId ? "메시지" : "참여 중인 여행방"}
-                </p>
-              </div>
+              {activeTripRoomId ? (
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-stone-100">
+                  <img
+                  alt=""
+                  className="h-full w-full object-cover"
+                  src={resolveImageUrl(activeChatRoomInfo?.thumbnailUrl, "https://placehold.co/80x80")}
+                  />
+                </div>) : null}
+                
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-bold leading-6 text-stone-900">
+                    {activeChat?.tripRoomTitle ?? activeChatRoomInfo?.tripRoomTitle ??"채팅"}
+                  </h2>
+                  <p className="text-xs leading-5 text-stone-400">
+                    {activeTripRoomId ? "메시지" : "참여 중인 여행방"}
+                  </p>
+                </div>
             </div>
             <button
               aria-label="채팅 새로고침"
@@ -585,17 +598,11 @@ export default function FloatingChatRooms() {
                     type="button"
                   >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100">
-                      {chatRoom.thumbnailUrl ? (
-                        <img
-                          alt=""
-                          className="h-full w-full object-cover"
-                          src={chatRoom.thumbnailUrl}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-stone-100 text-xs font-semibold text-stone-400">
-                          PL
-                        </div>
-                      )}
+                      <img
+                      alt={`${chatRoom.tripRoomTitle} 썸네일`}
+                      className="h-full w-full object-cover"
+                      src={resolveImageUrl(chatRoom.thumbnailUrl, "https://placehold.co/96x96")}
+                      />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -635,6 +642,7 @@ export default function FloatingChatRooms() {
         onClick={() => {
           setIsOpen((current) => !current);
           if (isOpen) {
+            localStorage.removeItem("activeTripRoomId");
             setActiveTripRoomId(null);
             setActiveChat(null);
             setMessageDraft("");

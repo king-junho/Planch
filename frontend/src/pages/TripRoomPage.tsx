@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { getTripRoomDetail, updateTripRoom} from "../services/tripRoomApi";
 import { TripRoomDetailResponse } from "../types/tripRoom";
+import { resolveImageUrl } from "../utils/image";
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate && !endDate) return "여행 날짜 미정";
@@ -195,9 +196,9 @@ export default function TripRoomPage() {
         <section className="overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
           <div className="relative h-52 overflow-hidden bg-stone-200">
             <img
-              alt={tripRoomDetail.title}
-              className="h-full w-full object-cover"
-              src={tripRoomDetail.thumbnailUrl ?? "https://placehold.co/1200x260"}
+            alt={tripRoomDetail.title}
+            className="h-full w-full object-cover"
+            src={resolveImageUrl(tripRoomDetail.thumbnailUrl, "https://placehold.co/1200x260")}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-8">
