@@ -9,6 +9,7 @@ import {
   getPreferenceListService,
   unlockTripRoomService,
   getDecisionService,
+  updateTripRoomImageService,
 } from "../services/tripRoomService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
@@ -333,3 +334,34 @@ export const finalizeTripRoom = async (req: AuthenticatedRequest, res: Response)
     return res.status(500).json({ message: "최종 확정 실패" });
   }
 };
+
+export const updateTripRoomImage = async(req: AuthenticatedRequest, res: Response) => {
+  try{
+    const tripRoomId = Number(req.params.tripRoomId);
+    const userId = req.user?.id;
+    const file = req.file;
+
+    if(Number.isNaN(tripRoomId)){
+      return res.status(400).json({message : "유효하지 않은 tripRoomId입니다."});
+    }
+
+    if(!userId){
+      return res.status(401).json({message: "인증이 필요합니다."});
+    }
+
+    if(!file){
+      return res.status(400).json({message: "업로드된 파일이 없습니다."});
+    }
+
+    const result = await updateTripRoomImageService(tripRoomId, userId, file.filename);
+
+    return res.status(200).json(result);
+  }catch(error){
+    if(error instanceof Error && error.message === "Trip room not found"){
+      return res.status(404).json({message: "여행방을 찾을 수 없습니다."});
+    }
+
+    console.error("updateTripRoomImage error:", error);
+    return res.status(500).json({message: "여행방 이미지 업데이트 실패"});
+  }
+}

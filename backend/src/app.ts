@@ -13,6 +13,7 @@ import prisma from "./lib/prisma";
 const app = express();
 const frontendDir = path.resolve(__dirname, "../../frontend");
 const corsOrigin = process.env.CORS_ORIGIN;
+const uploadDir = path.resolve(__dirname, "../uploads");
 
 app.use(
   cors({
@@ -21,6 +22,7 @@ app.use(
 );
 app.use(express.json());
 app.use(express.static(frontendDir));
+app.use("/uploads", express.static(uploadDir));
 
 app.get("/api/health", async (_req, res) => {
   try {

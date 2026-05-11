@@ -3,6 +3,7 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
+import { title } from "process";
 
 interface CreateTripRoomInput {
   title: string;
@@ -692,5 +693,47 @@ export const createTripRoomService = async ({
     selectedBranchId: newTripRoom.selectedBranchId ?? null,
     createdAt: newTripRoom.createdAt,
     updatedAt: newTripRoom.updatedAt,
+  };
+};
+
+export const updateTripRoomImageService = async(
+  tripRoomId : number,
+  userId : number,
+  fileName : string,
+)=>{
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where:{id: tripRoomId},
+    select:{
+      id:true,
+      hostUserId:true,
+      thumbnailUrl:true,
+    },
+  });
+
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+
+  const thumbnailUrl = `/uploads/${fileName}`;
+
+  const updated = await prisma.tripRoom.update({
+    where:{id: tripRoomId},
+    data:{
+      thumbnailUrl,
+    },
+    select:{
+      id:true,
+      title:true,
+      thumbnailUrl:true,
+      updatedAt:true,
+    },
+  });
+  
+  return{
+    tripRoomId: updated.id,
+    title : updated.title,
+    thumbnailUrl: updated.thumbnailUrl,
+    updatedAt: updated.updatedAt,
+    saved: true as const,
   };
 };

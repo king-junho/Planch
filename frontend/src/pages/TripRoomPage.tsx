@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
-import { getTripRoomDetail, updateTripRoom } from "../services/tripRoomApi";
+import { getTripRoomDetail, updateTripRoom} from "../services/tripRoomApi";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 
 function formatDateRange(startDate: string | null, endDate: string | null) {

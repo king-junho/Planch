@@ -9,10 +9,12 @@ import {
     getPreferenceList,
     unlockTripRoom,
     getDecisionLogs,
+    updateTripRoomImage,
 } from "../controllers/tripRoomController";
 import {getTripRoomChatMessages, sendTripRoomChatMessage,} from "../controllers/chatController";
 import { createInviteLink } from "../controllers/inviteLinkController";
 import { authenticate } from "../middlewares/authMiddleware";
+import { tripRoomImageUpload } from "../middlewares/uploadMiddleware";
 
 const router = Router();
 
@@ -34,5 +36,12 @@ router.post("/:tripRoomId/chat", authenticate, sendTripRoomChatMessage);
 router.post("/:tripRoomId/unlock", authenticate, unlockTripRoom);
 
 router.get("/:tripRoomId/logs", authenticate, getDecisionLogs);
+
+router.patch(
+    "/:tripRoomId/image",
+    authenticate,
+    tripRoomImageUpload.single("image"),
+    updateTripRoomImage,
+);
 
 export default router;

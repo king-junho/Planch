@@ -5,8 +5,9 @@ import {
   getAccessToken,
   getAuthUser,
 } from "../services/authStorage";
-import { createTripRoom, getMyTripRooms } from "../services/tripRoomApi";
+import { createTripRoom, getMyTripRooms, updateTripRoomImage } from "../services/tripRoomApi";
 import { TripRoomListItem } from "../types/tripRoom";
+import { resolveImageUrl } from "../utils/image";
 
 function TripRoomCard({
   tripRoomId,
@@ -47,9 +48,9 @@ function TripRoomCard({
     >
       <div className="relative h-[193.5px] bg-stone-100">
         <img
-          alt={title}
-          className="h-full w-full object-cover"
-          src={thumbnailUrl || "https://placehold.co/258x194"}
+        alt={title}
+        className="h-full w-full object-cover"
+        src={resolveImageUrl(thumbnailUrl)}
         />
         <div className="absolute inset-0 bg-black/5" />
       </div>
@@ -88,7 +89,8 @@ export default function TripRoomListPage() {
   const [tripTitle, setTripTitle] = useState("");
   const [tripStartDate, setTripStartDate] = useState("");
   const [tripEndDate, setTripEndDate] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [listError, setListError] = useState("");
@@ -146,44 +148,71 @@ export default function TripRoomListPage() {
     navigate("/login", { replace: true });
   }
 
-  async function handleCreateTripRoom() {
-    const trimmedThumbnailUrl = thumbnailUrl.trim();
+function resetCreateModal() {
+  setIsCreateModalOpen(false);
+  setTripTitle("");
+  setTripStartDate("");
+  setTripEndDate("");
+  setThumbnailFile(null);
+  setThumbnailPreviewUrl("");
+  setCreateError("");
+}
 
-    if (!tripTitle.trim()) {
-      setCreateError("title은 필수입니다.");
-      return;
-    }
+function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  const file = event.target.files?.[0] ?? null;
 
-    setCreateError("");
-    setIsCreating(true);
+  setThumbnailFile(file);
 
-    try {
-      const createdTripRoom = await createTripRoom({
-        title: tripTitle.trim(),
-        startDate: tripStartDate || undefined,
-        endDate: tripEndDate || undefined,
-        thumbnailUrl: trimmedThumbnailUrl || null,
-      });
-
-      setIsCreateModalOpen(false);
-      setTripTitle("");
-      setTripStartDate("");
-      setTripEndDate("");
-      setThumbnailUrl("");
-
-      navigate(`/trip-rooms/${createdTripRoom.tripRoomId}`, {
-        replace: true,
-      });
-    } catch (caughtError) {
-      if (caughtError instanceof Error && caughtError.message.trim()) {
-        setCreateError(caughtError.message);
-      } else {
-        setCreateError("여행방 생성에 실패했습니다. 다시 시도해 주세요.");
-      }
-    } finally {
-      setIsCreating(false);
-    }
+  if (!file) {
+    setThumbnailPreviewUrl("");
+    return;
   }
+
+  const previewUrl = URL.createObjectURL(file);
+  setThumbnailPreviewUrl(previewUrl);
+}
+
+  async function handleCreateTripRoom() {
+  const trimmedTitle = tripTitle.trim();
+
+  if (!trimmedTitle) {
+    setCreateError("여행 모임 이름을 입력해 주세요.");
+    return;
+  }
+
+  setCreateError("");
+  setIsCreating(true);
+
+  try {
+    const createdTripRoom = await createTripRoom({
+      title: trimmedTitle,
+      startDate: tripStartDate || undefined,
+      endDate: tripEndDate || undefined,
+      thumbnailUrl: null,
+    });
+
+    if (thumbnailFile) {
+      await updateTripRoomImage(createdTripRoom.tripRoomId, thumbnailFile);
+    }
+
+    const refreshedTripRooms = await getMyTripRooms();
+    setTripRooms(refreshedTripRooms);
+
+    resetCreateModal();
+
+    navigate(`/trip-rooms/${createdTripRoom.tripRoomId}`, {
+      replace: true,
+    });
+  } catch (caughtError) {
+    if (caughtError instanceof Error && caughtError.message.trim()) {
+      setCreateError(caughtError.message);
+    } else {
+      setCreateError("여행방 생성에 실패했습니다. 다시 시도해 주세요.");
+    }
+  } finally {
+    setIsCreating(false);
+  }
+}
 
   return (
     <div className="min-h-screen bg-white text-stone-900">
@@ -309,7 +338,7 @@ export default function TripRoomListPage() {
               </h2>
               <button
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 text-2xl leading-none text-stone-400"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={resetCreateModal}
                 type="button"
               >
                 ×
@@ -359,28 +388,27 @@ export default function TripRoomListPage() {
               <div>
                 <p className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
                   대표 사진
-                </p>
-                <input
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
-                  onChange={(event) => setThumbnailUrl(event.target.value)}
-                  placeholder="https://example.com/trip-thumbnail.jpg"
-                  type="url"
-                  value={thumbnailUrl}
-                />
-                <div className="mt-3 h-40 overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
-                  {thumbnailUrl.trim() ? (
-                    <img
+                  </p>
+                  <input
+                  accept="image/*"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-stone-900 file:px-3 file:py-2 file:text-white"
+                  onChange={handleThumbnailFileChange}
+                  type="file"
+                  />
+                  <div className="mt-3 h-40 overflow-hidden rounded-xl border border-stone-200 bg-stone-50">
+                    {thumbnailPreviewUrl ? (
+                      <img
                       alt="대표 사진 미리보기"
                       className="h-full w-full object-cover"
-                      src={thumbnailUrl.trim()}
-                    />
-                  ) : (
+                      src={thumbnailPreviewUrl}
+                      />
+                    ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-[13px] font-medium leading-[19.5px] text-stone-400">
-                      이미지 URL을 입력하면 미리보기가 표시됩니다.
+                      로컬 이미지를 선택하면 미리보기가 표시됩니다.
+                      </div>
+                    )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
               {createError ? (
                 <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -392,10 +420,7 @@ export default function TripRoomListPage() {
             <div className="mt-8 flex justify-end gap-3">
               <button
                 className="rounded-xl border border-stone-200 bg-white px-5 py-[14px] text-[15px] font-medium leading-[22.5px] text-stone-600"
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                  setCreateError("");
-                }}
+                onClick={resetCreateModal}
                 type="button"
               >
                 취소
