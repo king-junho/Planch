@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, Clock, Wallet, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Branch } from '../../../types/branch';
 import BranchMap from './BranchMap';
+import { useBranchStore } from '../store/useBranchStore';
 
 interface BranchCompareCanvasProps {
     compareBranches: Branch[];
@@ -13,11 +14,18 @@ const DOT_COLORS = ['bg-blue-500', 'bg-red-500', 'bg-green-500'];
 
 export default function BranchCompareCanvas({ compareBranches, onBack }: BranchCompareCanvasProps) {
     const [compareDay, setCompareDay] = useState(1);
-    const tripDuration = 3;
+
+    const { tripDuration, tripStartDate } = useBranchStore();
+
+    const getDateTabLabel = (dayIndex: number) => {
+        if (!tripStartDate) return `${dayIndex}일차`;
+        const date = new Date(tripStartDate);
+        date.setDate(date.getDate() + (dayIndex - 1));
+        return `${date.getMonth() + 1}/${date.getDate()} (${dayIndex}일차)`;
+    };
 
     return (
         <div className="flex w-full h-full bg-white relative z-50 animate-in fade-in">
-
             <div className="w-[40%] min-w-[500px] max-w-[600px] flex flex-col h-full border-r border-gray-200 bg-gray-50/50 shadow-xl z-10 shrink-0">
                 <div className="flex items-center gap-4 p-5 border-b border-gray-200 bg-white shrink-0">
                     <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -44,7 +52,7 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                 onClick={() => setCompareDay(i + 1)}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${compareDay === i + 1 ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-50'}`}
                             >
-                                {i + 1}일차
+                                {getDateTabLabel(i + 1)}
                             </button>
                         ))}
                     </div>
@@ -61,7 +69,8 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                     {compareBranches.map((branch, index) => {
                         const theme = THEME_COLORS[index % THEME_COLORS.length];
                         const dotColor = DOT_COLORS[index % DOT_COLORS.length];
-                        const placesForDay = branch.routes?.[compareDay] || [];
+
+                        const placesForDay = branch?.routes?.[compareDay] || [];
 
                         return (
                             <div key={`compare-${branch.id}`} className="flex-1 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden relative min-w-[150px]">
@@ -130,11 +139,10 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                 <div className="absolute top-6 left-6 z-10 bg-white/90 backdrop-blur px-4 py-2 rounded-xl shadow-md border border-gray-100">
                     <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
                         <MapPin size={16} className="text-blue-600" />
-                        {compareDay}일차 동선 비교
+                        {getDateTabLabel(compareDay)} 동선 비교
                     </p>
                 </div>
             </div>
-
         </div>
     );
 }
