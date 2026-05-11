@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
-import { getTripRoomDetail, updateTripRoom} from "../services/tripRoomApi";
+import { 
+  getTripRoomDetail,
+  updateTripRoom,
+  updateTripRoomImage,
+} from "../services/tripRoomApi";
+import { getAuthUser } from "../services/authStorage";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 import { resolveImageUrl } from "../utils/image";
+import {ImagePlus} from "lucide-react";
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate && !endDate) return "여행 날짜 미정";
@@ -64,6 +70,10 @@ export default function TripRoomPage() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
+  const authUser = getAuthUser();
 
   useEffect(() => {
     if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
@@ -128,6 +138,11 @@ export default function TripRoomPage() {
     );
   }, [tripRoomDetail]);
 
+  const isHost = useMemo(() => {
+    if(!tripRoomDetail || !authUser) return false;
+    return tripRoomDetail.hostUser.id === authUser.id;
+  },[tripRoomDetail,authUser]);
+
   function handleTripInfoChange(
     field: "destination" | "startDate" | "endDate",
     value: string
@@ -158,6 +173,37 @@ export default function TripRoomPage() {
 
       setTripInfoMessage(message);
       setToast({ type: "error", message });
+    }
+  }
+
+  async function handleTripRoomImageChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ){
+    const file = event.target.files?.[0];
+    if(!file || !tripRoomDetail) return;
+
+    try{
+      setIsImageUploading(true);
+      setImageUploadError("");
+
+      const result = await updateTripRoomImage(tripRoomDetail.tripRoomId,file);
+
+      setTripRoomDetail((current)=>
+      current ? {
+        ...current,
+        thumbnailUrl: result.thumbnailUrl,
+        updatedAt : result.updatedAt,
+      } : current
+    );
+    setToast({type:"success", message:"여행방 이미지가 업데이트되었습니다."});
+    }catch(caughtError){
+      const message = caughtError instanceof Error && caughtError.message.trim()?caughtError.message:"여행방 이미지 업데이트에 실패했습니다.";
+
+      setImageUploadError(message);
+      setToast({type:"error", message});
+    }finally{
+      setIsImageUploading(false);
+      event.target.value = "";
     }
   }
 
@@ -194,43 +240,83 @@ export default function TripRoomPage() {
 
       <main className="mx-auto max-w-[1200px] px-8 pb-16 pt-10">
         <section className="overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
-          <div className="relative h-52 overflow-hidden bg-stone-200">
-            <img
-            alt={tripRoomDetail.title}
-            className="h-full w-full object-cover"
-            src={resolveImageUrl(tripRoomDetail.thumbnailUrl, "https://placehold.co/1200x260")}
+          <div className="relative overflow-hidden rounded-[32px] border border-stone-200 bg-stone-100">
+            <input
+              accept="image/*"
+              className="hidden"
+              onChange={handleTripRoomImageChange}
+              ref={fileInputRef}
+              type="file"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-8">
-              <div className="space-y-3">
-                <span
-                  className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${statusBadgeClass(
-                    tripRoomDetail.status
-                  )}`}
-                >
-                  {statusLabel(tripRoomDetail.status)}
-                </span>
-                <div>
-                  <h1 className="text-[32px] font-semibold leading-[42px] text-white">
+
+            <div className="relative h-[320px] w-full group">
+              <img
+                alt={tripRoomDetail.title}
+                className="h-full w-full object-cover"
+                src={resolveImageUrl(
+                  tripRoomDetail.thumbnailUrl,
+                  "https://placehold.co/1200x320"
+                )}
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
+
+              {isHost ? (
+                <div className="absolute right-4 top-4 z-20">
+                  <button
+                    className="
+                      inline-flex items-center rounded-xl border border-white/60
+                      bg-white/90 px-4 py-2 text-sm font-medium text-stone-800
+                      shadow-sm backdrop-blur transition
+                      opacity-100 md:opacity-0
+                      md:group-hover:opacity-100
+                      md:pointer-events-none
+                      md:group-hover:pointer-events-auto
+                      translate-y-1
+                      group-hover:translate-y-0
+                      duration-200
+                      hover:bg-white
+                      disabled:cursor-not-allowed disabled:opacity-70
+                    "
+                    disabled={isImageUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    type="button"
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                    {isImageUploading ? "업로드 중..." : "이미지 변경하기"}
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-6 px-8 pb-8">
+                <div className="min-w-0">
+                  <span className="inline-flex rounded-full bg-white/85 px-4 py-2 text-sm font-medium text-stone-700 backdrop-blur">
+                    {tripRoomDetail.status === "locked" ? "확정됨" : "준비중"}
+                  </span>
+
+                  <h1 className="mt-4 truncate text-5xl font-bold tracking-tight text-white">
                     {tripRoomDetail.title}
                   </h1>
-                  <p className="mt-2 text-base text-white/85">
-                    {formatDateRange(
-                      tripRoomDetail.startDate,
-                      tripRoomDetail.endDate
-                    )}
+
+                  <p className="mt-3 text-lg text-white/85">
+                    {tripRoomDetail.startDate} - {tripRoomDetail.endDate}
                   </p>
                 </div>
-              </div>
 
-              <div className="hidden rounded-2xl bg-white/90 px-5 py-4 text-sm text-stone-700 backdrop-blur md:block">
-                <p className="font-semibold text-stone-900">
-                  호스트 {tripRoomDetail.hostUser.name}
-                </p>
-                <p className="mt-1">{tripRoomDetail.hostUser.email}</p>
+                <div className="hidden rounded-2xl bg-white/90 px-5 py-4 text-sm text-stone-700 backdrop-blur md:block">
+                  <p className="font-semibold text-stone-900">
+                    호스트 {tripRoomDetail.hostUser.name}
+                  </p>
+                  <p className="mt-1">{tripRoomDetail.hostUser.email}</p>
+                </div>
               </div>
             </div>
           </div>
+          {imageUploadError ? (
+            <p className="mt-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {imageUploadError}
+            </p>
+          ) : null}
 
           <div className="grid gap-6 p-8 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-6">
