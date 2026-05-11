@@ -4,7 +4,7 @@ import BranchListView from './BranchListView';
 import BranchDetailSection from './BranchDetailSection';
 import CreateBranchModal from './CreateBranchModal';
 import BranchMap from './BranchMap';
-import BranchCompareCanvas from './BranchCompareCanvas'; // Import 추가
+import BranchCompareCanvas from './BranchCompareCanvas';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../api/axiosInstance';
 
@@ -12,7 +12,7 @@ export default function BranchSection() {
     const { tripRoomId } = useParams();
     const navigate = useNavigate();
 
-    const { branches, selectedBranch, setSelectedBranch, fetchBranches } = useBranchStore();
+    const { branches, selectedBranch, setSelectedBranch, fetchBranches, fetchTripDuration } = useBranchStore();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const [isLocked, setIsLocked] = useState(false);
@@ -40,6 +40,7 @@ export default function BranchSection() {
 
         const loadRoomState = () => {
             fetchBranches(numericId);
+            fetchTripDuration(numericId);
 
             api.get(`/trip-rooms/${numericId}`)
                 .then(response => {
@@ -63,7 +64,7 @@ export default function BranchSection() {
         return () => {
             window.removeEventListener("trip-room-unlocked", loadRoomState);
         };
-    }, [tripRoomId, fetchBranches]);
+    }, [tripRoomId, fetchBranches, fetchTripDuration]);
 
     let overrideStatus = selectedBranch?.status;
     if (selectedBranch) {
@@ -96,7 +97,7 @@ export default function BranchSection() {
     return (
         <div className="flex w-full h-full overflow-x-auto overflow-y-hidden min-w-[900px] custom-scrollbar">
             <div className="w-[400px] min-w-[400px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
-                {activeBranch ? (
+                {activeBranch != null ? (
                     <BranchDetailSection
                         branch={activeBranch}
                         isLocked={isLocked}

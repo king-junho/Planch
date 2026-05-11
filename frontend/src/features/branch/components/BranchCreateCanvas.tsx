@@ -7,7 +7,8 @@ import BranchCreateHeader from './BranchCreateHeader';
 import BranchCreateSidebar from './BranchCreateSidebar';
 import BranchCreateTimeline from './BranchCreateTimeline';
 import { RouteItem, Branch } from '../../../types/branch';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import LoadingOverlay from '../../../components/common/LoadingOverlay';
 
 interface BranchCreateCanvasProps {
     onBack: () => void;
@@ -18,7 +19,8 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const [title, setTitle] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const tripDuration = 3;
+
+    const [isFetching, setIsFetching] = useState(true);
 
     const { proposals, fetchProposals } = useProposalStore();
     const {
@@ -34,21 +36,37 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         sortDraftByTime,
         setSelectedBranch,
         createBranch,
-        updateBranch
+        updateBranch,
+        tripDuration,
+        tripStartDate,
+        fetchTripDuration
     } = useBranchStore();
 
     useEffect(() => {
         if (tripRoomId) {
-            fetchProposals(Number(tripRoomId));
+            const loadInitialData = async () => {
+                setIsFetching(true);
+                try {
+                    await Promise.all([
+                        fetchProposals(Number(tripRoomId)),
+                        fetchTripDuration(Number(tripRoomId))
+                    ]);
+                } finally {
+                    setIsFetching(false);
+                }
+            };
+            loadInitialData();
+        } else {
+            setIsFetching(false);
         }
-    }, [tripRoomId, fetchProposals]);
+    }, [tripRoomId, fetchProposals, fetchTripDuration]);
 
-    // 수정 모드 진입 시 기존 데이터를 불러오는 로직 보완
     useEffect(() => {
         if (editBranch) {
             setTitle(editBranch.title || editBranch.name || '');
             setCurrentDraftDay(1);
-            if (editBranch.routes) {
+            // 수정: editBranch가 존재할 때 안전하게 접근
+            if (editBranch?.routes) {
                 setDraftRoutes(editBranch.routes);
             }
         } else {
@@ -79,7 +97,7 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     };
 
     const handleSave = async () => {
-        if (isSaving) return;
+        if (isSaving || isFetching) return;
 
         if (!title.trim()) return alert('브랜치 이름을 입력해주세요.');
         if (!tripRoomId) return alert('여행방 정보를 찾을 수 없습니다.');
@@ -101,14 +119,21 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         }
     };
 
+    const getDateTabLabel = (dayIndex: number) => {
+        if (!tripStartDate) return `${dayIndex}일차`;
+        const date = new Date(tripStartDate);
+        date.setDate(date.getDate() + (dayIndex - 1));
+        return `${date.getMonth() + 1}/${date.getDate()} (${dayIndex}일차)`;
+    };
+
+    const showOverlay = isSaving || isFetching;
+
     return (
         <div className="flex w-full h-full overflow-hidden bg-white relative">
-            {/* 전체 화면 로딩 오버레이 추가 */}
-            {isSaving && (
-                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
-                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-                    <span className="text-sm font-bold text-gray-700">일정을 저장하고 있습니다...</span>
-                </div>
+            {showOverlay && (
+                <LoadingOverlay
+                    text={isFetching ? '데이터를 불러오는 중입니다...' : '일정을 저장하고 있습니다...'}
+                />
             )}
 
             <div className="w-3/5 min-w-[800px] flex flex-col h-full border-r border-gray-200 shrink-0 relative z-10">
@@ -117,12 +142,12 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                     setTitle={setTitle}
                     onSave={handleSave}
                     onBack={onBack}
-                    isSaving={isSaving} // isSaving 상태를 Header로 전달
+                    isSaving={showOverlay}
                 />
 
                 <div className="flex items-center justify-center gap-6 py-3 bg-gray-50 border-b border-gray-100">
                     <button
-                        disabled={currentDraftDay <= 1 || isSaving}
+                        disabled={currentDraftDay <= 1 || showOverlay}
                         onClick={() => setCurrentDraftDay(currentDraftDay - 1)}
                         className="p-1 disabled:opacity-20 hover:bg-white rounded-full transition-all"
                     >
@@ -132,16 +157,16 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                         {Array.from({ length: tripDuration }).map((_, i) => (
                             <button
                                 key={i + 1}
-                                disabled={isSaving}
+                                disabled={showOverlay}
                                 onClick={() => setCurrentDraftDay(i + 1)}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${currentDraftDay === i + 1 ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'} disabled:opacity-50`}
                             >
-                                {i + 1}일차
+                                {getDateTabLabel(i + 1)}
                             </button>
                         ))}
                     </div>
                     <button
-                        disabled={currentDraftDay >= tripDuration || isSaving}
+                        disabled={currentDraftDay >= tripDuration || showOverlay}
                         onClick={() => setCurrentDraftDay(currentDraftDay + 1)}
                         className="p-1 disabled:opacity-20 hover:bg-white rounded-full transition-all"
                     >

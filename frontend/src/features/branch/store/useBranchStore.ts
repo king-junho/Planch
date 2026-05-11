@@ -14,6 +14,11 @@ interface BranchState {
     selectedDay: number;
     isLoading: boolean;
 
+    tripDuration: number;
+    tripStartDate: Date | null;
+    setTripDuration: (days: number) => void;
+    fetchTripDuration: (tripRoomId: number) => Promise<void>;
+
     draftRoutes: Record<number, RouteItem[]>;
     currentDraftDay: number;
 
@@ -44,6 +49,30 @@ export const useBranchStore = create<BranchState>((set, get) => ({
     selectedBranch: null,
     selectedDay: 1,
     isLoading: false,
+
+    tripDuration: 3,
+    tripStartDate: null,
+    setTripDuration: (days) => set({ tripDuration: days }),
+
+    fetchTripDuration: async (tripRoomId) => {
+        try {
+            const response = await api.get(`/trip-rooms/${tripRoomId}`);
+            const { startDate, endDate } = response.data;
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                start.setHours(0, 0, 0, 0);
+                end.setHours(0, 0, 0, 0);
+                const diffTime = end.getTime() - start.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                set({ tripDuration: diffDays > 0 ? diffDays : 1, tripStartDate: start });
+            } else {
+                set({ tripDuration: 3, tripStartDate: null });
+            }
+        } catch (error) {
+            console.error("여행 정보 조회 실패:", error);
+        }
+    },
 
     draftRoutes: { 1: [] },
     currentDraftDay: 1,
@@ -145,7 +174,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             status: b.status,
                             cost: String(b.totalCost || 0),
                             time: String(b.totalTravelTime || 0),
-                            matchRate: b.preferenceScore || 100, // 백엔드에서 준 점수를 그대로 사용
+                            matchRate: b.preferenceScore || 100,
                             routes: routesObj,
                             agreeCount: b.voteSummary?.agreeCount || 0,
                             holdCount: b.voteSummary?.holdCount || 0,
@@ -221,7 +250,6 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             await api.post(`/trip-rooms/${tripRoomId}/branches`, {
                 name: title,
                 places: formattedPlaces
-                // 프론트엔드에서 계산하던 preferenceScore 제거
             });
 
             await get().fetchBranches(tripRoomId);
@@ -266,7 +294,6 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             await api.put(`/branches/${branchId}`, {
                 name: title,
                 places: formattedPlaces
-                // 프론트엔드에서 계산하던 preferenceScore 제거
             });
 
             await get().fetchBranches(tripRoomId);

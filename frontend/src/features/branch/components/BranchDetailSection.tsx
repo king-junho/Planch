@@ -4,15 +4,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
 import { getTripRoomDetail, unlockTripRoom } from '../../../services/tripRoomApi';
+import LoadingOverlay from '../../../components/common/LoadingOverlay';
 
 interface BranchDetailSectionProps {
-    branch: Branch;
+    branch: Branch | null | undefined;
     isLocked?: boolean;
     onBack: () => void;
 }
 
 export default function BranchDetailSection({ branch, isLocked = false, onBack }: BranchDetailSectionProps) {
-    const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, deleteBranch, isLoading, fetchBranches } = useBranchStore();
+    const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, deleteBranch, isLoading, fetchBranches, tripDuration, tripStartDate } = useBranchStore();
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
 
@@ -59,10 +60,14 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         };
     }, [tripRoomId]);
 
-    const availableDays = branch.routes ? Object.keys(branch.routes).map(Number) : [1];
-    const maxDay = Math.max(...availableDays);
-    const minDay = Math.min(...availableDays);
-    const currentRoute = branch.routes?.[selectedDay] || [];
+    if (!branch) {
+        return null;
+    }
+
+    const maxDay = Math.max(tripDuration, 1);
+    const minDay = 1;
+
+    const currentRoute = (branch.routes && branch.routes[selectedDay]) ? branch.routes[selectedDay] : [];
 
     const isOwner = Boolean(myUserId && hostUserId && myUserId === hostUserId);
 
@@ -86,7 +91,6 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         });
     };
 
-    // 스토어의 deleteBranch를 호출하도록 수정
     const handleDelete = async () => {
         if (!tripRoomId || isEditDisabled) return;
 
@@ -139,17 +143,21 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         }
     };
 
+    const getDateLabel = (dayIndex: number) => {
+        if (!tripStartDate) return `${dayIndex}일차 일정`;
+        const date = new Date(tripStartDate);
+        date.setDate(date.getDate() + (dayIndex - 1));
+        return `${date.getMonth() + 1}월 ${date.getDate()}일 (${dayIndex}일차) 일정`;
+    };
+
     const showOverlay = isLoading || isDeleting || isUnlocking;
 
     return (
         <div className="flex flex-col h-full bg-white relative z-10">
             {showOverlay && (
-                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
-                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-                    <span className="text-sm font-bold text-gray-700">
-                        {isDeleting ? '삭제 중입니다...' : isUnlocking ? '확정 해제 중입니다...' : '요청을 처리하고 있습니다...'}
-                    </span>
-                </div>
+                <LoadingOverlay
+                    text={isDeleting ? '삭제 중입니다...' : isUnlocking ? '확정 해제 중입니다...' : '요청을 처리하고 있습니다...'}
+                />
             )}
 
             <div className="px-8 py-6 border-b border-gray-100 shrink-0">
@@ -201,7 +209,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 >
                     <ChevronLeft size={20} />
                 </button>
-                <span className="text-sm font-bold text-gray-900">{selectedDay}일차 일정</span>
+                <span className="text-sm font-bold text-gray-900">{getDateLabel(selectedDay)}</span>
                 <button
                     disabled={selectedDay >= maxDay}
                     onClick={() => setSelectedDay(selectedDay + 1)}
