@@ -13,7 +13,6 @@ export default function PreferenceSection() {
     const navigate = useNavigate();
     const [viewMode, setViewMode] = useState<string | number>('form');
 
-    // 방 잠금 상태를 관리하는 state 추가
     const [isLocked, setIsLocked] = useState(false);
 
     const {
@@ -24,25 +23,31 @@ export default function PreferenceSection() {
         initializeFormWithExisting
     } = usePreferenceStore();
 
-    // 1. 마운트 시 서버에서 선호도 데이터와 방 상태를 가져옵니다.
     useEffect(() => {
-        if (tripRoomId) {
-            const numericId = Number(tripRoomId);
+        if (!tripRoomId) return;
+
+        const numericId = Number(tripRoomId);
+        if (!Number.isInteger(numericId) || numericId <= 0) return;
+
+        const loadRoomState = () => {
             fetchPreferences(numericId);
 
-            // api 객체를 사용하여 현재 방의 상태 확인
             api.get(`/trip-rooms/${numericId}`)
                 .then(response => {
                     const roomStatus = response.data.status;
-                    if (roomStatus === 'locked' || roomStatus === 'confirmed') {
-                        setIsLocked(true);
-                    }
+                    setIsLocked(roomStatus === 'locked' || roomStatus === 'confirmed');
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
-        }
+        };
+
+        loadRoomState();
+        window.addEventListener("trip-room-unlocked", loadRoomState);
+
+        return () => {
+            window.removeEventListener("trip-room-unlocked", loadRoomState);
+        };
     }, [tripRoomId, fetchPreferences]);
 
-    // 2. '내 취향 입력(form)' 탭을 열거나, 팀 데이터가 업데이트될 때마다 폼을 내 정보로 동기화합니다.
     useEffect(() => {
         if (viewMode === 'form') {
             const token = localStorage.getItem('token');
@@ -71,7 +76,6 @@ export default function PreferenceSection() {
         }
     };
 
-    // 내 선호도 저장 핸들러
     const handleSave = async () => {
         if (!tripRoomId) return;
         const success = await saveMyPreference(Number(tripRoomId));
@@ -81,7 +85,6 @@ export default function PreferenceSection() {
         }
     };
 
-    // 서버 데이터를 UI용 MemberPreference 구조로 매핑
     const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
     const membersData: MemberPreference[] = safePreferences.map((p: any) => ({
@@ -98,15 +101,16 @@ export default function PreferenceSection() {
     const currentMemberData = typeof viewMode === 'number' ? membersData.find(m => m.id === viewMode) : null;
 
     return (
-        <div className="flex w-full h-full bg-white overflow-hidden">
+        <div className="flex w-full h-full bg-white">
             <PreferenceSidebar
                 mockTeamData={membersData}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
             />
 
-            <div className="flex-1 overflow-y-auto p-12 bg-white custom-scrollbar">
-                <div className="max-w-3xl mx-auto">
+            {/* 핵심: overflow-x-hidden을 추가하여 내부 2중 스크롤을 막습니다. */}
+            <div className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-white custom-scrollbar relative z-0">
+                <div className="w-full max-w-4xl mx-auto p-8 md:p-12">
                     {viewMode === 'form' && (
                         <>
                             <header className="mb-12 flex justify-between items-end">
@@ -116,8 +120,8 @@ export default function PreferenceSection() {
                                 </div>
                                 <button
                                     onClick={handleSave}
-                                    disabled={isLoading || isLocked} // 확정 시 버튼 비활성화
-                                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    disabled={isLoading || isLocked}
+                                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0"
                                 >
                                     {isLoading ? '저장 중...' : '저장하기'}
                                 </button>
@@ -130,7 +134,7 @@ export default function PreferenceSection() {
                         <PreferenceOverallView
                             onOpenAiModal={handleOpenAiModal}
                             onCreateManual={handleCreateManual}
-                            isLocked={isLocked} // 여기에 확정 상태를 전달합니다.
+                            isLocked={isLocked}
                         />
                     )}
 

@@ -1,16 +1,24 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
+  Loader2,
   Menu,
   Sparkles,
+  Unlock,
   UserRoundPen,
   X,
 } from "lucide-react";
-import { clearAuthSession, getAccessToken } from "../../services/authStorage";
+import {
+  clearAuthSession,
+  getAccessToken,
+  getAuthUser,
+} from "../../services/authStorage";
 import {
   createInviteLink,
+  getTripRoomDetail,
   getTripRoomDecisionLogs,
+  unlockTripRoom,
 } from "../../services/tripRoomApi";
 import { DecisionLogData, DecisionLogItem } from "../../types/tripRoom";
 
@@ -27,7 +35,7 @@ const navItems = [
   { key: "branch", label: "브랜치" },
 ] as const;
 
-type TripRoomStatus = "active" | "completed";
+type TripRoomStatus = "draft" | "voting" | "locked" | string;
 
 type ActivityLogItem = {
   id: number;
@@ -38,13 +46,49 @@ type ActivityLogItem = {
   tone: "blue" | "emerald" | "amber" | "stone";
 };
 
-const statusOptions: { key: TripRoomStatus; label: string }[] = [
-  { key: "active", label: "진행중" },
-  { key: "completed", label: "완료" },
-];
-
 function statusLabel(status: TripRoomStatus) {
-  return statusOptions.find((option) => option.key === status)?.label ?? status;
+  if (status === "draft") return "준비중";
+  if (status === "voting") return "진행중";
+  if (status === "locked") return "확정";
+  return status;
+}
+
+function statusDescription(status: TripRoomStatus) {
+  if (status === "locked") {
+    return "최종 일정이 확정되어 브랜치 수정과 투표가 잠겨 있습니다.";
+  }
+
+  if (status === "voting") {
+    return "브랜치 수정, 생성, 투표를 진행할 수 있습니다.";
+  }
+
+  return "여행방 준비가 진행 중입니다.";
+}
+
+function statusPillClass(status: TripRoomStatus) {
+  if (status === "locked") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  if (status === "voting") {
+    return "border-blue-200 bg-blue-50 text-blue-700";
+  }
+
+  return "border-stone-200 bg-stone-50 text-stone-600";
+}
+
+function readCurrentUserId() {
+  const accessToken = getAccessToken();
+  if (!accessToken) return null;
+
+  try {
+    const payload = JSON.parse(atob(accessToken.split(".")[1] ?? ""));
+    const id = payload.sub ?? payload.userId ?? payload.id;
+    const numericId = Number(id);
+    return Number.isFinite(numericId) ? numericId : null;
+  } catch {
+    return null;
+  }
 }
 
 function activityToneClass(tone: ActivityLogItem["tone"]) {
@@ -216,7 +260,12 @@ export default function TripRoomHeader({
 }: TripRoomHeaderProps) {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [roomStatus, setRoomStatus] = useState<TripRoomStatus>("active");
+  const [roomStatus, setRoomStatus] = useState<TripRoomStatus>("draft");
+  const [hostUserId, setHostUserId] = useState<number | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
+  const [roomStatusError, setRoomStatusError] = useState("");
+  const [isRoomStatusLoading, setIsRoomStatusLoading] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
@@ -226,6 +275,40 @@ export default function TripRoomHeader({
   const [activityLogError, setActivityLogError] = useState("");
   const [isActivityLogLoading, setIsActivityLogLoading] = useState(false);
   const isLoggedIn = Boolean(getAccessToken());
+  const authUser = getAuthUser();
+  const currentUserId = readCurrentUserId();
+  const isHost = Boolean(currentUserId && hostUserId && currentUserId === hostUserId);
+
+  const loadTripRoomSnapshot = useCallback(async () => {
+    const numericTripRoomId = Number(tripRoomId);
+    if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
+      setRoomStatusError("유효하지 않은 tripRoomId입니다.");
+      return;
+    }
+
+    setIsRoomStatusLoading(true);
+    setRoomStatusError("");
+
+    try {
+      const detail = await getTripRoomDetail(numericTripRoomId);
+      setRoomStatus(detail.status);
+      setHostUserId(detail.hostUser.id);
+      setSelectedBranchId(detail.summary.selectedBranchId);
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 상태를 불러오지 못했습니다.";
+
+      setRoomStatusError(message);
+    } finally {
+      setIsRoomStatusLoading(false);
+    }
+  }, [tripRoomId]);
+
+  useEffect(() => {
+    loadTripRoomSnapshot();
+  }, [loadTripRoomSnapshot]);
 
   useEffect(() => {
     if (!copyMessage) return;
@@ -364,6 +447,38 @@ export default function TripRoomHeader({
     onMenuClick?.();
   }
 
+  async function handleUnlockTripRoom() {
+    const numericTripRoomId = Number(tripRoomId);
+    if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
+      setRoomStatusError("유효하지 않은 tripRoomId입니다.");
+      return;
+    }
+
+    if (!window.confirm("최종 확정을 해제하고 다시 투표 상태로 전환하시겠습니까?")) {
+      return;
+    }
+
+    setIsUnlocking(true);
+    setRoomStatusError("");
+
+    try {
+      const result = await unlockTripRoom(numericTripRoomId);
+      setRoomStatus(result.status);
+      setSelectedBranchId(result.selectedBranchId);
+      await loadTripRoomSnapshot();
+      window.dispatchEvent(new CustomEvent("trip-room-unlocked", { detail: result }));
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 확정 해제 실패";
+
+      setRoomStatusError(message);
+    } finally {
+      setIsUnlocking(false);
+    }
+  }
+
   return (
     <header className="relative border-b border-stone-300 bg-white">
       <div className="mx-auto flex h-[76px] w-full max-w-[1200px] items-center justify-between gap-4 px-8">
@@ -390,29 +505,51 @@ export default function TripRoomHeader({
               <div className="max-h-[calc(100vh-112px)] overflow-y-auto px-4 py-4">
                 <section>
                   <p className="text-xs font-semibold text-stone-500">여행방 상태</p>
-                  <p className="mt-1 text-lg font-semibold text-stone-950">
-                    {statusLabel(roomStatus)}
-                  </p>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    {statusOptions.map((option) => {
-                      const isActive = roomStatus === option.key;
-
-                      return (
+                  <div className="mt-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${statusPillClass(
+                          roomStatus
+                        )}`}
+                      >
+                        {isRoomStatusLoading ? "확인 중" : statusLabel(roomStatus)}
+                      </span>
+                      {isRoomStatusLoading ? (
+                        <Loader2 size={18} className="animate-spin text-stone-400" />
+                      ) : roomStatus === "locked" && isHost ? (
                         <button
-                          className={`h-9 flex-1 rounded-lg border px-3 text-sm font-semibold transition ${
-                            isActive
-                              ? "border-stone-900 bg-stone-950 text-white"
-                              : "border-stone-200 bg-white text-stone-900 hover:border-stone-300 hover:bg-stone-50"
-                          }`}
-                          key={option.key}
-                          onClick={() => setRoomStatus(option.key)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
+                          disabled={isUnlocking}
+                          onClick={handleUnlockTripRoom}
                           type="button"
                         >
-                          {option.label}
+                          {isUnlocking ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Unlock size={14} />
+                          )}
+                          확정 해제
                         </button>
-                      );
-                    })}
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-stone-500">
+                      {statusDescription(roomStatus)}
+                    </p>
+                    {selectedBranchId ? (
+                      <p className="mt-1 text-xs font-medium text-stone-600">
+                        선택 브랜치 #{selectedBranchId}
+                      </p>
+                    ) : null}
+                    {roomStatus === "locked" && !isHost ? (
+                      <p className="mt-2 text-xs text-stone-500">
+                        확정 해제는 호스트만 할 수 있습니다.
+                      </p>
+                    ) : null}
+                    {roomStatusError ? (
+                      <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                        {roomStatusError}
+                      </p>
+                    ) : null}
                   </div>
                 </section>
 
@@ -474,12 +611,12 @@ export default function TripRoomHeader({
           ) : null}
         </div>
 
-        <nav className="hidden flex-1 items-center justify-center gap-2 md:flex">
+        <nav className="flex flex-1 items-center justify-center gap-2">
           {navItems.map((item) => {
             const isActive = activeItem === item.key;
             const sharedClassName = isActive
-              ? "rounded-lg bg-stone-100 px-4 py-2 text-base font-normal text-stone-900"
-              : "rounded-lg px-4 py-2 text-base font-normal text-stone-900";
+              ? "whitespace-nowrap rounded-lg bg-stone-100 px-4 py-2 text-base font-normal text-stone-900"
+              : "whitespace-nowrap rounded-lg px-4 py-2 text-base font-normal text-stone-900";
 
             if (item.key === "main") {
               return (
@@ -534,7 +671,7 @@ export default function TripRoomHeader({
 
           <div className="relative">
             <button
-              className="rounded-lg px-4 py-2 text-base font-normal text-stone-900"
+              className="whitespace-nowrap rounded-lg px-4 py-2 text-base font-normal text-stone-900"
               onClick={() => setIsInviteOpen((current) => !current)}
               type="button"
             >
@@ -544,15 +681,20 @@ export default function TripRoomHeader({
             {isInviteOpen ? (
               <div className="absolute right-0 top-12 z-30 w-[360px] rounded-2xl border border-stone-200 bg-white p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
                 <p className="text-sm font-semibold text-stone-900">현재 여행방 초대링크</p>
-                <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600">
-                  {isInviteLoading
-                    ? "초대 링크를 생성하는 중입니다."
-                    : inviteError
-                    ? inviteError
-                    : inviteUrl || "초대 링크가 없습니다."}
-                </div>
+                <input
+                  className="mt-3 w-full min-w-0 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-sm text-stone-600 outline-none"
+                  readOnly
+                  type="text"
+                  value={
+                    isInviteLoading
+                      ? "초대 링크를 생성하는 중입니다."
+                      : inviteError
+                      ? inviteError
+                      : inviteUrl || "초대 링크가 없습니다."
+                  }
+                />
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-xs text-stone-500">
+                  <span className="min-w-0 text-xs text-stone-500">
                     {copyMessage ||
                       (inviteError
                         ? "호스트 권한과 인증 상태를 확인해 주세요."
@@ -581,15 +723,27 @@ export default function TripRoomHeader({
           </div>
         </nav>
 
-        <div className="hidden w-[220px] items-center justify-end gap-3 lg:flex">
+        <div className="flex w-[280px] items-center justify-end gap-3">
           {isLoggedIn ? (
-            <button
-              className="h-10 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
-              onClick={handleLogout}
-              type="button"
-            >
-              로그아웃
-            </button>
+            <>
+              {authUser ? (
+                <div className="min-w-0 text-right">
+                  <p className="truncate text-sm font-semibold leading-5 text-stone-900">
+                    {authUser.name}
+                  </p>
+                  <p className="truncate text-xs leading-4 text-stone-500">
+                    {authUser.email}
+                  </p>
+                </div>
+              ) : null}
+              <button
+                className="h-10 shrink-0 rounded-lg border border-[#767676] bg-[#E3E3E3] px-5 py-2 text-base font-normal text-stone-900"
+                onClick={handleLogout}
+                type="button"
+              >
+                로그아웃
+              </button>
+            </>
           ) : (
             <>
               <Link

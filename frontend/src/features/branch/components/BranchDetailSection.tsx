@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minu
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
-import api from '../../../api/axiosInstance';
+import { getTripRoomDetail, unlockTripRoom } from '../../../services/tripRoomApi';
 
 interface BranchDetailSectionProps {
     branch: Branch;
@@ -17,7 +17,9 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const { tripRoomId } = useParams();
 
     const [myUserId, setMyUserId] = useState<number | null>(null);
+    const [hostUserId, setHostUserId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isUnlocking, setIsUnlocking] = useState(false);
 
     useEffect(() => {
         const token = localStorage.getItem('planch.accessToken');
@@ -31,16 +33,42 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         }
     }, []);
 
+    useEffect(() => {
+        if (!tripRoomId) return;
+
+        const numericTripRoomId = Number(tripRoomId);
+        if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) return;
+
+        let isMounted = true;
+
+        async function loadTripRoomHost() {
+            try {
+                const detail = await getTripRoomDetail(numericTripRoomId);
+                if (isMounted) {
+                    setHostUserId(detail.hostUser.id);
+                }
+            } catch (error) {
+                console.error("여행방 호스트 조회 실패:", error);
+            }
+        }
+
+        loadTripRoomHost();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [tripRoomId]);
+
     const availableDays = branch.routes ? Object.keys(branch.routes).map(Number) : [1];
     const maxDay = Math.max(...availableDays);
     const minDay = Math.min(...availableDays);
     const currentRoute = branch.routes?.[selectedDay] || [];
 
-    const isOwner = true;
+    const isOwner = Boolean(myUserId && hostUserId && myUserId === hostUserId);
 
     const isCreator = myUserId && (branch as any).userId === myUserId;
     const canDelete = isCreator || isOwner;
-    const canUnlock = isOwner;
+    const canUnlock = isOwner && (isLocked || branch.status === 'confirmed');
 
     const voteCounts = {
         agree: branch.agreeCount || 0,
@@ -79,12 +107,17 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
         if (window.confirm('이 여행방의 최종 일정을 확정 해제하시겠습니까?\n투표와 브랜치 추가가 다시 활성화됩니다.')) {
             try {
-                await api.post(`/trip-rooms/${tripRoomId}/unlock`);
+                setIsUnlocking(true);
+                await unlockTripRoom(Number(tripRoomId));
                 alert('일정 확정이 해제되었습니다.');
-                window.location.reload();
+                await fetchBranches(Number(tripRoomId));
+                window.dispatchEvent(new CustomEvent("trip-room-unlocked"));
+                onBack();
             } catch (error) {
                 console.error('확정 해제 실패:', error);
-                alert('확정 해제 권한이 없거나 오류가 발생했습니다.');
+                alert(error instanceof Error && error.message ? error.message : '확정 해제 권한이 없거나 오류가 발생했습니다.');
+            } finally {
+                setIsUnlocking(false);
             }
         }
     };
@@ -106,7 +139,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         }
     };
 
-    const showOverlay = isLoading || isDeleting;
+    const showOverlay = isLoading || isDeleting || isUnlocking;
 
     return (
         <div className="flex flex-col h-full bg-white relative z-10">
@@ -114,7 +147,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px]">
                     <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
                     <span className="text-sm font-bold text-gray-700">
-                        {isDeleting ? '삭제 중입니다...' : '요청을 처리하고 있습니다...'}
+                        {isDeleting ? '삭제 중입니다...' : isUnlocking ? '확정 해제 중입니다...' : '요청을 처리하고 있습니다...'}
                     </span>
                 </div>
             )}
@@ -218,6 +251,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                         {canUnlock && (
                             <button
                                 onClick={handleUnlock}
+                                disabled={isUnlocking}
                                 className="flex items-center gap-1.5 px-4 py-2 mt-1 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                             >
                                 <Unlock size={14} /> 확정 해제하기
@@ -230,6 +264,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                         {canUnlock && (
                             <button
                                 onClick={handleUnlock}
+                                disabled={isUnlocking}
                                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                             >
                                 <Unlock size={14} /> 방 확정 해제하기

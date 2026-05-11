@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --app-min-width: 1024px;
   color: #1c1917;
   background: #f8fafc;
   font-family:
@@ -27,4 +28,10 @@ body,
 
 body {
   margin: 0;
+  min-width: var(--app-min-width);
+  overflow-x: auto;
+}
+
+#root {
+  min-width: var(--app-min-width);
 }

@@ -5,12 +5,6 @@ export type CreateTripRoomRequest = {
   thumbnailUrl: string | null;
 };
 
-export type UpdateTripRoomRequest = {
-  title?: string;
-  startDate?: string | null;
-  endDate?: string | null;
-};
-
 export type TripRoomListItem = {
   tripRoomId: number;
   title: string;
@@ -87,16 +81,11 @@ export type CreateInviteLinkResponse = {
   expiresAt: string;
 };
 
-export type UpdateTripRoomResponse = {
+export type UnlockTripRoomResponse = {
   tripRoomId: number;
-  title: string;
-  startDate: string | null;
-  endDate: string | null;
   status: string;
-  thumbnailUrl: string | null;
   selectedBranchId: number | null;
-  updatedAt: string;
-  saved: boolean;
+  unlocked: boolean;
 };
 
 export type DecisionLogActionType =

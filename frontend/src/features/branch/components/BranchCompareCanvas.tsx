@@ -12,17 +12,13 @@ const THEME_COLORS = ['text-blue-600 bg-blue-50 border-blue-200', 'text-red-600 
 const DOT_COLORS = ['bg-blue-500', 'bg-red-500', 'bg-green-500'];
 
 export default function BranchCompareCanvas({ compareBranches, onBack }: BranchCompareCanvasProps) {
-    // 현재 비교 중인 일차(Day) 상태 관리
     const [compareDay, setCompareDay] = useState(1);
-
-    // 여행의 최대 일차 계산 (기본 3일, 데이터가 더 길면 그에 맞춤)
     const tripDuration = 3;
 
     return (
-        <div className="fixed inset-0 bg-white z-[100] flex overflow-hidden animate-in fade-in">
-            <div className="w-[45%] min-w-[600px] flex flex-col h-full border-r border-gray-200 bg-gray-50/50 shadow-xl z-10">
+        <div className="flex w-full h-full bg-white relative z-50 animate-in fade-in">
 
-                {/* 1. 상단 헤더 */}
+            <div className="w-[40%] min-w-[500px] max-w-[600px] flex flex-col h-full border-r border-gray-200 bg-gray-50/50 shadow-xl z-10 shrink-0">
                 <div className="flex items-center gap-4 p-5 border-b border-gray-200 bg-white shrink-0">
                     <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                         <ArrowLeft size={24} className="text-gray-700" />
@@ -33,7 +29,6 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                     </div>
                 </div>
 
-                {/* 2. 일차(Day) 선택 탭 추가 */}
                 <div className="flex items-center justify-center gap-6 py-3 bg-white border-b border-gray-200 shrink-0">
                     <button
                         disabled={compareDay <= 1}
@@ -62,25 +57,22 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                     </button>
                 </div>
 
-                {/* 3. 비교 컨텐츠 영역 */}
                 <div className="flex-1 flex overflow-hidden p-4 gap-4">
                     {compareBranches.map((branch, index) => {
                         const theme = THEME_COLORS[index % THEME_COLORS.length];
                         const dotColor = DOT_COLORS[index % DOT_COLORS.length];
-
-                        // 선택된 일차(compareDay)의 경로 데이터만 가져오도록 수정
                         const placesForDay = branch.routes?.[compareDay] || [];
 
                         return (
-                            <div key={`compare-${branch.id}`} className="flex-1 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden relative">
+                            <div key={`compare-${branch.id}`} className="flex-1 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden relative min-w-[150px]">
                                 <div className={`h-1.5 w-full ${dotColor}`} />
 
                                 <div className="p-4 border-b border-gray-100 bg-white shrink-0">
                                     <div className="flex justify-between items-start mb-2">
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded border ${theme}`}>
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded border ${theme} whitespace-nowrap`}>
                                             플랜 {index + 1}
                                         </span>
-                                        <span className="text-[10px] text-gray-400">
+                                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
                                             제안: {branch.proposer || '익명'}
                                         </span>
                                     </div>
@@ -88,18 +80,18 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                         {branch.title || branch.name}
                                     </h3>
                                     <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-gray-50">
-                                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                                            <Wallet size={14} className="text-gray-400" /> {branch.cost || '비용 미정'}
+                                        <div className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
+                                            <Wallet size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{branch.cost || '비용 미정'}</span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                                            <Clock size={14} className="text-gray-400" /> {branch.time || '시간 미정'}
+                                        <div className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
+                                            <Clock size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{branch.time || '시간 미정'}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                                     {placesForDay.length === 0 ? (
-                                        <div className="flex items-center justify-center h-full text-xs text-gray-400">
+                                        <div className="flex items-center justify-center h-full text-xs text-gray-400 text-center">
                                             해당 일차의 일정이 없습니다.
                                         </div>
                                     ) : (
@@ -111,7 +103,7 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                                         <span className="text-[10px] font-bold text-blue-500">
                                                             {place.time || '시간 미정'}
                                                         </span>
-                                                        <span className="text-sm font-bold text-gray-800">
+                                                        <span className="text-sm font-bold text-gray-800 line-clamp-2">
                                                             {place.place || place.title || '장소명 없음'}
                                                         </span>
                                                         {place.desc && (
@@ -129,8 +121,7 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                 </div>
             </div>
 
-            <div className="flex-1 h-full relative z-0 bg-gray-100">
-                {/* props를 통해 비교 데이터를 BranchMap 컴포넌트에 전달합니다. */}
+            <div className="flex-1 min-w-[500px] h-full relative z-0 bg-gray-100 shrink-0">
                 <BranchMap
                     compareBranches={compareBranches}
                     compareDay={compareDay}
@@ -143,6 +134,7 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                     </p>
                 </div>
             </div>
+
         </div>
     );
 }

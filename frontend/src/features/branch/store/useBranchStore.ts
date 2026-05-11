@@ -1,50 +1,11 @@
 import { create } from 'zustand';
 import { Branch, RouteItem } from '../../../types/branch';
 import api from '../../../api/axiosInstance';
-import { usePreferenceStore } from '../../preference/store/usePreferenceStore';
 
 const parseNumber = (value: string | number | null | undefined): number => {
     if (!value) return 0;
     if (typeof value === 'number') return value;
     return parseInt(value.replace(/[^0-9]/g, ''), 10) || 0;
-};
-
-const calculatePreferenceScore = (places: any[], preferences: any[]): number => {
-    if (!preferences || preferences.length === 0) return 100;
-
-    let score = 80;
-    let totalCost = 0;
-
-    const allAvoids: string[] = [];
-    const allMustGos: string[] = [];
-    const allStyles: string[] = [];
-    const maxBudgets: number[] = [];
-
-    preferences.forEach((pref: any) => {
-        if (pref.avoid && Array.isArray(pref.avoid)) allAvoids.push(...pref.avoid);
-        if (pref.mustVisit && Array.isArray(pref.mustVisit)) allMustGos.push(...pref.mustVisit);
-        if (pref.styles && Array.isArray(pref.styles)) allStyles.push(...pref.styles);
-        if (pref.budgetMax) maxBudgets.push(pref.budgetMax);
-    });
-
-    places.forEach(p => {
-        totalCost += (p.estimatedCost || 0);
-        const name = p.placeName || p.title || p.place || "";
-        const cat = p.category || "";
-
-        if (allAvoids.some(a => name.includes(a))) score -= 15;
-        if (allMustGos.some(m => name.includes(m))) score += 10;
-        if (allStyles.some(s => cat.includes(s) || name.includes(s))) score += 5;
-    });
-
-    if (maxBudgets.length > 0) {
-        const avgMaxBudget = maxBudgets.reduce((a, b) => a + b, 0) / maxBudgets.length;
-        if (totalCost > avgMaxBudget) {
-            score -= 20;
-        }
-    }
-
-    return Math.max(0, Math.min(100, Math.round(score)));
 };
 
 interface BranchState {
@@ -184,7 +145,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             status: b.status,
                             cost: String(b.totalCost || 0),
                             time: String(b.totalTravelTime || 0),
-                            matchRate: b.preferenceScore || 100,
+                            matchRate: b.preferenceScore || 100, // 백엔드에서 준 점수를 그대로 사용
                             routes: routesObj,
                             agreeCount: b.voteSummary?.agreeCount || 0,
                             holdCount: b.voteSummary?.holdCount || 0,
@@ -255,15 +216,12 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             return false;
         }
 
-        const teamPreferences = usePreferenceStore.getState().teamPreferences;
-        const calculatedScore = calculatePreferenceScore(formattedPlaces, teamPreferences);
-
         set({ isLoading: true });
         try {
             await api.post(`/trip-rooms/${tripRoomId}/branches`, {
                 name: title,
-                places: formattedPlaces,
-                preferenceScore: calculatedScore
+                places: formattedPlaces
+                // 프론트엔드에서 계산하던 preferenceScore 제거
             });
 
             await get().fetchBranches(tripRoomId);
@@ -303,15 +261,12 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             return false;
         }
 
-        const teamPreferences = usePreferenceStore.getState().teamPreferences;
-        const calculatedScore = calculatePreferenceScore(formattedPlaces, teamPreferences);
-
         set({ isLoading: true });
         try {
             await api.put(`/branches/${branchId}`, {
                 name: title,
-                places: formattedPlaces,
-                preferenceScore: calculatedScore
+                places: formattedPlaces
+                // 프론트엔드에서 계산하던 preferenceScore 제거
             });
 
             await get().fetchBranches(tripRoomId);
