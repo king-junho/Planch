@@ -142,6 +142,62 @@ export const createInviteLinkService = async (
   };
 };
 
+export const getInviteLinkPreviewService = async (token: string) => {
+  const inviteLink = await prisma.inviteLink.findUnique({
+    where: { token },
+    select: {
+      expiresAt: true,
+      isActive: true,
+      tripRoom: {
+        select: {
+          id: true,
+          title: true,
+          startDate: true,
+          endDate: true,
+          thumbnailUrl: true,
+          hostUser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          members: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!inviteLink) {
+    throw new Error("Invite link not found");
+  }
+
+  const isExpired =
+    inviteLink.expiresAt !== null && inviteLink.expiresAt.getTime() <= Date.now();
+
+  if (!inviteLink.isActive || isExpired) {
+    throw new Error("Invite link expired");
+  }
+
+  if (!inviteLink.tripRoom) {
+    throw new Error("Trip room not found");
+  }
+
+  return {
+    tripRoomId: inviteLink.tripRoom.id,
+    title: inviteLink.tripRoom.title,
+    startDate: inviteLink.tripRoom.startDate,
+    endDate: inviteLink.tripRoom.endDate,
+    thumbnailUrl: inviteLink.tripRoom.thumbnailUrl,
+    hostUser: inviteLink.tripRoom.hostUser,
+    memberCount: inviteLink.tripRoom.members.length,
+    expiresAt: inviteLink.expiresAt,
+  };
+};
+
 export const joinTripRoomByInviteLinkService = async (
   token: string,
   userId: number,

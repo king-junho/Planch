@@ -4,6 +4,7 @@ import {
   CreateTripRoomRequest,
   CreateInviteLinkResponse,
   DecisionLogItem,
+  InviteLinkPreviewResponse,
   JoinInviteLinkResponse,
   TripRoomDetailResponse,
   TripRoomListItem,
@@ -150,6 +151,31 @@ export async function joinTripRoomByInviteLink(
   }
 
   return (await response.json()) as JoinInviteLinkResponse;
+}
+
+export async function getInviteLinkPreview(
+  token: string
+): Promise<InviteLinkPreviewResponse> {
+  const response = await fetch(`${API_BASE_URL}/invite-links/${token}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    let message = "초대 정보를 불러오지 못했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as InviteLinkPreviewResponse;
 }
 
 export async function createInviteLink(

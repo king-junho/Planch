@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import {
   createInviteLinkService,
+  getInviteLinkPreviewService,
   joinTripRoomByInviteLinkService,
 } from "../services/inviteLinkService";
 
@@ -40,6 +41,46 @@ export const createInviteLink = async (
     return res
       .status(500)
       .json({ message: "초대 링크 생성 중 서버 오류가 발생했습니다." });
+  }
+};
+
+export const getInviteLinkPreview = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const rawToken = req.params.token;
+    const token = typeof rawToken === "string" ? rawToken.trim() : "";
+
+    if (!token) {
+      return res.status(400).json({ message: "유효하지 않은 token입니다." });
+    }
+
+    const result = await getInviteLinkPreviewService(token);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("getInviteLinkPreview error:", error);
+
+    if (error instanceof Error && error.message === "Invite link not found") {
+      return res
+        .status(404)
+        .json({ message: "유효하지 않거나 만료된 초대 링크입니다." });
+    }
+
+    if (error instanceof Error && error.message === "Invite link expired") {
+      return res
+        .status(410)
+        .json({ message: "유효하지 않거나 만료된 초대 링크입니다." });
+    }
+
+    if (error instanceof Error && error.message === "Trip room not found") {
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    }
+
+    return res
+      .status(500)
+      .json({ message: "초대 정보를 불러오는 중 서버 오류가 발생했습니다." });
   }
 };
 

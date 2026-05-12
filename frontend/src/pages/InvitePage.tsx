@@ -1,13 +1,27 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { joinTripRoomByInviteLink } from "../services/tripRoomApi";
+import {
+  getInviteLinkPreview,
+  joinTripRoomByInviteLink,
+} from "../services/tripRoomApi";
+import { InviteLinkPreviewResponse } from "../types/tripRoom";
+import { resolveImageUrl } from "../utils/image";
 
 export default function InvitePage() {
   const navigate = useNavigate();
   const { token = "" } = useParams();
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [previewError, setPreviewError] = useState("");
+  const [invitePreview, setInvitePreview] =
+    useState<InviteLinkPreviewResponse | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [hasImageLoadError, setHasImageLoadError] = useState(false);
+
+  const coverImageUrl = invitePreview?.thumbnailUrl
+    ? resolveImageUrl(invitePreview.thumbnailUrl)
+    : "";
 
   useEffect(() => {
     if (!toast) return;
@@ -15,6 +29,45 @@ export default function InvitePage() {
     const timeout = window.setTimeout(() => setToast(null), 2200);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    const trimmedToken = token.trim();
+
+    setInvitePreview(null);
+    setPreviewError("");
+    setHasImageLoadError(false);
+
+    if (!trimmedToken) {
+      setPreviewError("유효한 초대 토큰이 필요합니다.");
+      return;
+    }
+
+    let ignore = false;
+    setIsPreviewLoading(true);
+
+    getInviteLinkPreview(trimmedToken)
+      .then((preview) => {
+        if (ignore) return;
+        setInvitePreview(preview);
+      })
+      .catch((caughtError) => {
+        if (ignore) return;
+
+        const message =
+          caughtError instanceof Error && caughtError.message.trim()
+            ? caughtError.message
+            : "초대 정보를 불러오지 못했습니다.";
+        setPreviewError(message);
+      })
+      .finally(() => {
+        if (ignore) return;
+        setIsPreviewLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [token]);
 
   async function handleAcceptInvite() {
     if (!token.trim()) {
@@ -57,11 +110,16 @@ export default function InvitePage() {
       <div className="mx-auto flex min-h-[calc(100vh-80px)] max-w-[1551px] items-center justify-center">
         <div className="w-full max-w-[420px] overflow-hidden rounded-[24px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
           <div className="relative h-[180px]">
-            <img
-              alt="동아리 MT 초대 배경"
-              className="h-full w-full object-cover"
-              src="https://placehold.co/420x180"
-            />
+            {coverImageUrl && !hasImageLoadError ? (
+              <img
+                alt={`${invitePreview?.title ?? "여행"} 초대 배경`}
+                className="h-full w-full object-cover"
+                onError={() => setHasImageLoadError(true)}
+                src={coverImageUrl}
+              />
+            ) : (
+              <div className="h-full w-full bg-[linear-gradient(135deg,#0f172a_0%,#2563eb_45%,#f97316_100%)]" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
             <div className="absolute left-6 top-[124px] flex items-center gap-2">
@@ -81,21 +139,35 @@ export default function InvitePage() {
               </div>
 
               <h1 className="text-center text-[28px] font-bold leading-[35px] text-stone-900">
-                여행 초대
+                {invitePreview?.title ?? "여행 초대"}
               </h1>
 
               <div className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-[21px] py-[13px]">
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-sm text-stone-900">링크</span>
+                  <span className="text-sm text-stone-900">
+                    {isPreviewLoading ? "확인 중" : "링크"}
+                  </span>
                   <p className="text-base font-semibold leading-6 text-stone-900">
-                    토큰 기반 초대 링크
+                    {invitePreview
+                      ? `${invitePreview.hostUser.name}님의 초대`
+                      : "토큰 기반 초대 링크"}
                   </p>
                 </div>
                 <p className="mt-1 text-center text-[13px] leading-[19.5px] text-stone-500">
-                  {token ? `초대 코드: ${token}` : "유효한 초대 토큰이 필요합니다."}
+                  {invitePreview
+                    ? `참여자 ${invitePreview.memberCount}명`
+                    : token
+                      ? `초대 코드: ${token}`
+                      : "유효한 초대 토큰이 필요합니다."}
                 </p>
               </div>
             </div>
+
+            {previewError ? (
+              <div className="w-full rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {previewError}
+              </div>
+            ) : null}
 
             {error ? (
               <div className="w-full rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">

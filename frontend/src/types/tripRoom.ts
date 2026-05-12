@@ -81,6 +81,20 @@ export type CreateInviteLinkResponse = {
   expiresAt: string;
 };
 
+export type InviteLinkPreviewResponse = {
+  tripRoomId: number;
+  title: string;
+  startDate: string | null;
+  endDate: string | null;
+  thumbnailUrl: string | null;
+  hostUser: {
+    id: number;
+    name: string;
+  };
+  memberCount: number;
+  expiresAt: string | null;
+};
+
 export type UnlockTripRoomResponse = {
   tripRoomId: number;
   status: string;
