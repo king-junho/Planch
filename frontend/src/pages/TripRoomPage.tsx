@@ -205,6 +205,8 @@ export default function TripRoomPage() {
   }
 
   async function handleTripInfoSaveRequest() {
+    setTripInfoMessage("");
+
     try {
       await updateTripRoom(numericTripRoomId, {
         title: tripInfo.destination,
@@ -219,7 +221,6 @@ export default function TripRoomPage() {
           ? caughtError.message
           : "여행 정보 저장에 실패했습니다.";
 
-      setTripInfoMessage(message);
       setToast({ type: "error", message });
     }
   }
