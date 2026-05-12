@@ -217,19 +217,19 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
   return (
     <div className="min-h-screen bg-white text-stone-900">
       <header className="border-b border-stone-300 bg-white">
-        <div className="mx-auto flex h-[76px] w-full max-w-[1200px] items-center justify-between px-8">
-          <div className="flex items-center">
+        <div className="mx-auto flex h-[76px] w-full max-w-[1200px] items-center justify-between gap-4 px-5 sm:px-8">
+          <div className="flex min-w-0 items-center">
             <Link
-              className="text-[28px] font-semibold leading-none text-stone-900"
+              className="truncate text-[28px] font-semibold leading-none text-stone-900"
               to="/trip-rooms"
             >
               Planch
             </Link>
           </div>
 
-          <div className="h-10 w-[720px]" />
+          <div className="min-w-0 flex-1" />
 
-          <div className="hidden items-center gap-3 sm:flex">
+          <div className="hidden shrink-0 items-center gap-3 sm:flex">
             {isLoggedIn ? (
               <>
                 {authUser ? (
