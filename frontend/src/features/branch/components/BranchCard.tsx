@@ -9,17 +9,39 @@ interface BranchCardProps {
 export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
     const isConfirmed = branch.status === 'confirmed';
 
-    // 투표수 집계 (데이터가 없으면 0으로 처리)
     const agree = branch.agreeCount || 0;
     const hold = branch.holdCount || 0;
     const disagree = branch.disagreeCount || 0;
     const totalVotes = agree + hold + disagree;
 
+    const formatCost = (cost: string | number | undefined) => {
+        if (!cost || cost === '0') return '비용 미정';
+        return `${Number(cost).toLocaleString()}원`;
+    };
+
+    const formatTime = (time: string | number | undefined) => {
+        if (!time || time === '0') return '시간 미정';
+
+        const totalMinutes = Number(time);
+        if (isNaN(totalMinutes)) return `${time}분`;
+
+        if (totalMinutes < 60) {
+            return `${totalMinutes}분`;
+        }
+
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+
+        if (minutes === 0) {
+            return `${hours}시간`;
+        }
+        return `${hours}시간 ${minutes}분`;
+    };
+
     return (
-        // 카드 전체에 onClick을 적용하여 어디를 눌러도 상세 페이지로 이동하도록 수정
         <div
             onClick={onViewDetail}
-            className={`flex flex-col bg-white rounded-lg shadow-sm border ${isConfirmed ? 'border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,1)]' : 'border-gray-200'} overflow-hidden transition-all hover:shadow-md cursor-pointer shrink-0 group`}
+            className={`flex flex-col bg-white rounded-lg shadow-sm border ${isConfirmed ? 'border-green-500 shadow-[0_0_0_1px_rgba(34,197,94,1)]' : 'border-gray-200'} overflow-hidden transition-all hover:shadow-md cursor-pointer shrink-0 group`}
         >
             <div className="p-5 border-b border-gray-100 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
@@ -37,7 +59,7 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
                             </div>
                         )}
                         {isConfirmed && (
-                            <div className="flex items-center gap-1 px-2 py-1 bg-blue-500 rounded text-white shadow-sm">
+                            <div className="flex items-center gap-1 px-2 py-1 bg-green-500 rounded text-white shadow-sm">
                                 <CheckCircle size={12} />
                                 <span className="text-[10px] font-bold">확정됨</span>
                             </div>
@@ -45,7 +67,7 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
                     </div>
                     <span className="text-gray-400 text-xs font-medium flex items-center gap-1">
                         <Clock size={12} />
-                        {branch.time}
+                        {formatTime(branch.time)}
                     </span>
                 </div>
 
@@ -57,11 +79,11 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
                 <div className="flex flex-wrap gap-2 mt-1">
                     <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-md border border-gray-100">
                         <Wallet size={12} className="text-gray-400" />
-                        <span className="text-gray-600 text-[11px] font-medium">{branch.cost}</span>
+                        <span className="text-gray-600 text-[11px] font-medium">{formatCost(branch.cost)}</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-md border border-gray-100">
                         <Timer size={12} className="text-gray-400" />
-                        <span className="text-gray-600 text-[11px] font-medium">{branch.time}</span>
+                        <span className="text-gray-600 text-[11px] font-medium">{formatTime(branch.time)}</span>
                     </div>
                 </div>
 
@@ -79,10 +101,9 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
                 </div>
             </div>
 
-            {/* 업그레이드된 하단 투표 현황 영역 */}
             <div className="p-4 bg-gray-50/50">
                 {isConfirmed ? (
-                    <div className="flex justify-center items-center gap-1.5 text-blue-600 text-xs font-bold py-1">
+                    <div className="flex justify-center items-center gap-1.5 text-green-600 text-xs font-bold py-1">
                         <CheckCircle size={14} /> 최종 확정된 일정입니다
                     </div>
                 ) : (

@@ -24,6 +24,30 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
         return `${date.getMonth() + 1}/${date.getDate()} (${dayIndex}일차)`;
     };
 
+    const formatCost = (cost: string | number | undefined) => {
+        if (!cost || cost === '0') return '비용 미정';
+        return `${Number(cost).toLocaleString()}원`;
+    };
+
+    const formatTime = (time: string | number | undefined) => {
+        if (!time || time === '0') return '시간 미정';
+
+        const totalMinutes = Number(time);
+        if (isNaN(totalMinutes)) return `${time}분`;
+
+        if (totalMinutes < 60) {
+            return `${totalMinutes}분`;
+        }
+
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+
+        if (minutes === 0) {
+            return `${hours}시간`;
+        }
+        return `${hours}시간 ${minutes}분`;
+    };
+
     return (
         <div className="flex w-full h-full bg-white relative z-50 animate-in fade-in">
             <div className="w-[40%] min-w-[500px] max-w-[600px] flex flex-col h-full border-r border-gray-200 bg-gray-50/50 shadow-xl z-10 shrink-0">
@@ -67,19 +91,28 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
 
                 <div className="flex-1 flex overflow-hidden p-4 gap-4">
                     {compareBranches.map((branch, index) => {
-                        const theme = THEME_COLORS[index % THEME_COLORS.length];
-                        const dotColor = DOT_COLORS[index % DOT_COLORS.length];
+                        const isConfirmed = branch.status === 'confirmed';
+
+                        const theme = isConfirmed
+                            ? 'text-green-700 bg-green-100 border-green-400'
+                            : THEME_COLORS[index % THEME_COLORS.length];
+                        const dotColor = isConfirmed
+                            ? 'bg-green-500'
+                            : DOT_COLORS[index % DOT_COLORS.length];
+                        const cardBorder = isConfirmed
+                            ? 'border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] ring-1 ring-green-500'
+                            : 'border border-gray-200 shadow-sm';
 
                         const placesForDay = branch?.routes?.[compareDay] || [];
 
                         return (
-                            <div key={`compare-${branch.id}`} className="flex-1 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden relative min-w-[150px]">
+                            <div key={`compare-${branch.id}`} className={`flex-1 flex flex-col bg-white rounded-2xl overflow-hidden relative min-w-[150px] ${cardBorder}`}>
                                 <div className={`h-1.5 w-full ${dotColor}`} />
 
                                 <div className="p-4 border-b border-gray-100 bg-white shrink-0">
                                     <div className="flex justify-between items-start mb-2">
                                         <span className={`text-[10px] font-bold px-2 py-1 rounded border ${theme} whitespace-nowrap`}>
-                                            플랜 {index + 1}
+                                            {isConfirmed ? '최종 확정 플랜' : `플랜 ${index + 1}`}
                                         </span>
                                         <span className="text-[10px] text-gray-400 whitespace-nowrap">
                                             제안: {branch.proposer || '익명'}
@@ -90,10 +123,10 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                     </h3>
                                     <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-gray-50">
                                         <div className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
-                                            <Wallet size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{branch.cost || '비용 미정'}</span>
+                                            <Wallet size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{formatCost(branch.cost)}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
-                                            <Clock size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{branch.time || '시간 미정'}</span>
+                                            <Clock size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{formatTime(branch.time)}</span>
                                         </div>
                                     </div>
                                 </div>

@@ -87,6 +87,7 @@ export default function BranchListView({
                 ) : (
                     sortedBranches.map(branch => {
                         const isSelected = selectedForCompare.includes(branch.id);
+
                         return (
                             <div key={branch.id} className="relative group">
                                 <div
