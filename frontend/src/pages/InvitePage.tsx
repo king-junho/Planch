@@ -122,10 +122,7 @@ export default function InvitePage() {
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-            <div className="absolute left-6 top-[124px] flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                <span className="text-sm text-white">□</span>
-              </div>
+            <div className="absolute left-6 top-[132px] flex items-center">
               <p className="text-[15px] font-semibold tracking-[0.14px] text-white">
                 여행 초대장이 도착했습니다
               </p>
@@ -133,11 +130,7 @@ export default function InvitePage() {
           </div>
 
           <div className="flex flex-col items-center gap-7 px-8 py-8">
-            <div className="flex w-full flex-col items-center gap-5">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-stone-100">
-                <span className="text-2xl font-semibold text-stone-900">⌂</span>
-              </div>
-
+            <div className="flex w-full flex-col items-center gap-5 pt-1">
               <h1 className="text-center text-[28px] font-bold leading-[35px] text-stone-900">
                 {invitePreview?.title ?? "여행 초대"}
               </h1>
