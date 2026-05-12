@@ -55,7 +55,7 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
                     {isLocked ? (
                         <>여행 일정이 최종 확정되었습니다.<br className="hidden lg:block" />팀 종합 결과를 참고하여 즐거운 여행을 다녀오세요!</>
                     ) : (
-                        <>팀원들의 주요 취향이 파악되었습니다.<br className="hidden lg:block" />데이터 기반의 AI 추천을 받거나 직접 일정을 구성해 보세요.</>
+                        <>팀원들의 주요 취향이 파악되었습니다.<br className="hidden lg:block" />데이터 기반의 AI 추천을 받거나 직접 장소를 제안해 보세요.</>
                     )}
                 </div>
                 <div className="flex gap-3 shrink-0">
@@ -63,8 +63,8 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
                         onClick={onOpenAiModal}
                         disabled={isButtonDisabled}
                         className={`flex justify-center items-center gap-2 px-6 py-3.5 border rounded-xl font-bold shadow-sm transition-all whitespace-nowrap shrink-0 ${isButtonDisabled
-                                ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
-                                : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
+                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
+                            : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
                             }`}
                     >
                         {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
@@ -74,11 +74,11 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
                         onClick={onCreateManual}
                         disabled={isButtonDisabled}
                         className={`flex justify-center items-center gap-2 px-6 py-3.5 rounded-xl font-bold shadow-sm transition-all whitespace-nowrap shrink-0 ${isButtonDisabled
-                                ? 'bg-gray-300 text-gray-50 cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            ? 'bg-gray-300 text-gray-50 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
                             }`}
                     >
-                        <Plus size={18} /> 직접 만들기
+                        <Plus size={18} /> 장소 제안하기
                     </button>
                 </div>
             </div>

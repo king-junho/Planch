@@ -50,11 +50,11 @@ export default function PreferenceSection() {
 
     useEffect(() => {
         if (viewMode === 'form') {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('planch.accessToken');
             if (token) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
-                    const myUserId = Number(payload.sub);
+                    const myUserId = Number(payload.sub || payload.userId || payload.id);
 
                     initializeFormWithExisting(myUserId);
                 } catch (error) {
@@ -70,7 +70,7 @@ export default function PreferenceSection() {
 
     const handleCreateManual = () => {
         if (tripRoomId) {
-            navigate(`/trip-rooms/${tripRoomId}/branch/create`);
+            navigate(`/trip-rooms/${tripRoomId}/proposal`);
         } else {
             navigate('/trip-rooms');
         }
@@ -108,7 +108,6 @@ export default function PreferenceSection() {
                 setViewMode={setViewMode}
             />
 
-            {/* 핵심: overflow-x-hidden을 추가하여 내부 2중 스크롤을 막습니다. */}
             <div className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-white custom-scrollbar relative z-0">
                 <div className="w-full max-w-4xl mx-auto p-8 md:p-12">
                     {viewMode === 'form' && (
@@ -121,7 +120,8 @@ export default function PreferenceSection() {
                                 <button
                                     onClick={handleSave}
                                     disabled={isLoading || isLocked}
-                                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0"
+                                    // 테마 변경: bg-gray-900 -> bg-primary-600
+                                    className="px-8 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0"
                                 >
                                     {isLoading ? '저장 중...' : '저장하기'}
                                 </button>
