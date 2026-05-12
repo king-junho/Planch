@@ -184,7 +184,7 @@ export default function InvitePage() {
             <div className="flex w-full gap-3">
               <button
                 className="flex h-[60px] flex-1 items-center justify-center gap-3 rounded-[14px] border-2 border-stone-200 bg-white text-base font-semibold text-stone-600"
-                onClick={() => setToast("초대를 거절했습니다.")}
+                onClick={() => navigate("/trip-rooms", { replace: true })}
                 type="button"
               >
                 <span className="text-sm">x</span>
