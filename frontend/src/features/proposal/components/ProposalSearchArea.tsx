@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useProposalStore } from '../store/useProposalStore';
+import { useToastStore } from '../../store/useToastStore';
 
 interface ProposalSearchAreaProps {
     tripRoomId: string;
@@ -20,6 +21,8 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
     const [searchText, setSearchText] = useState('');
     const [memoText, setMemoText] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    const { showToast } = useToastStore();
 
     if (isLocked) {
         return (
@@ -48,7 +51,7 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
         if (!selectedPlace) return;
 
         if (!memoText.trim()) {
-            alert('추천 이유나 메모를 반드시 입력해주세요.');
+            showToast('error', '추천 이유나 메모를 반드시 입력해주세요.');
             return;
         }
 
@@ -70,14 +73,15 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
             setMemoText('');
             setSearchResults([]);
             setSelectedPlace(null);
+
+            showToast('success', '장소 제안이 등록되었습니다.');
         }
 
         setIsSaving(false);
     };
 
     return (
-        <div className="flex flex-col gap-4 mb-8">
-            {/* 검색창 */}
+        <div className="flex flex-col gap-4 mb-8 relative">
             <div className="relative">
                 <input
                     type="text"
@@ -101,7 +105,6 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
                 )}
             </div>
 
-            {/* 1. 검색 결과 리스트 (장소를 선택하기 전) */}
             {searchResults.length > 0 && !selectedPlace && (
                 <div className="flex flex-col max-h-60 overflow-y-auto bg-white border border-gray-100 rounded-xl shadow-lg custom-scrollbar">
                     {searchResults.map((place) => (
@@ -117,7 +120,6 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
                 </div>
             )}
 
-            {/* 2. 메모 입력 및 등록 (장소를 선택한 후) */}
             {selectedPlace && (
                 <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex justify-between items-center">

@@ -7,6 +7,7 @@ import PreferenceForm from './PreferenceForm';
 import { MemberPreference } from '../../../types/preference';
 import { usePreferenceStore } from '../store/usePreferenceStore';
 import api from '../../../api/axiosInstance';
+import { useToastStore } from '../../store/useToastStore';
 
 export default function PreferenceSection() {
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
@@ -23,6 +24,8 @@ export default function PreferenceSection() {
         initializeFormWithExisting
     } = usePreferenceStore();
 
+    const { toast, showToast } = useToastStore();
+
     useEffect(() => {
         if (!tripRoomId) return;
 
@@ -35,7 +38,8 @@ export default function PreferenceSection() {
             api.get(`/trip-rooms/${numericId}`)
                 .then(response => {
                     const roomStatus = response.data.status;
-                    setIsLocked(roomStatus === 'locked' || roomStatus === 'confirmed');
+                    const currentRoomLocked = roomStatus === 'locked' || roomStatus === 'confirmed';
+                    setIsLocked(currentRoomLocked);
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
         };
@@ -65,7 +69,7 @@ export default function PreferenceSection() {
     }, [viewMode, teamPreferences, initializeFormWithExisting]);
 
     const handleOpenAiModal = () => {
-        alert('AI 추천 기능은 준비 중입니다.');
+        showToast('success', 'AI 추천 기능은 준비 중입니다.');
     };
 
     const handleCreateManual = () => {
@@ -80,7 +84,7 @@ export default function PreferenceSection() {
         if (!tripRoomId) return;
         const success = await saveMyPreference(Number(tripRoomId));
         if (success) {
-            alert("선호도가 저장되었습니다.");
+            showToast('success', '선호도가 저장되었습니다.');
             setViewMode('overall');
         }
     };
@@ -101,7 +105,7 @@ export default function PreferenceSection() {
     const currentMemberData = typeof viewMode === 'number' ? membersData.find(m => m.id === viewMode) : null;
 
     return (
-        <div className="flex w-full h-full bg-white">
+        <div className="flex w-full h-full bg-white relative">
             <PreferenceSidebar
                 mockTeamData={membersData}
                 viewMode={viewMode}
@@ -120,8 +124,7 @@ export default function PreferenceSection() {
                                 <button
                                     onClick={handleSave}
                                     disabled={isLoading || isLocked}
-                                    // 테마 변경: bg-gray-900 -> bg-primary-600
-                                    className="px-8 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0"
+                                    className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0"
                                 >
                                     {isLoading ? '저장 중...' : '저장하기'}
                                 </button>
@@ -143,6 +146,15 @@ export default function PreferenceSection() {
                     )}
                 </div>
             </div>
+
+            {toast && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-5">
+                    <div className={`rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-colors ${toast.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 border border-red-100'
+                        }`}>
+                        {toast.message}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

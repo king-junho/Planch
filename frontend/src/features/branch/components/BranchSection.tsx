@@ -7,6 +7,8 @@ import BranchMap from './BranchMap';
 import BranchCompareCanvas from './BranchCompareCanvas';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../../api/axiosInstance';
+import { useToastStore } from '../../store/useToastStore';
+import GlobalConfirmModal from '../../../components/common/GlobalConfirmModal';
 
 export default function BranchSection() {
     const { tripRoomId } = useParams();
@@ -21,11 +23,13 @@ export default function BranchSection() {
     const [isCompareMode, setIsCompareMode] = useState(false);
     const [selectedForCompare, setSelectedForCompare] = useState<number[]>([]);
 
+    const { toast, showToast } = useToastStore();
+
     const toggleCompareSelection = (branchId: number) => {
         setSelectedForCompare(prev => {
             if (prev.includes(branchId)) return prev.filter(id => id !== branchId);
             if (prev.length >= 3) {
-                alert("비교는 최대 3개까지만 가능합니다.");
+                showToast('error', '비교는 최대 3개까지만 가능합니다.');
                 return prev;
             }
             return [...prev, branchId];
@@ -95,7 +99,7 @@ export default function BranchSection() {
     }
 
     return (
-        <div className="flex w-full h-full overflow-x-auto overflow-y-hidden min-w-[900px] custom-scrollbar">
+        <div className="flex w-full h-full overflow-x-auto overflow-y-hidden min-w-[900px] custom-scrollbar relative">
             <div className="w-[400px] min-w-[400px] shrink-0 border-r border-gray-100 bg-white z-10 flex flex-col overflow-hidden">
                 {activeBranch != null ? (
                     <BranchDetailSection
@@ -128,6 +132,17 @@ export default function BranchSection() {
                     navigate(`/trip-rooms/${tripRoomId}/branch/create`);
                 }}
             />
+
+            {toast && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-5">
+                    <div className={`rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-colors ${toast.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 border border-red-100'
+                        }`}>
+                        {toast.message}
+                    </div>
+                </div>
+            )}
+
+            <GlobalConfirmModal />
         </div>
     );
 }

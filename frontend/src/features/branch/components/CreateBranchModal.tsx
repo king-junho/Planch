@@ -1,6 +1,8 @@
 import { Sparkles, Plus, X, Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
+import { useToastStore } from '../../store/useToastStore';
+import { useConfirmStore } from '../../store/useConfirmStore';
 
 interface CreateBranchModalProps {
     isOpen: boolean;
@@ -11,24 +13,30 @@ interface CreateBranchModalProps {
 export default function CreateBranchModal({ isOpen, onClose, onCreateManual }: CreateBranchModalProps) {
     const { tripRoomId } = useParams();
     const { generateAiBranches, isLoading } = useBranchStore();
+    const { showToast } = useToastStore();
+    const { confirm } = useConfirmStore();
 
     if (!isOpen) return null;
 
     const handleGenerateAI = async () => {
         if (!tripRoomId || isLoading) return;
 
-        if (window.confirm("팀원들의 선호도와 제안된 장소를 바탕으로 AI가 최적의 코스 3개를 생성합니다.\n(약 10~20초 정도 소요될 수 있습니다.)\n진행하시겠습니까?")) {
+        const isConfirmed = await confirm("팀원들의 선호도와 제안된 장소를 바탕으로 AI가 최적의 코스 3개를 생성합니다.\n(약 10~20초 정도 소요될 수 있습니다.)\n\n진행하시겠습니까?");
+        if (isConfirmed) {
             const success = await generateAiBranches(Number(tripRoomId), 3);
             if (success) {
-                alert("AI가 성공적으로 일정을 생성했습니다!");
-                onClose();
+                showToast('success', 'AI가 성공적으로 일정을 생성했습니다!');
+
+                setTimeout(() => {
+                    onClose();
+                }, 1500);
             }
         }
     };
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">
                 <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="text-xl font-bold text-gray-900">새 브랜치 만들기</h3>
                     <button onClick={onClose} disabled={isLoading} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50">
@@ -41,13 +49,13 @@ export default function CreateBranchModal({ isOpen, onClose, onCreateManual }: C
                         onClick={handleGenerateAI}
                         disabled={isLoading}
                         className={`flex items-start gap-5 p-6 rounded-2xl border-2 transition-all text-left group ${isLoading
-                                ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-                                : 'border-blue-50 bg-blue-50/30 hover:border-blue-500 hover:bg-white'
+                            ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                            : 'border-blue-50 bg-blue-50/30 hover:border-blue-500 hover:bg-white'
                             }`}
                     >
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all ${isLoading
-                                ? 'bg-gray-200 text-gray-400'
-                                : 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'
+                            ? 'bg-gray-200 text-gray-400'
+                            : 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'
                             }`}>
                             {isLoading ? <Loader2 size={24} className="animate-spin" /> : <Sparkles size={24} />}
                         </div>

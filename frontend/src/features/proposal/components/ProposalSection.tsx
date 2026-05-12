@@ -4,6 +4,8 @@ import ProposalSearchArea from './ProposalSearchArea';
 import ProposalListArea from './ProposalListArea';
 import ProposalMap from './ProposalMap';
 import api from '../../../api/axiosInstance';
+import { useToastStore } from '../../store/useToastStore';
+import GlobalConfirmModal from '../../../components/common/GlobalConfirmModal';
 
 interface ProposalSectionProps {
     tripRoomId: string;
@@ -11,6 +13,7 @@ interface ProposalSectionProps {
 
 export const ProposalSection = ({ tripRoomId }: ProposalSectionProps) => {
     const { fetchProposals } = useProposalStore();
+    const { toast } = useToastStore(); // 전역 토스트 상태 가져오기
 
     const [isLocked, setIsLocked] = useState(false);
     const [hostUserId, setHostUserId] = useState<number | undefined>(undefined);
@@ -46,9 +49,8 @@ export const ProposalSection = ({ tripRoomId }: ProposalSectionProps) => {
     }, [tripRoomId, fetchProposals]);
 
     return (
-        <div className="flex w-full h-full overflow-x-auto overflow-y-hidden min-w-[900px] bg-white custom-scrollbar">
+        <div className="flex w-full h-full overflow-x-auto overflow-y-hidden min-w-[900px] bg-white custom-scrollbar relative">
 
-            {/* 왼쪽 사이드바 (너비 400px 고정) */}
             <div className="w-[400px] flex flex-col h-full bg-stone-50/50 border-r border-gray-100 shrink-0 relative z-10 p-8">
                 <h2 className="text-gray-900 text-xl font-bold mb-6">장소 제안</h2>
 
@@ -56,10 +58,20 @@ export const ProposalSection = ({ tripRoomId }: ProposalSectionProps) => {
                 <ProposalListArea hostUserId={hostUserId} />
             </div>
 
-            {/* 오른쪽 지도 영역 */}
             <div className="flex-1 min-w-[500px] h-full relative z-0">
                 <ProposalMap />
             </div>
+
+            {toast && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] animate-in fade-in slide-in-from-top-10">
+                    <div className={`rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-colors ${toast.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 border border-red-100'
+                        }`}>
+                        {toast.message}
+                    </div>
+                </div>
+            )}
+
+            <GlobalConfirmModal />
         </div>
     );
 }

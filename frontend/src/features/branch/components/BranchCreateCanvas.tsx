@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useProposalStore } from '../../proposal/store/useProposalStore';
 import { useBranchStore } from '../store/useBranchStore';
+import { useToastStore } from '../../store/useToastStore';
 import BranchMap from './BranchMap';
 import BranchCreateHeader from './BranchCreateHeader';
 import BranchCreateSidebar from './BranchCreateSidebar';
@@ -19,8 +20,9 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const [title, setTitle] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-
     const [isFetching, setIsFetching] = useState(true);
+
+    const { toast, showToast } = useToastStore();
 
     const { proposals, fetchProposals } = useProposalStore();
     const {
@@ -65,7 +67,6 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         if (editBranch) {
             setTitle(editBranch.title || editBranch.name || '');
             setCurrentDraftDay(1);
-            // 수정: editBranch가 존재할 때 안전하게 접근
             if (editBranch?.routes) {
                 setDraftRoutes(editBranch.routes);
             }
@@ -99,8 +100,14 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     const handleSave = async () => {
         if (isSaving || isFetching) return;
 
-        if (!title.trim()) return alert('브랜치 이름을 입력해주세요.');
-        if (!tripRoomId) return alert('여행방 정보를 찾을 수 없습니다.');
+        if (!title.trim()) {
+            showToast('error', '브랜치 이름을 입력해주세요.');
+            return;
+        }
+        if (!tripRoomId) {
+            showToast('error', '여행방 정보를 찾을 수 없습니다.');
+            return;
+        }
 
         setIsSaving(true);
 
@@ -113,6 +120,7 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         }
 
         if (success) {
+            showToast('success', editBranch ? '브랜치가 수정되었습니다.' : '새 브랜치가 생성되었습니다.');
             onBack();
         } else {
             setIsSaving(false);
@@ -189,6 +197,15 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
             <div className="flex-1 h-full relative z-0">
                 <BranchMap />
             </div>
+
+            {toast && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] animate-in fade-in slide-in-from-top-10">
+                    <div className={`rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-colors ${toast.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 border border-red-100'
+                        }`}>
+                        {toast.message}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

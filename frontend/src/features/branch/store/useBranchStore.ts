@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Branch, RouteItem } from '../../../types/branch';
 import api from '../../../api/axiosInstance';
+import { useToastStore } from '../../store/useToastStore';
 
 const parseNumber = (value: string | number | null | undefined): number => {
     if (!value) return 0;
@@ -241,7 +242,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         });
 
         if (formattedPlaces.length === 0) {
-            alert("일정에 최소 1개 이상의 장소를 추가해주세요.");
+            useToastStore.getState().showToast('error', "일정에 최소 1개 이상의 장소를 추가해주세요.");
             return false;
         }
 
@@ -285,7 +286,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         });
 
         if (formattedPlaces.length === 0) {
-            alert("일정에 최소 1개 이상의 장소를 추가해주세요.");
+            useToastStore.getState().showToast('error', "일정에 최소 1개 이상의 장소를 추가해주세요.");
             return false;
         }
 
@@ -301,7 +302,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         } catch (error: any) {
             console.error("브랜치 수정 실패:", error);
             if (error.response?.status === 409) {
-                alert("이미 확정된 여행방이나 브랜치는 수정할 수 없습니다.");
+                useToastStore.getState().showToast('error', "이미 확정된 여행방이나 브랜치는 수정할 수 없습니다.");
             }
             return false;
         } finally {
@@ -373,11 +374,11 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         } catch (error: any) {
             console.error("브랜치 삭제 실패:", error);
             if (error.response?.status === 403) {
-                alert("방장이나 작성자만 일정을 삭제할 수 있습니다.");
+                useToastStore.getState().showToast('error', "방장이나 작성자만 일정을 삭제할 수 있습니다.");
             } else if (error.response?.status === 409) {
-                alert("확정된 여행방이나 브랜치는 삭제할 수 없습니다.");
+                useToastStore.getState().showToast('error', "확정된 여행방이나 브랜치는 삭제할 수 없습니다.");
             } else {
-                alert("삭제 처리 중 오류가 발생했습니다.");
+                useToastStore.getState().showToast('error', "삭제 처리 중 오류가 발생했습니다.");
             }
             return false;
         } finally {
@@ -399,11 +400,11 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         } catch (error: any) {
             console.error("AI 브랜치 생성 실패:", error);
             if (error.response?.status === 403) {
-                alert("방장만 AI 추천 일정을 생성할 수 있습니다.");
+                useToastStore.getState().showToast('error', "방장만 AI 추천 일정을 생성할 수 있습니다.");
             } else if (error.response?.status === 400) {
-                alert("AI가 일정을 구성하기 위해서는 먼저 장소를 제안해 주세요.");
+                useToastStore.getState().showToast('error', "AI가 일정을 구성하기 위해서는 먼저 장소를 제안해 주세요.");
             } else {
-                alert("AI 추천 일정 생성 중 오류가 발생했습니다.");
+                useToastStore.getState().showToast('error', "AI 추천 일정 생성 중 오류가 발생했습니다.");
             }
             return false;
         } finally {

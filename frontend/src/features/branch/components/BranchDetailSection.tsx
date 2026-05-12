@@ -5,6 +5,8 @@ import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
 import { getTripRoomDetail, unlockTripRoom } from '../../../services/tripRoomApi';
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
+import { useToastStore } from '../../store/useToastStore';
+import { useConfirmStore } from '../../store/useConfirmStore';
 
 interface BranchDetailSectionProps {
     branch: Branch | null | undefined;
@@ -16,6 +18,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, deleteBranch, isLoading, fetchBranches, tripDuration, tripStartDate } = useBranchStore();
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
+    const { showToast } = useToastStore();
+    const { confirm } = useConfirmStore();
 
     const [myUserId, setMyUserId] = useState<number | null>(null);
     const [hostUserId, setHostUserId] = useState<number | null>(null);
@@ -94,14 +98,15 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const handleDelete = async () => {
         if (!tripRoomId || isEditDisabled) return;
 
-        if (window.confirm('이 브랜치를 정말 삭제하시겠습니까? (삭제 후 복구할 수 없습니다)')) {
+        const isConfirmed = await confirm('이 브랜치를 정말 삭제하시겠습니까?\n(삭제 후 복구할 수 없습니다)');
+        if (isConfirmed) {
             setIsDeleting(true);
             const success = await deleteBranch(Number(tripRoomId), branch.id);
             setIsDeleting(false);
 
             if (success) {
-                alert('브랜치가 삭제되었습니다.');
-                onBack();
+                showToast('success', '브랜치가 삭제되었습니다.');
+                setTimeout(() => onBack(), 1000);
             }
         }
     };
@@ -109,17 +114,18 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const handleUnlock = async () => {
         if (!tripRoomId) return;
 
-        if (window.confirm('이 여행방의 최종 일정을 확정 해제하시겠습니까?\n투표와 브랜치 추가가 다시 활성화됩니다.')) {
+        const isConfirmed = await confirm('이 여행방의 최종 일정을 확정 해제하시겠습니까?\n투표와 브랜치 추가가 다시 활성화됩니다.');
+        if (isConfirmed) {
             try {
                 setIsUnlocking(true);
                 await unlockTripRoom(Number(tripRoomId));
-                alert('일정 확정이 해제되었습니다.');
+                showToast('success', '일정 확정이 해제되었습니다.');
                 await fetchBranches(Number(tripRoomId));
                 window.dispatchEvent(new CustomEvent("trip-room-unlocked"));
                 onBack();
             } catch (error) {
                 console.error('확정 해제 실패:', error);
-                alert(error instanceof Error && error.message ? error.message : '확정 해제 권한이 없거나 오류가 발생했습니다.');
+                showToast('error', error instanceof Error && error.message ? error.message : '확정 해제 권한이 없거나 오류가 발생했습니다.');
             } finally {
                 setIsUnlocking(false);
             }
@@ -129,16 +135,20 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const handleVote = async (type: 'agree' | 'hold' | 'disagree') => {
         if (!tripRoomId || isVoteDisabled) return;
         const success = await voteBranch(Number(tripRoomId), branch.id, type);
-        if (success) alert('투표가 반영되었습니다.');
+        if (success) {
+            showToast('success', '투표가 반영되었습니다.');
+        }
     };
 
     const handleFinalize = async () => {
         if (!tripRoomId || isLocked) return;
-        if (window.confirm('이 브랜치를 최종 여행 일정으로 확정하시겠습니까?')) {
+
+        const isConfirmed = await confirm('이 브랜치를 최종 여행 일정으로 확정하시겠습니까?');
+        if (isConfirmed) {
             const success = await finalizeBranch(Number(tripRoomId), branch.id);
             if (success) {
-                alert('최종 일정으로 확정되었습니다.');
-                window.location.reload();
+                showToast('success', '최종 일정으로 확정되었습니다.');
+                setTimeout(() => window.location.reload(), 1500);
             }
         }
     };

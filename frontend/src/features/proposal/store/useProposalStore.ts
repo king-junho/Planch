@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { ProposalResponse } from '../../../types/proposal';
 import api from '../../../api/axiosInstance';
+import { useToastStore } from '../../store/useToastStore';
 
 export interface ProposalPayload {
     placeName: string;
@@ -34,7 +35,6 @@ interface ProposalState {
     setSelectedPlace: (place: KakaoSearchResult | null) => void;
     setFocusedProposal: (proposal: ProposalResponse | null) => void;
 
-    // API 액션
     fetchProposals: (tripRoomId: number) => Promise<void>;
     addProposal: (tripRoomId: number, payload: ProposalPayload) => Promise<boolean>;
     generateAiProposals: (tripRoomId: number) => Promise<void>;
@@ -54,20 +54,18 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
     setSelectedPlace: (place) => set({ selectedPlace: place }),
     setFocusedProposal: (proposal) => set({ focusedProposal: proposal }),
 
-    // API: 장소 제안 목록 조회
     fetchProposals: async (tripRoomId) => {
         set({ isLoading: true });
         try {
             const response = await api.get(`/trip-rooms/${tripRoomId}/proposals`);
             set({ proposals: response.data });
         } catch (error) {
-            console.error("제안 목록 로드 실패:", error);
+            console.error(error);
         } finally {
             set({ isLoading: false });
         }
     },
 
-    // API: 장소 제안 추가
     addProposal: async (tripRoomId, payload: ProposalPayload) => {
         if (get().isLoading) return false;
 
@@ -90,27 +88,25 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
             set({ selectedPlace: null, keyword: '' });
             return true;
         } catch (error) {
-            console.error("장소 제안 실패:", error);
+            console.error(error);
             return false;
         } finally {
             set({ isLoading: false });
         }
     },
 
-    // API: AI 장소 제안 생성
     generateAiProposals: async (tripRoomId) => {
         set({ isLoading: true });
         try {
             await api.post(`/trip-rooms/${tripRoomId}/proposals/generate-ai`, { count: 3 });
             await get().fetchProposals(tripRoomId);
         } catch (error) {
-            alert("AI 제안 생성 중 오류가 발생했습니다.");
+            useToastStore.getState().showToast('error', "AI 제안 생성 중 오류가 발생했습니다.");
         } finally {
             set({ isLoading: false });
         }
     },
 
-    // API: 장소 제안 삭제
     deleteProposal: async (tripRoomId: number, proposalId: number) => {
         set({ isLoading: true });
         try {
@@ -125,10 +121,9 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
 
             return true;
         } catch (error: any) {
-            console.error("장소 제안 삭제 실패:", error);
-            // 백엔드에서 전달하는 상세 에러 메시지를 팝업으로 노출
+            console.error(error);
             const errorMessage = error.response?.data?.message || "삭제에 실패했습니다. 본인의 제안인지 확인해주세요.";
-            alert(errorMessage);
+            useToastStore.getState().showToast('error', errorMessage);
             return false;
         } finally {
             set({ isLoading: false });

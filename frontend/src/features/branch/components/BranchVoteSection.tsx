@@ -1,6 +1,7 @@
 import { ThumbsUp, Minus, ThumbsDown } from 'lucide-react';
 import { useBranchStore } from '../store/useBranchStore';
 import { useParams } from 'react-router-dom';
+import { useToastStore } from '../../store/useToastStore';
 
 interface BranchVoteSectionProps {
     branchId: number;
@@ -9,17 +10,18 @@ interface BranchVoteSectionProps {
 export default function BranchVoteSection({ branchId }: BranchVoteSectionProps) {
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const { voteBranch, isLoading } = useBranchStore();
+    const { showToast } = useToastStore();
 
     const handleVote = async (type: 'agree' | 'hold' | 'disagree') => {
         if (!tripRoomId) return;
         const success = await voteBranch(Number(tripRoomId), branchId, type);
         if (success) {
-            alert('투표가 반영되었습니다.');
+            showToast('success', '투표가 반영되었습니다.');
         }
     };
 
     return (
-        <div className="p-6 border-t border-gray-100 bg-white shrink-0">
+        <div className="p-6 border-t border-gray-100 bg-white shrink-0 relative">
             <h4 className="text-sm font-bold text-gray-900 mb-4 text-center">이 일정표에 대한 내 의견은?</h4>
             <div className="flex gap-3">
                 <button

@@ -1,6 +1,8 @@
 import { MapPin, User, ChevronRight, Trash2 } from 'lucide-react';
 import { useProposalStore } from '../store/useProposalStore';
 import { ProposalResponse } from '../../../types/proposal';
+import { useConfirmStore } from '../../store/useConfirmStore';
+import { useToastStore } from '../../store/useToastStore';
 
 interface ProposalCardProps {
     proposal: ProposalResponse;
@@ -10,8 +12,9 @@ interface ProposalCardProps {
 
 export default function ProposalCard({ proposal, currentUserId, isHost = false }: ProposalCardProps) {
     const { setFocusedProposal, deleteProposal } = useProposalStore();
+    const { confirm } = useConfirmStore();
+    const { showToast } = useToastStore();
 
-    // 백엔드 실제 데이터와 프론트엔드 임시 데이터 구조 차이 방어 코드
     const placeName = proposal?.placeName || proposal?.place?.name || '알 수 없는 장소';
     const category = proposal?.category || proposal?.place?.category || '카테고리 없음';
     const memo = proposal?.memo || proposal?.comment || '메모가 없습니다.';
@@ -21,22 +24,24 @@ export default function ProposalCard({ proposal, currentUserId, isHost = false }
     const proposalId = proposal?.id || proposal?.proposalId;
     const tripRoomId = proposal?.tripRoomId;
 
-    // TypeScript 에러 방지 및 안전한 ID 추출 로직
     const proposerId = proposal?.proposerUserId || proposal?.proposerUser?.id || proposal?.proposer?.userId;
 
-    // 본인이 작성한 제안인지 확인
     const isMyProposal = currentUserId && proposerId ? proposerId === currentUserId : false;
 
-    // 본인이 작성했거나, 현재 유저가 방장일 경우에만 삭제 가능하도록 설정
     const canDelete = isMyProposal || isHost;
 
     const handleDelete = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // 상위 요소 클릭 이벤트 버블링 방지
+        e.stopPropagation();
 
         if (!proposalId || !tripRoomId) return;
 
-        if (window.confirm('이 장소 제안을 정말 삭제하시겠습니까?')) {
-            await deleteProposal(Number(tripRoomId), Number(proposalId));
+        const isConfirmed = await confirm('이 장소 제안을 정말 삭제하시겠습니까?');
+        if (isConfirmed) {
+            const success = await deleteProposal(Number(tripRoomId), Number(proposalId));
+
+            if (success) {
+                showToast('success', '제안이 성공적으로 삭제되었습니다.');
+            }
         }
     };
 
@@ -58,7 +63,6 @@ export default function ProposalCard({ proposal, currentUserId, isHost = false }
                         <span className="text-gray-600 text-[11px] font-bold">{proposerName}</span>
                     </div>
 
-                    {/* 권한이 검증된 경우에만 휴지통 아이콘 렌더링 */}
                     {canDelete && (
                         <button
                             onClick={handleDelete}

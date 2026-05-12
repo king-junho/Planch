@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Plus, Search, ListChecks, MapPin, X, Loader2 } from 'lucide-react';
 import { ProposalResponse } from '../../../types/proposal';
+import { useToastStore } from '../../store/useToastStore';
 
-// 카카오 검색 결과 타입 정의
 interface KakaoSearchResult {
     id: string;
     place_name: string;
@@ -14,7 +14,6 @@ interface KakaoSearchResult {
 
 interface BranchCreateSidebarProps {
     proposals: ProposalResponse[];
-    // onAddPlace 파라미터에 백엔드 전송용 placeId와 proposalId 추가
     onAddPlace: (name: string, x: string, y: string, address: string, placeId?: number, proposalId?: number) => void;
 }
 
@@ -22,17 +21,18 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
     const [activeSubTab, setActiveSubTab] = useState<'proposals' | 'search'>('proposals');
     const [searchText, setSearchText] = useState('');
     const [searchResults, setSearchResults] = useState<KakaoSearchResult[]>([]);
-    const [isSearching, setIsSearching] = useState(false); // 검색 중 상태 추가
+    const [isSearching, setIsSearching] = useState(false);
 
-    // 카카오맵 장소 검색 로직
+    const { showToast } = useToastStore();
+
     const handleSearch = () => {
         if (!searchText.trim()) return;
         if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
-            alert('지도 API가 아직 로드되지 않았습니다.');
+            showToast('error', '지도 API가 아직 로드되지 않았습니다.');
             return;
         }
 
-        setIsSearching(true); // 검색 시작
+        setIsSearching(true);
 
         const ps = new window.kakao.maps.services.Places();
         ps.keywordSearch(searchText, (data: KakaoSearchResult[], status: any) => {
@@ -40,11 +40,11 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                 setSearchResults(data);
             } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
                 setSearchResults([]);
-                alert('검색 결과가 존재하지 않습니다.');
+                showToast('error', '검색 결과가 존재하지 않습니다.');
             } else {
-                alert('검색 중 오류가 발생했습니다.');
+                showToast('error', '검색 중 오류가 발생했습니다.');
             }
-            setIsSearching(false); // 검색 종료
+            setIsSearching(false);
         });
     };
 
@@ -54,8 +54,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
     };
 
     return (
-        <div className="w-[340px] border-r border-gray-100 flex flex-col bg-stone-50/50 shrink-0 h-full">
-            {/* 상단 탭 버튼 */}
+        <div className="w-[340px] border-r border-gray-100 flex flex-col bg-stone-50/50 shrink-0 h-full relative">
             <div className="flex border-b border-gray-100 bg-white shrink-0">
                 <button
                     onClick={() => setActiveSubTab('proposals')}
@@ -71,10 +70,8 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                 </button>
             </div>
 
-            {/* 메인 컨텐츠 영역 */}
             <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
                 {activeSubTab === 'proposals' ? (
-                    /* 1. 제안 목록 탭 */
                     <div className="flex flex-col gap-3">
                         {proposals.length === 0 ? (
                             <div className="text-center py-10 text-gray-400 text-xs">등록된 제안이 없습니다.</div>
@@ -96,8 +93,8 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                                 String(prop.place?.longitude || 0),
                                                 String(prop.place?.latitude || 0),
                                                 prop.place?.address || '',
-                                                prop.place?.id || prop.placeId, // 실제 DB 장소 ID 전달
-                                                prop.id // 제안 ID 전달
+                                                prop.place?.id || prop.placeId,
+                                                prop.id
                                             )}
                                             className="p-1.5 bg-blue-50 text-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white shrink-0 ml-2"
                                             title="일정에 추가"
@@ -106,7 +103,6 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                         </button>
                                     </div>
 
-                                    {/* 제안자와 코멘트 정보 표시 */}
                                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
                                         <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
                                             {prop.proposerUser?.name || '익명'}
@@ -122,7 +118,6 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                         )}
                     </div>
                 ) : (
-                    /* 2. 장소 검색 탭 */
                     <div className="flex flex-col gap-4 h-full">
                         <div className="relative shrink-0">
                             <input
@@ -168,7 +163,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                                                 place.x,
                                                 place.y,
                                                 place.address_name,
-                                                Number(place.id) // 카카오 고유 ID를 숫자로 변환하여 placeId로 활용
+                                                Number(place.id)
                                             )}
                                             className="p-1.5 bg-gray-50 text-gray-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm shrink-0"
                                             title="일정에 추가"
