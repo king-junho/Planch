@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { branchApi } from "../api/branchApi";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { 
   getTripRoomDetail,
@@ -10,6 +11,11 @@ import { getAuthUser } from "../services/authStorage";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 import { resolveImageUrl } from "../utils/image";
 import {ImagePlus} from "lucide-react";
+
+type BranchListItem = {
+  branchId: number;
+  name: string;
+};
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate && !endDate) return "여행 날짜 미정";
@@ -73,6 +79,7 @@ export default function TripRoomPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
+  const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
   const authUser = getAuthUser();
 
   useEffect(() => {
@@ -122,6 +129,40 @@ export default function TripRoomPage() {
   }, [numericTripRoomId]);
 
   useEffect(() => {
+    if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
+      setBranchNameById({});
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadBranchNames() {
+      try {
+        const response = await branchApi.getBranches(numericTripRoomId);
+        if (!isMounted) return;
+
+        const branches = response.data as BranchListItem[];
+        setBranchNameById(
+          branches.reduce<Record<number, string>>((nameMap, branch) => {
+            nameMap[branch.branchId] = branch.name;
+            return nameMap;
+          }, {})
+        );
+      } catch {
+        if (isMounted) {
+          setBranchNameById({});
+        }
+      }
+    }
+
+    loadBranchNames();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [numericTripRoomId]);
+
+  useEffect(() => {
     if (!toast) return;
 
     const timeout = window.setTimeout(() => setToast(null), 2200);
@@ -142,6 +183,13 @@ export default function TripRoomPage() {
     if(!tripRoomDetail || !authUser) return false;
     return tripRoomDetail.hostUser.id === authUser.id;
   },[tripRoomDetail,authUser]);
+
+  const selectedBranchName = tripRoomDetail?.summary.selectedBranchId
+    ? branchNameById[tripRoomDetail.summary.selectedBranchId] ?? null
+    : null;
+  const selectedBranchLabel = tripRoomDetail?.summary.selectedBranchId
+    ? selectedBranchName ?? "이름 확인 중"
+    : null;
 
   function handleTripInfoChange(
     field: "destination" | "startDate" | "endDate",
@@ -343,7 +391,7 @@ export default function TripRoomPage() {
                     hint:
                       tripRoomDetail.summary.selectedBranchId === null
                         ? "선택된 일정 없음"
-                        : `선택 브랜치 #${tripRoomDetail.summary.selectedBranchId}`,
+                        : `선택 브랜치 ${selectedBranchLabel}`,
                   },
                 ].map((item) => (
                   <article
@@ -482,7 +530,7 @@ export default function TripRoomPage() {
                       <p className="mt-2 text-sm text-stone-700">
                         {tripRoomDetail.summary.selectedBranchId === null
                           ? "아직 없음"
-                          : `브랜치 #${tripRoomDetail.summary.selectedBranchId}`}
+                          : selectedBranchLabel}
                       </p>
                     </div>
                   </div>

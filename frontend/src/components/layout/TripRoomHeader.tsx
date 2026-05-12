@@ -9,6 +9,7 @@ import {
   UserRoundPen,
   X,
 } from "lucide-react";
+import { branchApi } from "../../api/branchApi";
 import {
   clearAuthSession,
   getAccessToken,
@@ -44,6 +45,11 @@ type ActivityLogItem = {
   detail: string;
   timeAgo: string;
   tone: "blue" | "emerald" | "amber" | "stone";
+};
+
+type BranchListItem = {
+  branchId: number;
+  name: string;
 };
 
 function statusLabel(status: TripRoomStatus) {
@@ -133,7 +139,22 @@ function formatRelativeTime(value: string) {
   });
 }
 
-function toActivityLogItem(log: DecisionLogItem): ActivityLogItem {
+function readBranchName(
+  branchId: string | number | null,
+  branchNameById: Record<number, string>
+) {
+  if (branchId === null) return null;
+
+  const numericBranchId = Number(branchId);
+  if (!Number.isFinite(numericBranchId)) return null;
+
+  return branchNameById[numericBranchId] ?? null;
+}
+
+function toActivityLogItem(
+  log: DecisionLogItem,
+  branchNameById: Record<number, string>
+): ActivityLogItem {
   const beforeName = readLogDataValue(log.beforeData, "name");
   const afterName = readLogDataValue(log.afterData, "name");
   const placeName =
@@ -144,6 +165,7 @@ function toActivityLogItem(log: DecisionLogItem): ActivityLogItem {
   const selectedBranchId =
     readLogDataValue(log.afterData, "selectedBranchId") ??
     readLogDataValue(log.beforeData, "selectedBranchId");
+  const selectedBranchName = readBranchName(selectedBranchId, branchNameById);
   const timeAgo = formatRelativeTime(log.createdAt);
 
   switch (log.actionType) {
@@ -227,7 +249,7 @@ function toActivityLogItem(log: DecisionLogItem): ActivityLogItem {
         actor: log.actor.name,
         action: "여행방 확정",
         detail: selectedBranchId
-          ? `${selectedBranchId}번 브랜치로 여행방을 확정했어요.`
+          ? `${selectedBranchName ?? "선택한 브랜치"}로 여행방을 확정했어요.`
           : "여행방을 확정했어요.",
         timeAgo,
         tone: "amber",
@@ -263,6 +285,7 @@ export default function TripRoomHeader({
   const [roomStatus, setRoomStatus] = useState<TripRoomStatus>("draft");
   const [hostUserId, setHostUserId] = useState<number | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
+  const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
   const [roomStatusError, setRoomStatusError] = useState("");
   const [isRoomStatusLoading, setIsRoomStatusLoading] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -278,6 +301,29 @@ export default function TripRoomHeader({
   const authUser = getAuthUser();
   const currentUserId = readCurrentUserId();
   const isHost = Boolean(currentUserId && hostUserId && currentUserId === hostUserId);
+  const selectedBranchName = readBranchName(selectedBranchId, branchNameById);
+
+  const loadBranchNames = useCallback(async () => {
+    const numericTripRoomId = Number(tripRoomId);
+    if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
+      setBranchNameById({});
+      return;
+    }
+
+    try {
+      const response = await branchApi.getBranches(numericTripRoomId);
+      const branches = response.data as BranchListItem[];
+
+      setBranchNameById(
+        branches.reduce<Record<number, string>>((nameMap, branch) => {
+          nameMap[branch.branchId] = branch.name;
+          return nameMap;
+        }, {})
+      );
+    } catch {
+      setBranchNameById({});
+    }
+  }, [tripRoomId]);
 
   const loadTripRoomSnapshot = useCallback(async () => {
     const numericTripRoomId = Number(tripRoomId);
@@ -308,7 +354,8 @@ export default function TripRoomHeader({
 
   useEffect(() => {
     loadTripRoomSnapshot();
-  }, [loadTripRoomSnapshot]);
+    loadBranchNames();
+  }, [loadBranchNames, loadTripRoomSnapshot]);
 
   useEffect(() => {
     if (!copyMessage) return;
@@ -350,7 +397,9 @@ export default function TripRoomHeader({
         const logs = await getTripRoomDecisionLogs(numericTripRoomId);
         if (!isMounted) return;
 
-        setActivityLogs(logs.map(toActivityLogItem));
+        setActivityLogs(
+          logs.map((log) => toActivityLogItem(log, branchNameById))
+        );
       } catch (caughtError) {
         if (!isMounted) return;
 
@@ -373,7 +422,7 @@ export default function TripRoomHeader({
     return () => {
       isMounted = false;
     };
-  }, [isMenuOpen, tripRoomId]);
+  }, [branchNameById, isMenuOpen, tripRoomId]);
 
   useEffect(() => {
     if (!isInviteOpen) return;
@@ -537,7 +586,7 @@ export default function TripRoomHeader({
                     </p>
                     {selectedBranchId ? (
                       <p className="mt-1 text-xs font-medium text-stone-600">
-                        선택 브랜치 #{selectedBranchId}
+                        선택 브랜치 {selectedBranchName ?? "이름 확인 중"}
                       </p>
                     ) : null}
                     {roomStatus === "locked" && !isHost ? (
