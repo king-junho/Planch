@@ -230,6 +230,13 @@ export default function FloatingChatRooms() {
     };
   }, [canShow, activeTripRoomId]);
 
+  const activeChatRoomInfo = useMemo(
+    () =>
+      chatRooms.find((chatRoom) => chatRoom.tripRoomId === activeTripRoomId) ??
+      null,
+    [chatRooms, activeTripRoomId]
+  );
+
   if (!canShow) {
     return null;
   }
@@ -441,8 +448,6 @@ export default function FloatingChatRooms() {
       setIsSending(false);
     }
   }
-
-  const activeChatRoomInfo = useMemo(() => chatRooms.find((chatRoom) => chatRoom.tripRoomId === activeTripRoomId) ?? null, [chatRooms, activeTripRoomId]);
 
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
