@@ -37,7 +37,7 @@ interface ProposalState {
 
     fetchProposals: (tripRoomId: number) => Promise<void>;
     addProposal: (tripRoomId: number, payload: ProposalPayload) => Promise<boolean>;
-    generateAiProposals: (tripRoomId: number) => Promise<void>;
+    generateAiProposals: (tripRoomId: number) => Promise<boolean>;
     deleteProposal: (tripRoomId: number, proposalId: number) => Promise<boolean>;
 }
 
@@ -96,12 +96,18 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
     },
 
     generateAiProposals: async (tripRoomId) => {
+        if (get().isLoading) return false;
+
         set({ isLoading: true });
         try {
             await api.post(`/trip-rooms/${tripRoomId}/proposals/generate-ai`, { count: 3 });
             await get().fetchProposals(tripRoomId);
-        } catch (error) {
-            useToastStore.getState().showToast('error', "AI 제안 생성 중 오류가 발생했습니다.");
+            return true;
+        } catch (error: any) {
+            console.error(error);
+            const errorMessage = error.response?.data?.message || "AI 제안 생성 중 오류가 발생했습니다.";
+            useToastStore.getState().showToast('error', errorMessage);
+            return false;
         } finally {
             set({ isLoading: false });
         }

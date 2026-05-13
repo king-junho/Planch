@@ -1,16 +1,30 @@
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2, XCircle, Sparkles, Plus, Wallet, Clock, Star, Loader2 } from 'lucide-react';
 import { usePreferenceStore } from '../store/usePreferenceStore';
 import { useBranchStore } from '../../branch/store/useBranchStore';
+import { useProposalStore } from '../../proposal/store/useProposalStore';
+import { useConfirmStore } from '../../store/useConfirmStore';
+import { useToastStore } from '../../store/useToastStore';
 
 interface PreferenceOverallViewProps {
-    onOpenAiModal: () => void;
+    onOpenAiModal?: () => void;
     onCreateManual: () => void;
     isLocked?: boolean;
 }
 
 export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, isLocked = false }: PreferenceOverallViewProps) {
+    const { tripRoomId } = useParams<{ tripRoomId: string }>();
+    const navigate = useNavigate();
+
     const { teamPreferences } = usePreferenceStore();
-    const { isLoading } = useBranchStore();
+    const { isLoading: isBranchLoading } = useBranchStore();
+
+    const { generateAiProposals, isLoading: isProposalLoading } = useProposalStore();
+    const { confirm } = useConfirmStore();
+    const { showToast } = useToastStore();
+
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
@@ -40,7 +54,23 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
     const allMustGo = Array.from(new Set(safePreferences.flatMap(p => p.mustVisit || []))).filter(Boolean);
     const allAvoid = Array.from(new Set(safePreferences.flatMap(p => p.avoid || []))).filter(Boolean);
 
-    const isButtonDisabled = isLocked || isLoading;
+    const isButtonDisabled = isLocked || isBranchLoading || isProposalLoading || isGenerating;
+
+    const handleGenerateAI = async () => {
+        if (!tripRoomId || isButtonDisabled) return;
+
+        const isConfirmed = await confirm("팀원들의 취향을 분석하여\nAI가 3곳의 맞춤 장소를 추천합니다.\n진행하시겠습니까?");
+
+        if (isConfirmed) {
+            setIsGenerating(true);
+            const success = await generateAiProposals(Number(tripRoomId));
+            if (success) {
+                showToast('success', 'AI가 맞춤 장소를 추천했습니다!');
+                navigate(`/trip-rooms/${tripRoomId}/proposal`);
+            }
+            setIsGenerating(false);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-10 w-full animate-in fade-in duration-300 pb-20">
@@ -60,14 +90,14 @@ export default function PreferenceOverallView({ onOpenAiModal, onCreateManual, i
                 </div>
                 <div className="flex gap-3 shrink-0">
                     <button
-                        onClick={onOpenAiModal}
+                        onClick={handleGenerateAI}
                         disabled={isButtonDisabled}
                         className={`flex justify-center items-center gap-2 px-6 py-3.5 border rounded-xl font-bold shadow-sm transition-all whitespace-nowrap shrink-0 ${isButtonDisabled
                             ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
                             : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
                             }`}
                     >
-                        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                        {(isGenerating || isProposalLoading) ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                         AI 맞춤 추천
                     </button>
                     <button

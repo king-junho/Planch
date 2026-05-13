@@ -8,6 +8,7 @@ import { MemberPreference } from '../../../types/preference';
 import { usePreferenceStore } from '../store/usePreferenceStore';
 import api from '../../../api/axiosInstance';
 import { useToastStore } from '../../store/useToastStore';
+import GlobalConfirmModal from '../../../components/common/GlobalConfirmModal';
 
 export default function PreferenceSection() {
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
@@ -171,6 +172,8 @@ export default function PreferenceSection() {
                     </div>
                 </div>
             )}
+
+            <GlobalConfirmModal />
         </div>
     );
 }

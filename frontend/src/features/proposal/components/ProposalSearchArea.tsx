@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Sparkles } from 'lucide-react';
 import { useProposalStore } from '../store/useProposalStore';
 import { useToastStore } from '../../store/useToastStore';
+import { useConfirmStore } from '../../store/useConfirmStore';
 
 interface ProposalSearchAreaProps {
     tripRoomId: string;
@@ -15,7 +16,9 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
         setSearchResults,
         selectedPlace,
         setSelectedPlace,
-        addProposal
+        addProposal,
+        generateAiProposals,
+        isLoading
     } = useProposalStore();
 
     const [searchText, setSearchText] = useState('');
@@ -23,6 +26,7 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
     const [isSaving, setIsSaving] = useState(false);
 
     const { showToast } = useToastStore();
+    const { confirm } = useConfirmStore();
 
     if (isLocked) {
         return (
@@ -37,7 +41,6 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
 
         setSelectedPlace(null);
         setMemoText('');
-
         setKeyword(searchText);
     };
 
@@ -47,7 +50,7 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
     };
 
     const handleSubmit = async () => {
-        if (isSaving) return;
+        if (isSaving || isLoading) return;
         if (!selectedPlace) return;
 
         if (!memoText.trim()) {
@@ -80,6 +83,20 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
         setIsSaving(false);
     };
 
+    const handleGenerateAI = async () => {
+        if (isSaving || isLoading) return;
+
+        const isConfirmed = await confirm("팀원들의 취향을 분석하여\nAI가 3곳의 맞춤 장소를 추천합니다.\n진행하시겠습니까?");
+        if (isConfirmed) {
+            setIsSaving(true);
+            const success = await generateAiProposals(Number(tripRoomId));
+            if (success) {
+                showToast('success', 'AI가 맞춤 장소를 추천했습니다!');
+            }
+            setIsSaving(false);
+        }
+    };
+
     return (
         <div className="flex flex-col gap-4 mb-8 relative">
             <div className="relative">
@@ -104,6 +121,16 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
                     </button>
                 )}
             </div>
+
+            {!selectedPlace && searchResults.length === 0 && (
+                <button
+                    onClick={handleGenerateAI}
+                    disabled={isSaving || isLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-50/50 hover:bg-blue-50 text-blue-600 rounded-xl border border-blue-100 transition-colors font-bold text-sm shadow-sm disabled:opacity-50"
+                >
+                    <Sparkles size={16} /> AI 맞춤 장소 추천받기
+                </button>
+            )}
 
             {searchResults.length > 0 && !selectedPlace && (
                 <div className="flex flex-col max-h-60 overflow-y-auto bg-white border border-gray-100 rounded-xl shadow-lg custom-scrollbar">
@@ -139,8 +166,8 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
                     />
                     <button
                         onClick={handleSubmit}
-                        disabled={isSaving}
-                        className={`w-full h-12 text-white rounded-xl font-bold text-sm transition-all shadow-md ${isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'}`}
+                        disabled={isSaving || isLoading}
+                        className={`w-full h-12 text-white rounded-xl font-bold text-sm transition-all shadow-md ${isSaving || isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'}`}
                     >
                         {isSaving ? '등록 중...' : '장소 제안 등록하기'}
                     </button>
