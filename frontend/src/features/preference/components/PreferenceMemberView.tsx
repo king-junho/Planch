@@ -1,12 +1,28 @@
-import { CheckSquare } from 'lucide-react';
+import { CheckSquare, FileQuestion } from 'lucide-react';
 import { MemberPreference } from '../../../types/preference';
 
+interface ExtendedMemberPreference extends MemberPreference {
+    hasData?: boolean;
+}
+
 interface PreferenceMemberViewProps {
-    currentData: MemberPreference;
+    currentData: ExtendedMemberPreference;
 }
 
 export default function PreferenceMemberView({ currentData }: PreferenceMemberViewProps) {
     if (!currentData) return null;
+
+    if (currentData.hasData === false) {
+        return (
+            <div className="max-w-2xl mx-auto flex flex-col items-center justify-center h-full min-h-[400px] animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 border border-gray-100 shadow-sm">
+                    <FileQuestion size={32} className="text-gray-400" />
+                </div>
+                <h2 className="text-gray-900 text-xl font-bold mb-2">{currentData.name}님은 아직 고민 중이에요!</h2>
+                <p className="text-gray-500 text-sm">해당 팀원이 아직 여행 선호도를 입력하지 않았습니다.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-2xl mx-auto flex flex-col gap-10 w-full animate-in fade-in slide-in-from-right-4 duration-300 pb-20">

@@ -15,6 +15,7 @@ export default function PreferenceSection() {
     const [viewMode, setViewMode] = useState<string | number>('form');
 
     const [isLocked, setIsLocked] = useState(false);
+    const [roomMembers, setRoomMembers] = useState<any[]>([]);
 
     const {
         teamPreferences,
@@ -40,6 +41,9 @@ export default function PreferenceSection() {
                     const roomStatus = response.data.status;
                     const currentRoomLocked = roomStatus === 'locked' || roomStatus === 'confirmed';
                     setIsLocked(currentRoomLocked);
+
+                    const members = response.data.members || response.data.participants || response.data.users || [];
+                    setRoomMembers(members);
                 })
                 .catch(error => console.error("방 정보 조회 실패:", error));
         };
@@ -91,23 +95,35 @@ export default function PreferenceSection() {
 
     const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
-    const membersData: MemberPreference[] = safePreferences.map((p: any) => ({
-        id: p.user?.id || p.userId,
-        name: p.user?.name || '알 수 없는 사용자',
-        budget: p.budgetMax || 0,
-        styles: p.styles || [],
-        mustGo: p.mustVisit || [],
-        mustAvoid: p.avoid || [],
-        activeTimes: p.availableTime || [],
-        freeText: p.memo || ''
-    }));
+    const baseList = roomMembers.length > 0
+        ? roomMembers
+        : safePreferences.map(p => p.user || { id: p.userId, name: '알 수 없는 사용자' });
+
+    const uniqueMembers = Array.from(new Map(baseList.map(item => [item.id || item.userId, item])).values());
+
+    const membersData = uniqueMembers.map((member: any) => {
+        const memberId = member.id || member.userId;
+        const pref = safePreferences.find((p: any) => (p.user?.id || p.userId) === memberId);
+
+        return {
+            id: memberId,
+            name: member.name || member.nickname || '알 수 없는 사용자',
+            hasData: !!pref,
+            budget: pref?.budgetMax || 0,
+            styles: pref?.styles || [],
+            mustGo: pref?.mustVisit || [],
+            mustAvoid: pref?.avoid || [],
+            activeTimes: pref?.availableTime || [],
+            freeText: pref?.memo || ''
+        };
+    });
 
     const currentMemberData = typeof viewMode === 'number' ? membersData.find(m => m.id === viewMode) : null;
 
     return (
         <div className="flex w-full h-full bg-white relative">
             <PreferenceSidebar
-                mockTeamData={membersData}
+                mockTeamData={membersData as MemberPreference[]}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
             />
@@ -142,13 +158,13 @@ export default function PreferenceSection() {
                     )}
 
                     {typeof viewMode === 'number' && currentMemberData && (
-                        <PreferenceMemberView currentData={currentMemberData} />
+                        <PreferenceMemberView currentData={currentMemberData as any} />
                     )}
                 </div>
             </div>
 
             {toast && (
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-5">
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9999] animate-in fade-in slide-in-from-top-10">
                     <div className={`rounded-full px-6 py-3 text-sm font-bold shadow-lg transition-colors ${toast.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-50 text-red-600 border border-red-100'
                         }`}>
                         {toast.message}
