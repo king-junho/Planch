@@ -6,6 +6,7 @@ import {
   getTripRoomDetail,
   updateTripRoom,
   updateTripRoomImage,
+  updateTripRoomDeadline,
 } from "../services/tripRoomApi";
 import { getAuthUser } from "../services/authStorage";
 import { TripRoomDetailResponse } from "../types/tripRoom";
@@ -16,6 +17,28 @@ type BranchListItem = {
   branchId: number;
   name: string;
 };
+
+function toDateTimeLocalValue(dateString?: string | null) {
+  if (!dateString) return "";
+
+  const date = new Date(dateString);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+
+  return localDate.toISOString().slice(0, 16);
+}
+function formatDateTime(dateString?: string | null) {
+  if (!dateString) return "설정 안 됨";
+
+  const date = new Date(dateString);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+}
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate && !endDate) return "여행 날짜 미정";
@@ -68,6 +91,7 @@ export default function TripRoomPage() {
     destination: "",
     startDate: "",
     endDate: "",
+    decisionDeadline: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -104,6 +128,7 @@ export default function TripRoomPage() {
             destination: response.title,
             startDate: toDateInputText(response.startDate),
             endDate: toDateInputText(response.endDate),
+            decisionDeadline: toDateTimeLocalValue(response.decisionDeadline),
           });
         }
       } catch (caughtError) {
@@ -192,7 +217,7 @@ export default function TripRoomPage() {
     : null;
 
   function handleTripInfoChange(
-    field: "destination" | "startDate" | "endDate",
+    field: "destination" | "startDate" | "endDate" | "decisionDeadline",
     value: string
   ) {
     setTripInfo((current) => ({ ...current, [field]: value }));
@@ -213,6 +238,31 @@ export default function TripRoomPage() {
         startDate: tripInfo.startDate || null,
         endDate: tripInfo.endDate || null,
       });
+    
+    let savedDecisionDeadline: string | null = tripRoomDetail?.decisionDeadline ?? null;
+    let savedUpdatedAt: string | null = tripRoomDetail?.updatedAt ?? null;
+
+    if(isHost){
+      const deadlineResult = await updateTripRoomDeadline(
+        numericTripRoomId,
+        tripInfo.decisionDeadline ? new Date(tripInfo.decisionDeadline).toISOString() : null
+      );
+
+      savedDecisionDeadline = deadlineResult.decisionDeadline;
+      savedUpdatedAt = deadlineResult.updatedAt;
+    }
+
+      setTripRoomDetail((current) =>
+        current ? {
+          ...current,
+          title: tripInfo.destination,
+          startDate: tripInfo.startDate || null,
+          endDate: tripInfo.endDate || null,
+          decisionDeadline: savedDecisionDeadline,
+          updatedAt: savedUpdatedAt ?? current.updatedAt,
+        }
+        :current
+      );
 
       handleTripInfoSave();
     } catch (caughtError) {
@@ -221,6 +271,7 @@ export default function TripRoomPage() {
           ? caughtError.message
           : "여행 정보 저장에 실패했습니다.";
 
+      setTripInfoMessage(message);
       setToast({ type: "error", message });
     }
   }
@@ -425,18 +476,21 @@ export default function TripRoomPage() {
                       label: "여행지",
                       placeholder: "예: 부산 해운대",
                       type: "text",
+                      disabled: false,
                     },
                     {
                       field: "startDate" as const,
                       label: "여행 시작일",
                       placeholder: "",
                       type: "date",
+                      disabled: false,
                     },
                     {
                       field: "endDate" as const,
                       label: "여행 종료일",
                       placeholder: "",
                       type: "date",
+                      disabled: false,
                     },
                   ].map((item) => (
                     <label
@@ -447,7 +501,9 @@ export default function TripRoomPage() {
                         {item.label}
                       </span>
                       <input
-                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300"
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none 
+                        placeholder:text-stone-400 focus:border-stone-300"
+                        disabled={item.disabled}
                         onChange={(event) =>
                           handleTripInfoChange(item.field, event.target.value)
                         }
@@ -457,6 +513,22 @@ export default function TripRoomPage() {
                       />
                     </label>
                   ))}
+                </div>
+                <div className="mt-5 grid gap-5 sm:grid-cols-1">
+                  <label className="block min-w-0 sm:col-span-1">
+                    <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                      결정 마감기한
+                    </span>
+                    <input
+                      className="w-full min-w-0 rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                      disabled={!isHost}
+                      onChange={(event) =>
+                        handleTripInfoChange("decisionDeadline", event.target.value)
+                      }
+                      type="datetime-local"
+                      value={tripInfo.decisionDeadline}
+                    />
+                  </label>
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

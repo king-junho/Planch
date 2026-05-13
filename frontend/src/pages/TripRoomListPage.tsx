@@ -95,6 +95,7 @@ export default function TripRoomListPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [listError, setListError] = useState("");
   const [isListLoading, setIsListLoading] = useState(true);
+  const [tripDecisionDeadline, setTripDecisionDeadline] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -155,6 +156,7 @@ function resetCreateModal() {
   setTripEndDate("");
   setThumbnailFile(null);
   setThumbnailPreviewUrl("");
+  setTripDecisionDeadline("");
   setCreateError("");
 }
 
@@ -189,6 +191,7 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
       startDate: tripStartDate || undefined,
       endDate: tripEndDate || undefined,
       thumbnailUrl: null,
+      decisionDeadline : tripDecisionDeadline ? new Date(tripDecisionDeadline).toISOString() : null,
     });
 
     if (thumbnailFile) {
@@ -383,6 +386,20 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
                     value={tripEndDate}
                   />
                 </label>
+              </div>
+              <div>
+                <p className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                  결정 마감기한
+                </p>
+                <input
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none"
+                  onChange={(event) => setTripDecisionDeadline(event.target.value)}
+                  type="datetime-local"
+                  value={tripDecisionDeadline}
+                />
+                <p className="mt-2 text-xs text-stone-400">
+                  이 시각 이후에는 투표 및 주요 일정 변경이 제한됩니다.
+                </p>
               </div>
 
               <div>

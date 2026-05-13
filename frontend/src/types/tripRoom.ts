@@ -3,6 +3,7 @@ export type CreateTripRoomRequest = {
   startDate?: string;
   endDate?: string;
   thumbnailUrl: string | null;
+  decisionDeadline: string | null;
 };
 
 export type TripRoomListItem = {
@@ -19,6 +20,7 @@ export type TripRoomListItem = {
   };
   lastActivityAt: string;
   selectedBranchId: number | null;
+  decisionDeadline: string | null;
 };
 
 export type TripRoomMember = {
@@ -41,6 +43,7 @@ export type TripRoomSummary = {
   };
   memberCount: number;
   selectedBranchId: number | null;
+  decisionDeadline: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -52,6 +55,7 @@ export type TripRoomDetailResponse = {
   endDate: string | null;
   status: string;
   thumbnailUrl: string | null;
+  decisionDeadline: string | null;
   hostUser: {
     id: number;
     name: string;
@@ -111,7 +115,10 @@ export type DecisionLogActionType =
   | "branch_delete"
   | "proposal_delete"
   | "trip_room_finalize"
-  | "trip_room_unlock";
+  | "trip_room_unlock"
+  | "decision_deadline_set"
+  | "decision_deadline_updated"
+  | "decision_deadline_cleared";
 
 export type DecisionLogTargetType = "trip_room" | "proposal" | "branch";
 
@@ -157,3 +164,10 @@ export type UpdateTripRoomImageResponse = {
   updatedAt: string;
   saved: boolean;
 };
+
+export type UpdateTripRoomDeadlineResponse = {
+  tripRoomId: number;
+  decisionDeadline: string | null;
+  updatedAt: string;
+  saved: boolean;
+}

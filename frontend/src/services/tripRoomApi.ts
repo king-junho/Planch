@@ -13,10 +13,42 @@ import {
   UpdateTripRoomRequest,
   UpdateTripRoomResponse,
   UpdateTripRoomImageResponse,
+  UpdateTripRoomDeadlineResponse,
 } from "../types/tripRoom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
 
+export async function updateTripRoomDeadline(
+  tripRoomId: number,
+  decisionDeadline: string | null
+): Promise<UpdateTripRoomDeadlineResponse>{
+  const accessToken = getAccessToken();
+
+  if(!accessToken){
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms/${tripRoomId}/deadline`,{
+    method: "PATCH",
+    headers:{
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body : JSON.stringify({decisionDeadline}),
+  });
+  if(!response.ok){
+    let message = "결정 마감기한 수정에 실패했습니다.";
+
+    try{
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if(typeof errorBody.message === "string" && errorBody.message.trim()){
+        message = errorBody.message;
+      }
+    }catch{}
+    throw new Error(message);
+  }
+  return (await response.json()) as UpdateTripRoomDeadlineResponse;
+}
 export async function createTripRoom(
   request: CreateTripRoomRequest
 ): Promise<TripRoomSummary> {
