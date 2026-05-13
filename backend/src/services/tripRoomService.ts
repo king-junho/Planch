@@ -3,7 +3,6 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
-import { title } from "process";
 
 interface CreateTripRoomInput {
   title: string;
@@ -11,6 +10,7 @@ interface CreateTripRoomInput {
   endDate?: string;
   hostUserId: number;
   thumbnailUrl?: string | null;
+  decisionDeadline?: string | null;
 }
 
 interface UpdateTripRoomInput {
@@ -50,6 +50,102 @@ function parseOptionalDate(value: string | null | undefined, fieldName: "startDa
 
   return parsedDate;
 }
+
+function parseDecisionDeadline(
+  decisionDeadline?: string | null,
+  startDate? : Date | null,
+):Date | null | undefined{
+  if (decisionDeadline === undefined) return undefined;
+  if (decisionDeadline === null || decisionDeadline === "") return null;
+
+  const parsed = new Date(decisionDeadline);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid decisionDeadline");
+  }
+
+  if(parsed.getTime() <= Date.now()){
+    throw new Error("Decision deadline must be in the future");
+  }
+
+  if (startDate && parsed.getTime() > startDate.getTime()){
+    throw new Error("Decision deadline must be before trip start date");
+  }
+
+  return parsed;
+}
+
+export const updateTripRoomDeadlineService = async(
+  tripRoomId : number,
+  userId : number,
+  decisionDeadline?: string | null,
+)=> {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: {id: tripRoomId},
+    select:{
+      id:true,
+      hostUserId:true,
+      status:true,
+      startDate:true,
+      decisionDeadline:true,
+    },
+  });
+
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+
+  if(tripRoom.hostUserId !== userId){
+    throw new Error("Host only");
+  }
+
+  if(tripRoom.status === "locked"){
+    throw new Error("Trip room is locked");
+  }
+
+  const parsedDecisionDeadline = parseDecisionDeadline(
+    decisionDeadline,
+    tripRoom.startDate,
+  );
+
+  const updated = await prisma.tripRoom.update({
+    where: {id: tripRoomId},
+    data: {
+      decisionDeadline : parsedDecisionDeadline ?? null,
+    },
+    select:{
+      id:true,
+      decisionDeadline:true,
+      updatedAt:true,
+    },
+  });
+
+  type DecisionLogActionValue = (typeof DECISION_LOG_ACTION)[keyof typeof DECISION_LOG_ACTION];
+
+  let actionType : DecisionLogActionValue = DECISION_LOG_ACTION.DECISION_DEADLINE_UPDATED;
+
+  await prisma.decisionLog.create({
+    data:{
+      tripRoomId,
+      userId,
+      actionType,
+      targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+      targetId: tripRoomId,
+      beforeData:{
+        decisionDeadline: tripRoom.decisionDeadline,
+      },
+      afterData:{
+        decisionDeadline: updated.decisionDeadline,
+      },
+    },
+  });
+
+  return{
+    tripRoomId: updated.id,
+    decisionDeadline: updated.decisionDeadline,
+    updatedAt: updated.updatedAt,
+    saved: true as const,
+  };
+};
 
 export const getDecisionService = async(tripRoomId: number, userId: number)=> {
   const tripRoom = await prisma.tripRoom.findUnique({
@@ -126,6 +222,7 @@ export const updateTripRoomService = async ({
       status: true,
       startDate: true,
       endDate: true,
+      decisionDeadline: true,
     },
   });
 
@@ -150,6 +247,10 @@ export const updateTripRoomService = async ({
 
   if (mergedStartDate && mergedEndDate && mergedEndDate < mergedStartDate) {
     throw new Error("End date before start date");
+  }
+
+  if(tripRoom.decisionDeadline && mergedStartDate && tripRoom.decisionDeadline > mergedStartDate){
+    throw new Error("Decision deadline must be before trip start date");
   }
 
   const updatedTripRoom = await prisma.tripRoom.update({
@@ -267,6 +368,7 @@ export const getMyTripRoomsService = async (userId:number) => {
       thumbnailUrl:true,
       updatedAt:true,
       selectedBranchId: true,
+      decisionDeadline:true,
       hostUser:{
         select:{
           id:true,
@@ -299,6 +401,7 @@ export const getMyTripRoomsService = async (userId:number) => {
       hostUser : tripRoom.hostUser,
       lastActivityAt : tripRoom.updatedAt,
       selectedBranchId : tripRoom.selectedBranchId ?? null,
+      decisionDeadline: tripRoom.decisionDeadline,
     };
   });
 };
@@ -541,6 +644,7 @@ export const getTripRoomDetailService = async (tripRoomId : number, userId: numb
       createdAt:true,
       updatedAt: true,
       selectedBranchId:true,
+      decisionDeadline:true,
       hostUser: {
         select :{
           id:true,
@@ -629,6 +733,7 @@ export const getTripRoomDetailService = async (tripRoomId : number, userId: numb
       },
       createdAt : tripRoom.createdAt,
       updatedAt : tripRoom.updatedAt,
+      decisionDeadline: tripRoom.decisionDeadline,
     },
   };
 };
@@ -638,16 +743,26 @@ export const createTripRoomService = async ({
   startDate,
   endDate,
   hostUserId,
-  thumbnailUrl
+  thumbnailUrl,
+  decisionDeadline,
 }: CreateTripRoomInput) => {
+  const parsedStartDate = startDate ? new Date(startDate) : null;
+  const parsedEndDate = endDate ? new Date(endDate) : null;
+
+  if(parsedStartDate && parsedEndDate && parsedEndDate < parsedStartDate){
+    throw new Error("End date before start date");
+  }
+  const parsedDecisionDeadline = parseDecisionDeadline(decisionDeadline,parsedStartDate);
+
   const newTripRoom = await prisma.tripRoom.create({
     data: {
-      title,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
+      title : title.trim(),
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
       hostUserId,
       thumbnailUrl: thumbnailUrl ?? null,
       status: "draft",
+      decisionDeadline:  parsedDecisionDeadline ?? null,
       members: {
         create: {
           userId: hostUserId,
@@ -678,6 +793,7 @@ export const createTripRoomService = async ({
         startDate: newTripRoom.startDate,
         endDate: newTripRoom.endDate,
         status: newTripRoom.status,
+        decisionDeadline: newTripRoom.decisionDeadline,
       },
     },
   });
@@ -688,6 +804,7 @@ export const createTripRoomService = async ({
     endDate: newTripRoom.endDate,
     status: newTripRoom.status,
     thumbnailUrl: newTripRoom.thumbnailUrl,
+    decisionDeadline: newTripRoom.decisionDeadline,
     hostUser: newTripRoom.hostUser,
     memberCount: newTripRoom.members.length,
     selectedBranchId: newTripRoom.selectedBranchId ?? null,
@@ -712,6 +829,10 @@ export const updateTripRoomImageService = async(
 
   if(!tripRoom){
     throw new Error("Trip room not found");
+  }
+
+  if(tripRoom.hostUserId !== userId){
+    throw new Error("Host only");
   }
 
   const thumbnailUrl = `/uploads/${fileName}`;

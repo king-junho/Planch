@@ -10,6 +10,7 @@ import {
     unlockTripRoom,
     getDecisionLogs,
     updateTripRoomImage,
+    updateTripRoomDeadline,
 } from "../controllers/tripRoomController";
 import {getTripRoomChatMessages, sendTripRoomChatMessage,} from "../controllers/chatController";
 import { createInviteLink } from "../controllers/inviteLinkController";
@@ -43,5 +44,7 @@ router.patch(
     tripRoomImageUpload.single("image"),
     updateTripRoomImage,
 );
+
+router.patch("/:tripRoomId/deadline", authenticate, updateTripRoomDeadline);
 
 export default router;

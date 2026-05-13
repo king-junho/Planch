@@ -4,6 +4,8 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
+import { assert } from "node:console";
+import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -37,6 +39,7 @@ export const deleteProposalService = async (
         select: {
           hostUserId: true,
           status: true,
+          decisionDeadline : true,
         },
       },
       branchPlaces: {
@@ -67,15 +70,13 @@ export const deleteProposalService = async (
     throw new Error("Forbidden");
   }
 
+  assertTripRoomDecisionOpen(proposal.tripRoom);
+
   const isHost = proposal.tripRoom.hostUserId === userId;
   const isOwner = proposal.proposerUserId === userId;
 
   if (!isHost && !isOwner) {
     throw new Error("Delete forbidden");
-  }
-
-  if (proposal.tripRoom.status === "locked") {
-    throw new Error("Trip room is locked");
   }
 
   if (proposal.branchPlaces.length > 0) {
@@ -118,6 +119,7 @@ export const generateAiProposalsService = async(tripRoomId: number,userId: numbe
       startDate:true,
       endDate:true,
       status:true,
+      decisionDeadline:true,
       preferences:{
         include:{user:true},
       },
@@ -132,6 +134,8 @@ export const generateAiProposalsService = async(tripRoomId: number,userId: numbe
       found: false as const,
     }
   }
+
+  assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({
     where:{
@@ -403,13 +407,16 @@ export const createProposalService = async ({
     where : {id : tripRoomId},
     select: {
       id:true,
-      status : true
+      status : true,
+      decisionDeadline:true,
     },
   });
 
   if(!tripRoom){
     throw new Error("Trip room not found");
   }
+
+  assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({
     where:{

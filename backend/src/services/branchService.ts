@@ -13,6 +13,7 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
+import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
 
 export const deleteBranchService = async (branchId: number, userId: number) => {
   const branch = await prisma.planBranch.findUnique({
@@ -27,6 +28,7 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
           hostUserId: true,
           status: true,
           selectedBranchId: true,
+          decisionDeadline: true,
         },
       },
     },
@@ -52,15 +54,13 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
     throw new Error("Forbidden");
   }
 
+  assertTripRoomDecisionOpen(branch.tripRoom);
+
   const isHost = branch.tripRoom.hostUserId === userId;
   const isOwner = branch.createdUserId === userId;
 
   if (!isHost && !isOwner) {
     throw new Error("Delete forbidden");
-  }
-
-  if (branch.tripRoom.status === "locked") {
-    throw new Error("Trip room is locked");
   }
 
   if (branch.status === "locked") {
@@ -108,6 +108,7 @@ export const updateBranchService = async ({
         select: {
           status: true,
           preferences: true,
+          decisionDeadline: true,
         },
       },
     },
@@ -133,9 +134,7 @@ export const updateBranchService = async ({
     throw new Error("Forbidden");
   }
 
-  if (branch.tripRoom.status === "locked") {
-    throw new Error("Trip room is locked");
-  }
+  assertTripRoomDecisionOpen(branch.tripRoom);
 
   if (branch.status === "locked") {
     throw new Error("Branch is locked");
@@ -384,6 +383,7 @@ export const saveBranchVoteService = async (
       tripRoom: {
         select: {
           status: true,
+          decisionDeadline: true,
         },
       },
     },
@@ -420,7 +420,9 @@ export const saveBranchVoteService = async (
     };
   }
 
-  if (branch.status === "locked" || branch.tripRoom.status === "locked") {
+  assertTripRoomDecisionOpen(branch.tripRoom);
+
+  if (branch.status === "locked") {
     return {
       found: true as const,
       authorized: true as const,

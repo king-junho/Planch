@@ -82,7 +82,7 @@ model TripRoom {
   updatedAt  DateTime     @updatedAt @map("updated_at")
   thumbnailUrl  String?   @map("thumbnail_url")
   chatRoom    ChatRoom?
-
+  decisionDeadline  DateTime? @map("decision_deadline")
   hostUser     User               @relation("TripHost", fields: [hostUserId], references: [id], onDelete: Cascade)
   members      TripMember[]
   inviteLinks  InviteLink[]

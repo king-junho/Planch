@@ -10,6 +10,7 @@ import {
   unlockTripRoomService,
   getDecisionService,
   updateTripRoomImageService,
+  updateTripRoomDeadlineService,
 } from "../services/tripRoomService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
@@ -334,7 +335,67 @@ export const finalizeTripRoom = async (req: AuthenticatedRequest, res: Response)
     return res.status(500).json({ message: "최종 확정 실패" });
   }
 };
+export const updateTripRoomDeadline = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
+  try {
+    const tripRoomId = Number(req.params.tripRoomId);
+    const userId = req.user?.id;
+    const { decisionDeadline } = req.body as {
+      decisionDeadline?: string | null;
+    };
 
+    if (Number.isNaN(tripRoomId)) {
+      return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
+    }
+
+    const result = await updateTripRoomDeadlineService(
+      tripRoomId,
+      userId,
+      decisionDeadline
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Trip room not found") {
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Host only") {
+      return res.status(403).json({ message: "호스트만 결정 마감기한을 수정할 수 있습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "확정된 여행방은 마감기한을 수정할 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Invalid decision deadline") {
+      return res.status(400).json({ message: "유효하지 않은 마감기한입니다." });
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "Decision deadline must be in the future"
+    ) {
+      return res.status(400).json({ message: "마감기한은 현재 시각 이후여야 합니다." });
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "Decision deadline must be before trip start date"
+    ) {
+      return res.status(400).json({ message: "마감기한은 여행 시작일 이전이어야 합니다." });
+    }
+
+    console.error("updateTripRoomDeadline error:", error);
+    return res.status(500).json({ message: "결정 마감기한 수정 실패" });
+  }
+};
 export const updateTripRoomImage = async(req: AuthenticatedRequest, res: Response) => {
   try{
     const tripRoomId = Number(req.params.tripRoomId);

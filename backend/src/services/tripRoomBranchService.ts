@@ -13,6 +13,7 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
+import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -61,12 +62,15 @@ export const createBranchService = async ({
       id: true,
       status: true,
       preferences: true,
+      decisionDeadline: true,
     },
   });
 
   if (!tripRoom) {
     throw new Error("Trip room not found");
   }
+
+  assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({
     where: {
@@ -82,10 +86,6 @@ export const createBranchService = async ({
 
   if (!membership) {
     throw new Error("Forbidden");
-  }
-
-  if (tripRoom.status === "locked") {
-    throw new Error("Trip room is locked");
   }
 
   if (!name.trim()) {
@@ -790,6 +790,7 @@ export const generateAiBranchesService = async (
       startDate: true,
       endDate: true,
       status: true,
+      decisionDeadline: true,
       preferences: {
         include: {
           user: {
@@ -858,6 +859,8 @@ export const generateAiBranchesService = async (
   if (tripRoom.status === "locked") {
     throw new Error("Trip room is locked");
   }
+
+  assertTripRoomDecisionOpen(tripRoom);
 
   const safeBranchCount = Math.min(Math.max(branchCount, 1), 5);
   const tripDayCount = getTripDayCount(tripRoom.startDate, tripRoom.endDate);
