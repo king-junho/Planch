@@ -51,24 +51,24 @@ export default function ProposalCard({ proposal, currentUserId, isHost = false }
 
     return (
         <div className={`bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all group ${isAI ? 'border-blue-100' : 'border-gray-100'}`}>
-            <div className="flex justify-between items-start mb-3">
-                <div className="flex flex-col gap-1">
-                    <span className="text-gray-900 font-bold text-base leading-tight">
+            <div className="flex justify-between items-start mb-3 gap-3">
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <h3 className="text-gray-900 font-bold text-base leading-snug break-keep">
                         {placeName}
-                    </span>
+                    </h3>
                     <span className="text-gray-400 text-[11px] font-medium uppercase tracking-wider">
                         {category}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${isAI ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+                <div className="flex items-start gap-1.5 shrink-0 mt-0.5">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border ${isAI ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
                         {isAI ? (
-                            <Sparkles size={12} className="text-blue-500" />
+                            <Sparkles size={12} className="text-blue-500 shrink-0" />
                         ) : (
-                            <User size={12} className="text-gray-400" />
+                            <User size={12} className="text-gray-400 shrink-0" />
                         )}
-                        <span className={`text-[11px] font-bold ${isAI ? 'text-blue-600' : 'text-gray-600'}`}>
+                        <span className={`text-[11px] font-bold whitespace-nowrap ${isAI ? 'text-blue-600' : 'text-gray-600'}`}>
                             {proposerName}
                         </span>
                     </div>
@@ -76,7 +76,7 @@ export default function ProposalCard({ proposal, currentUserId, isHost = false }
                     {canDelete && (
                         <button
                             onClick={handleDelete}
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
                             title="제안 삭제"
                         >
                             <Trash2 size={16} />
@@ -85,19 +85,19 @@ export default function ProposalCard({ proposal, currentUserId, isHost = false }
                 </div>
             </div>
 
-            <p className="text-gray-600 text-xs leading-relaxed bg-stone-50/50 p-3 rounded-xl mb-4 border border-stone-100 non-italic">
+            <p className="text-gray-600 text-xs leading-relaxed bg-stone-50/50 p-3 rounded-xl mb-4 border border-stone-100 break-words whitespace-pre-wrap">
                 {memo}
             </p>
 
-            <div className="flex items-center justify-between border-t border-gray-50 pt-3">
-                <div className="flex items-center gap-1 text-gray-400">
-                    <MapPin size={12} />
-                    <span className="text-[10px] truncate max-w-[150px]">{address}</span>
+            <div className="flex items-center justify-between border-t border-gray-50 pt-3 gap-3">
+                <div className="flex items-center gap-1 text-gray-400 min-w-0 flex-1">
+                    <MapPin size={12} className="shrink-0" />
+                    <span className="text-[10px] truncate">{address}</span>
                 </div>
 
                 <button
                     onClick={() => setFocusedProposal(proposal)}
-                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-bold transition-colors"
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-bold transition-colors shrink-0"
                 >
                     자세히보기 <ChevronRight size={14} />
                 </button>
