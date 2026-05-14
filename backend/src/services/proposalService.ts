@@ -4,10 +4,38 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
-import { assert } from "node:console";
 import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const AI_PROPOSAL_COUNT = 3;
+const AI_PROPOSAL_CANDIDATE_COUNT = 6;
+const MIN_ESTIMATED_DURATION = 30;
+
+interface AiPlaceRecommendation {
+  placeId?: unknown;
+  name?: unknown;
+  address?: unknown;
+  category?: unknown;
+  estimatedCost?: unknown;
+  estimatedDuration?: unknown;
+  comment?: unknown;
+  aiReason?: unknown;
+}
+
+interface KakaoKeywordDocument {
+  id: string;
+  place_name: string;
+  road_address_name?: string;
+  address_name?: string;
+  category_group_name?: string;
+  category_name?: string;
+  x: string;
+  y: string;
+}
+
+interface KakaoKeywordResponse {
+  documents?: KakaoKeywordDocument[];
+}
 
 interface CreateProposalInput {
   tripRoomId: number;
@@ -133,7 +161,7 @@ export const generateAiProposalsService = async (tripRoomId: number, userId: num
   if (!tripRoom) {
     return {
       found: false as const,
-    }
+    };
   }
 
   assertTripRoomDecisionOpen(tripRoom);
@@ -164,17 +192,6 @@ export const generateAiProposalsService = async (tripRoomId: number, userId: num
       locked: true as const,
     };
   }
-  const places = await prisma.place.findMany({
-    take: 50,
-    select: {
-      id: true,
-      name: true,
-      address: true,
-      category: true,
-    },
-  });
-
-  const validPlaceIds = new Set(places.map((place) => place.id));
 
   const preferences = tripRoom.preferences.map((pref) => ({
     user: pref.user.name,
@@ -187,42 +204,166 @@ export const generateAiProposalsService = async (tripRoomId: number, userId: num
   }));
 
   const prompt = `
-다음 여행 정보를 기반으로 ${normalizedCount}개의 장소를 추천해주세요.
+Recommend exactly ${AI_PROPOSAL_CANDIDATE_COUNT} real travel places for the trip below.
+Do not use an existing database place list. Recommend specific real places that are likely searchable on Kakao Map.
+Do not recommend convenience stores, pharmacies, banks, gas stations, parking lots, generic chain stores, or ordinary facilities unless the trip preferences explicitly require them.
+Prefer attractions, restaurants, cafes, cultural spaces, nature spots, markets, activity venues, and locally meaningful places.
 
-여행 제목: ${tripRoom.title}
-여행 기간: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split("T")[0] : "미정"} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split("T")[0] : "미정"}
-멤버 수: ${tripRoom.members.length}
+Trip title: ${tripRoom.title}
+Trip dates: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split("T")[0] : "unknown"} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split("T")[0] : "unknown"}
+Member count: ${tripRoom.members.length}
 
-멤버 선호도:
+Member preferences:
 ${preferences
       .map(
         (p) =>
-          `- ${p.user}: 예산 ${p.budgetMin || "미정"}~${p.budgetMax || "미정"}, 스타일: ${(p.styles || []).join(", ") || "없음"}, 필수방문: ${(p.mustVisit || []).join(", ") || "없음"}, 피해야할: ${(p.avoid || []).join(", ") || "없음"}, 가능시간: ${(p.availableTime || []).join(", ") || "없음"}`
+          `- ${p.user}: budget ${p.budgetMin || "unknown"}~${p.budgetMax || "unknown"}, styles ${(p.styles || []).join(", ") || "none"}, mustVisit ${(p.mustVisit || []).join(", ") || "none"}, avoid ${(p.avoid || []).join(", ") || "none"}, availableTime ${(p.availableTime || []).join(", ") || "none"}`
       )
       .join("\n")}
 
-장소 목록 (ID, 이름, 주소, 카테고리):
-${places.map((p) => `${p.id}: ${p.name} (${p.address}, ${p.category})`).join("\n")}
+Respond only as JSON. Do not include markdown code fences or explanation text.
+The recommendations array must contain exactly ${AI_PROPOSAL_CANDIDATE_COUNT} items.
+placeId is a random integer used only as a temporary identifier.
+name and address must be specific enough for Kakao Map keyword search.
+category must describe the real place type, not the reason for recommendation.
+estimatedCost is the expected per-person cost in KRW as a number.
+estimatedDuration is the expected stay duration in minutes and must be at least ${MIN_ESTIMATED_DURATION}.
+Write comment and aiReason in Korean.
+comment must be a concise noun phrase ending with a Korean noun, not a full sentence. Do not end comment with "다", "요", "입니다", or punctuation.
+aiReason must be one concise Korean sentence and must end exactly with "입니다."
 
-반드시 아래 텍스트 형식만 지켜서 응답해주세요.
-JSON으로 응답하지 말고, 설명 문단도 쓰지 마세요.
-
-RECOMMENDATION 1
-placeId: 숫자
-estimatedCost: 숫자
-estimatedDuration: 숫자
-comment: 한 줄 설명
-aiReason: 한 줄 이유
----
-RECOMMENDATION 2
-placeId: 숫자
-estimatedCost: 숫자
-estimatedDuration: 숫자
-comment: 한 줄 설명
-aiReason: 한 줄 이유
-
-추천 개수는 정확히 ${normalizedCount}개로 맞춰주세요.
+{
+  "recommendations": [
+    {
+      "placeId": 123456,
+      "name": "Place name",
+      "address": "Address",
+      "category": "Category",
+      "estimatedCost": 15000,
+      "estimatedDuration": 60,
+      "comment": "현지 감성을 느낄 수 있는 문화 공간",
+      "aiReason": "멤버 선호도와 여행 분위기에 잘 맞는 장소입니다."
+    }
+  ]
+}
 `;
+
+  const getString = (value: unknown, fallback = "") => {
+    return typeof value === "string" && value.trim() ? value.trim() : fallback;
+  };
+
+  const getNumber = (value: unknown, fallback: number) => {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? normalized : fallback;
+  };
+
+  const trimKoreanSentenceEnding = (value: string) => {
+    const endings = ["입니다", "습니다", "합니다", "이에요", "예요", "해요", "좋아요", "추천합니다"];
+    let normalized = value.replace(/[.!?。！？]+$/g, "").trim();
+
+    for (const ending of endings) {
+      if (normalized.endsWith(ending)) {
+        normalized = normalized.slice(0, -ending.length).trim();
+        break;
+      }
+    }
+
+    return normalized;
+  };
+
+  const normalizeComment = (value: unknown) => {
+    return trimKoreanSentenceEnding(
+      getString(value, "\uC5EC\uD589 \uC120\uD638\uB3C4\uC5D0 \uB9DE\uB294 \uCD94\uCC9C \uC7A5\uC18C")
+    );
+  };
+
+  const normalizeAiReason = (value: unknown) => {
+    const reason = trimKoreanSentenceEnding(
+      getString(
+        value,
+        "\uC5EC\uD589 \uC815\uBCF4\uC640 \uBA64\uBC84 \uC120\uD638\uB3C4\uB97C \uAE30\uC900\uC73C\uB85C \uCD94\uCC9C\uD55C \uC7A5\uC18C"
+      )
+    );
+
+    return `${reason}입니다.`;
+  };
+
+  const parseRecommendations = (content: string): AiPlaceRecommendation[] => {
+    const parsed = JSON.parse(content) as { recommendations?: unknown };
+    if (!Array.isArray(parsed.recommendations)) {
+      return [];
+    }
+
+    return parsed.recommendations.slice(0, AI_PROPOSAL_CANDIDATE_COUNT) as AiPlaceRecommendation[];
+  };
+
+  const searchKakaoPlace = async (recommendation: AiPlaceRecommendation) => {
+    const kakaoRestApiKey = process.env.KAKAO_REST_API_KEY;
+    if (!kakaoRestApiKey) {
+      throw new Error("Kakao REST API key is missing");
+    }
+
+    const name = getString(recommendation.name);
+    const address = getString(recommendation.address);
+    const queries = [`${name} ${address}`.trim(), name].filter(Boolean);
+
+    for (const query of queries) {
+      const url = new URL("https://dapi.kakao.com/v2/local/search/keyword.json");
+      url.searchParams.set("query", query);
+      url.searchParams.set("size", "1");
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `KakaoAK ${kakaoRestApiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.warn(`Kakao keyword search failed: ${response.status}`);
+        continue;
+      }
+
+      const data = (await response.json()) as KakaoKeywordResponse;
+      const [document] = data.documents ?? [];
+      if (document) {
+        return document;
+      }
+    }
+
+    return null;
+  };
+
+  const upsertKakaoPlace = async (
+    kakaoPlace: KakaoKeywordDocument,
+    recommendation: AiPlaceRecommendation,
+  ) => {
+    const address = kakaoPlace.road_address_name || kakaoPlace.address_name || getString(recommendation.address);
+    const category =
+      kakaoPlace.category_group_name ||
+      kakaoPlace.category_name ||
+      getString(recommendation.category) ||
+      "Other";
+
+    return prisma.place.upsert({
+      where: { kakaoPlaceId: kakaoPlace.id },
+      update: {
+        name: kakaoPlace.place_name,
+        address,
+        latitude: Number(kakaoPlace.y) || 0,
+        longitude: Number(kakaoPlace.x) || 0,
+        category,
+      },
+      create: {
+        kakaoPlaceId: kakaoPlace.id,
+        name: kakaoPlace.place_name,
+        address,
+        latitude: Number(kakaoPlace.y) || 0,
+        longitude: Number(kakaoPlace.x) || 0,
+        category,
+      },
+    });
+  };
+
   const createAiProposal = async (
     placeId: number,
     estimatedCost: number,
@@ -258,39 +399,48 @@ aiReason: 한 줄 이유
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 1000,
+      response_format: { type: "json_object" },
     });
 
     const content = response.choices[0].message.content || "";
-    const recommendations = content.split("---").map((block) => block.trim()).filter((block) => block.length > 0).map((block) => {
-      const lines = block.split("\n").map((line) => line.trim());
-
-      const getValue = (prefix: string) =>
-        lines.find((line) => line.startsWith(prefix))?.replace(prefix, "").trim() || "";
-
-      return {
-        placeId: Number(getValue("placeId:")),
-        estimatedCost: Number(getValue("estimatedCost:")),
-        estimatedDuration: Number(getValue("estimatedDuration:")),
-        comment: getValue("comment:"),
-        aiReason: getValue("aiReason:"),
-      };
-    })
+    const recommendations = parseRecommendations(content);
 
     const created = [];
+    const seenKakaoPlaceIds = new Set<string>();
     for (const rec of recommendations) {
-      if (!validPlaceIds.has(rec.placeId)) {
-        continue;
+      if (created.length >= AI_PROPOSAL_COUNT) {
+        break;
       }
 
-      const proposal = await createAiProposal(
-        Number(rec.placeId),
-        Number(rec.estimatedCost ?? 10000),
-        Number(rec.estimatedDuration ?? 60),
-        rec.comment ?? "AI가 추천한 제안입니다.",
-        rec.aiReason ?? "선호 입력과 이동 동선을 기준으로 추천했습니다."
-      );
+      try {
+        const kakaoPlace = await searchKakaoPlace(rec);
+        if (!kakaoPlace) {
+          continue;
+        }
 
-      created.push(proposal);
+        if (seenKakaoPlaceIds.has(kakaoPlace.id)) {
+          continue;
+        }
+        seenKakaoPlaceIds.add(kakaoPlace.id);
+
+        const place = await upsertKakaoPlace(kakaoPlace, rec);
+        const estimatedDuration = Math.max(
+          MIN_ESTIMATED_DURATION,
+          getNumber(rec.estimatedDuration, MIN_ESTIMATED_DURATION),
+        );
+
+        const proposal = await createAiProposal(
+          place.id,
+          getNumber(rec.estimatedCost, 0),
+          estimatedDuration,
+          normalizeComment(rec.comment),
+          normalizeAiReason(rec.aiReason)
+        );
+
+        created.push(proposal);
+      } catch (error) {
+        console.warn("Skipping AI recommendation after Kakao validation failed:", error);
+      }
     }
 
     return {
@@ -302,7 +452,7 @@ aiReason: 한 줄 이유
       proposals: created,
     };
   } catch (error) {
-    console.error('OpenAI API error:', error);
+    console.error('OpenAI or Kakao API error:', error);
     throw new Error("AI proposal generation failed");
   }
 };
@@ -349,8 +499,6 @@ export const getProposalListService = async (tripRoomId: number, userId: number)
       tripRoomId: true,
       proposerUserId: true,
       placeId: true,
-      estimatedCost: true,
-      estimatedDuration: true,
       comment: true,
       aiReason: true,
       source: true,
