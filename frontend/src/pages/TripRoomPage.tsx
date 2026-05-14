@@ -11,6 +11,7 @@ import {
 import { getAuthUser } from "../services/authStorage";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 import { resolveImageUrl } from "../utils/image";
+import {getDeadlineStatus} from "../utils/deadline";
 import {ImagePlus} from "lucide-react";
 
 type BranchListItem = {
@@ -26,18 +27,6 @@ function toDateTimeLocalValue(dateString?: string | null) {
   const localDate = new Date(date.getTime() - offset * 60 * 1000);
 
   return localDate.toISOString().slice(0, 16);
-}
-function formatDateTime(dateString?: string | null) {
-  if (!dateString) return "설정 안 됨";
-
-  const date = new Date(dateString);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-
-  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
 }
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
@@ -104,7 +93,18 @@ export default function TripRoomPage() {
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
+  const [deadlineNow, setDeadlineNow] = useState(Date.now());
   const authUser = getAuthUser();
+  const effectiveDecisionDeadline = tripInfo.decisionDeadline ? new Date(tripInfo.decisionDeadline).toISOString() : tripRoomDetail?.decisionDeadline ?? null;
+  const deadlineStatus = getDeadlineStatus(effectiveDecisionDeadline, deadlineNow);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setDeadlineNow(Date.now());
+    },1000);
+
+    return () => window.clearInterval(timer);
+  },[]);
 
   useEffect(() => {
     if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
@@ -514,11 +514,25 @@ export default function TripRoomPage() {
                     </label>
                   ))}
                 </div>
-                <div className="mt-5 grid gap-5 sm:grid-cols-1">
-                  <label className="block min-w-0 sm:col-span-1">
-                    <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
-                      결정 마감기한
-                    </span>
+                <div className="mt-5 grid items-end gap-5 lg:grid-cols-2">
+                  <label className="block min-w-0">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                        결정 마감기한
+                      </span>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          deadlineStatus.passed
+                            ? "bg-red-50 text-red-600"
+                            : deadlineStatus.hasDeadline
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-stone-100 text-stone-500"
+                        }`}
+                      >
+                        {deadlineStatus.badgeText}
+                      </span>
+                    </div>
+
                     <input
                       className="w-full min-w-0 rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
                       disabled={!isHost}
@@ -529,6 +543,17 @@ export default function TripRoomPage() {
                       value={tripInfo.decisionDeadline}
                     />
                   </label>
+
+                  <div className="block min-w-0">
+                    <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                        마감까지 남은 시간
+                    </span>
+                    <div
+                      className={`flex w-full min-w-0 items-center rounded-xl border px-4 py-[14px] text-[15px] leading-[22.5px] ${deadlineStatus.passed ? "border-red-200 bg-red-50 text-red-600": "border-stone-200 bg-stone-50 text-stone-900"}`}
+                    >
+                      {deadlineStatus.countdownText}
+                      </div>
+                  </div>
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
