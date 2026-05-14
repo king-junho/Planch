@@ -143,8 +143,8 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             const formattedBranches = await Promise.all(
                 basicBranches.map(async (b: any) => {
                     try {
-                        const detailResponse = await api.get(`/branches/${b.branchId}`);
-                        const detail = detailResponse.data;
+                        const detailResponse = await api.get(`/branches/${b.branchId || b.id}`);
+                        const detail = detailResponse.data?.data || detailResponse.data;
 
                         const routesObj: Record<number, RouteItem[]> = {};
                         if (detail.places && Array.isArray(detail.places)) {
@@ -165,39 +165,54 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             });
                         }
 
+                        const finalCreatedBy = (detail.createdBy && detail.createdBy !== 'user')
+                            ? detail.createdBy
+                            : ((b.createdBy && b.createdBy !== 'user') ? b.createdBy : '팀원');
+
+                        const finalCreatedUserId = detail.createdUserId || detail.userId || b.createdUserId || b.userId || null;
+                        const finalIsAi = String(detail.createdBy).toLowerCase() === 'ai' || String(b.createdBy).toLowerCase() === 'ai' || b.source === 'ai';
+
                         return {
-                            id: b.branchId,
+                            id: b.branchId || b.id,
+                            title: b.name || detail.name,
+                            name: b.name || detail.name,
+                            description: detail.aiReason || "팀원이 구성한 일정입니다.",
+                            proposer: finalCreatedBy,
+                            isAI: finalIsAi,
+                            status: detail.status || b.status,
+                            cost: String(detail.metrics?.totalCost || detail.totalCost || b.totalCost || 0),
+                            time: String(detail.metrics?.totalTravelTime || detail.totalTravelTime || b.totalTravelTime || 0),
+                            matchRate: detail.metrics?.preferenceScore || detail.preferenceScore || b.preferenceScore || 100,
+                            routes: routesObj,
+                            agreeCount: detail.voteSummary?.agreeCount || b.voteSummary?.agreeCount || 0,
+                            holdCount: detail.voteSummary?.holdCount || b.voteSummary?.holdCount || 0,
+                            disagreeCount: detail.voteSummary?.disagreeCount || b.voteSummary?.disagreeCount || 0,
+
+                            createdBy: finalCreatedBy,
+                            createdUserId: finalCreatedUserId,
+                        };
+                    } catch (detailError) {
+                        console.error(`브랜치 상세 로드 실패:`, detailError);
+                        const fallbackIsAi = String(b.createdBy).toLowerCase() === 'ai' || b.source === 'ai';
+                        const fallbackProposer = (b.createdBy && b.createdBy !== 'user') ? b.createdBy : '팀원';
+
+                        return {
+                            id: b.branchId || b.id,
                             title: b.name,
                             name: b.name,
                             description: b.aiReason || "팀원이 구성한 일정입니다.",
-                            proposer: b.createdBy,
-                            isAI: b.createdBy === 'ai',
+                            proposer: fallbackProposer,
+                            isAI: fallbackIsAi,
                             status: b.status,
                             cost: String(b.totalCost || 0),
                             time: String(b.totalTravelTime || 0),
                             matchRate: b.preferenceScore || 100,
-                            routes: routesObj,
-                            agreeCount: b.voteSummary?.agreeCount || 0,
-                            holdCount: b.voteSummary?.holdCount || 0,
-                            disagreeCount: b.voteSummary?.disagreeCount || 0,
-                        };
-                    } catch (detailError) {
-                        console.error(`브랜치 ${b.branchId} 상세 로드 실패:`, detailError);
-                        return {
-                            id: b.branchId,
-                            title: b.name,
-                            name: b.name,
-                            description: "",
-                            proposer: b.createdBy,
-                            isAI: b.createdBy === 'ai',
-                            status: b.status,
-                            cost: "0",
-                            time: "0",
-                            matchRate: 100,
                             routes: { 1: [] },
                             agreeCount: b.voteSummary?.agreeCount || 0,
                             holdCount: b.voteSummary?.holdCount || 0,
                             disagreeCount: b.voteSummary?.disagreeCount || 0,
+                            createdBy: fallbackProposer,
+                            createdUserId: b.createdUserId || b.userId || null,
                         };
                     }
                 })

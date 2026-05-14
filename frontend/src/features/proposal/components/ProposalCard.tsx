@@ -31,7 +31,8 @@ export default function ProposalCard({ proposal, currentUserId, isHost = false }
     const proposerId = proposal?.proposerUserId || proposal?.proposerUser?.id || proposal?.proposer?.userId;
 
     const isMyProposal = currentUserId && proposerId ? proposerId === currentUserId : false;
-    const canDelete = isMyProposal || isHost;
+
+    const canDelete = isAI || isMyProposal || isHost;
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();

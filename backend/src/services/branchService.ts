@@ -23,6 +23,7 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
       tripRoomId: true,
       createdUserId: true,
       status: true,
+      createdBy: true,
       tripRoom: {
         select: {
           hostUserId: true,
@@ -58,8 +59,9 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
 
   const isHost = branch.tripRoom.hostUserId === userId;
   const isOwner = branch.createdUserId === userId;
+  const isAi = branch.createdBy === "ai";
 
-  if (!isHost && !isOwner) {
+  if (!isHost && !isOwner && !isAi) {
     throw new Error("Delete forbidden");
   }
 
@@ -263,6 +265,7 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
       name: true,
       status: true,
       createdBy: true,
+      createdUserId: true,
       aiReason: true,
       totalCost: true,
       totalTravelTime: true,
@@ -330,6 +333,22 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
 
   const voteSummary = buildVoteSummary(branch.votes);
 
+  let finalCreatedBy: string = branch.createdBy;
+
+  if (branch.createdBy !== 'ai' && branch.createdUserId) {
+    try {
+      const creator = await prisma.user.findUnique({
+        where: { id: branch.createdUserId },
+        select: { name: true }
+      });
+      if (creator && creator.name) {
+        finalCreatedBy = creator.name;
+      }
+    } catch (error) {
+      console.error("작성자 이름 조회 실패:", error);
+    }
+  }
+
   return {
     found: true as const,
     authorized: true as const,
@@ -337,7 +356,8 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
       branchId: branch.id,
       name: branch.name,
       status: branch.status,
-      createdBy: branch.createdBy,
+      createdBy: finalCreatedBy,
+      createdUserId: branch.createdUserId,
       aiReason: branch.aiReason,
       metrics: {
         totalCost: branch.totalCost,

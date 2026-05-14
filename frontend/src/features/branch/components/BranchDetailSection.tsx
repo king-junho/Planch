@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock, Wallet } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
@@ -73,10 +73,18 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
     const currentRoute = (branch.routes && branch.routes[selectedDay]) ? branch.routes[selectedDay] : [];
 
-    const isOwner = Boolean(myUserId && hostUserId && myUserId === hostUserId);
+    const isOwner = Boolean(myUserId && hostUserId && String(myUserId) === String(hostUserId));
 
-    const isCreator = myUserId && (branch as any).userId === myUserId;
-    const canDelete = isCreator || isOwner;
+    const branchCreatorId = branch.createdUserId || (branch as any).userId;
+    const isCreator = Boolean(myUserId && branchCreatorId && String(myUserId) === String(branchCreatorId));
+
+    const isAiBranch =
+        branch.isAI === true ||
+        String(branch.proposer).toLowerCase() === 'ai' ||
+        String((branch as any).createdBy).toLowerCase() === 'ai';
+
+    const canDelete = isAiBranch || isCreator || isOwner;
+
     const canUnlock = isOwner && (isLocked || branch.status === 'confirmed');
 
     const voteCounts = {
@@ -239,23 +247,37 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                         )}
                     </div>
                 ) : (
-                    currentRoute.map((item, index) => (
-                        <div key={`route-item-${item.id}-${index}`} className="relative flex gap-5">
-                            <div className="flex flex-col items-center">
-                                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 z-10" />
-                                {index !== currentRoute.length - 1 && (
-                                    <div className="w-0.5 h-full bg-blue-100 -mt-1" />
-                                )}
+                    currentRoute.map((item, index) => {
+                        const costValue = item.cost || (item as any).estimatedCost;
+
+                        return (
+                            <div key={`route-item-${item.id}-${index}`} className="relative flex gap-5">
+                                <div className="flex flex-col items-center">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 z-10" />
+                                    {index !== currentRoute.length - 1 && (
+                                        <div className="w-0.5 h-full bg-blue-100 -mt-1" />
+                                    )}
+                                </div>
+                                <div className="flex-1 pb-4">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                            {item.time}
+                                        </span>
+                                        {costValue && costValue !== '0' && costValue !== 0 && (
+                                            <span className="flex items-center gap-1 text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                                                <Wallet size={10} />
+                                                {typeof costValue === 'number'
+                                                    ? `${costValue.toLocaleString()}원`
+                                                    : costValue}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h4 className="text-sm font-bold text-gray-900 mt-2">{item.title}</h4>
+                                    <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
+                                </div>
                             </div>
-                            <div className="flex-1 pb-4">
-                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                    {item.time}
-                                </span>
-                                <h4 className="text-sm font-bold text-gray-900 mt-2">{item.title}</h4>
-                                <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

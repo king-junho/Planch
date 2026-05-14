@@ -38,6 +38,8 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
         return `${hours}시간 ${minutes}분`;
     };
 
+    const displayProposer = (!branch.proposer || branch.proposer === 'user') ? '팀원' : branch.proposer;
+
     return (
         <div
             onClick={onViewDetail}
@@ -55,7 +57,7 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
                         {branch.proposer && !branch.isAI && (
                             <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded text-gray-600 border border-gray-200">
                                 <User size={12} />
-                                <span className="text-[10px] font-bold">{branch.proposer} 제안</span>
+                                <span className="text-[10px] font-bold">{displayProposer} 제안</span>
                             </div>
                         )}
                         {isConfirmed && (

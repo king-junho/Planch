@@ -27,8 +27,10 @@ export interface Branch {
     routes: {
         [key: number]: RouteItem[];
     };
-    // 투표 집계 속성 추가
-    agreeCount?: number;    // 찬성 수
-    holdCount?: number;     // 보류 수
-    disagreeCount?: number; // 반대 수
+    agreeCount?: number;
+    holdCount?: number;
+    disagreeCount?: number;
+
+    createdUserId?: number | null;
+    createdBy?: string;
 }
