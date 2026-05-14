@@ -33,7 +33,7 @@ model TripRoom {
   startDate        DateTime?          @map("start_date") @db.Date
   endDate          DateTime?          @map("end_date") @db.Date
   hostUserId       Int                @map("host_user_id")
-  status           RoomStatus         @default(draft)
+  status           RoomStatus         @default(voting)
   createdAt        DateTime           @default(now()) @map("created_at")
   selectedBranchId Int?               @map("selected_branch_id")
   thumbnailUrl     String?            @map("thumbnail_url")

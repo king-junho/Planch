@@ -761,7 +761,7 @@ export const createTripRoomService = async ({
       endDate: parsedEndDate,
       hostUserId,
       thumbnailUrl: thumbnailUrl ?? null,
-      status: "draft",
+      status: "voting",
       decisionDeadline:  parsedDecisionDeadline ?? null,
       members: {
         create: {

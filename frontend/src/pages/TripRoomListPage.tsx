@@ -32,14 +32,12 @@ function TripRoomCard({
       : memberNamesPreview.join(", ");
 
   const statusClassName =
-    status === "voting"
-      ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
-      : status === "draft"
-      ? "bg-stone-100 text-stone-600 ring-1 ring-stone-200"
-      : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+  status === "locked" 
+  ? "bg-stone-900 text-white"
+  : "bg-emerald-50 text-emerald-700";
 
   const statusLabel =
-    status === "voting" ? "진행중" : status === "draft" ? "준비중" : "확정";
+    status === "locked" ? "확정" : "진행중";
 
   return (
     <Link
@@ -150,6 +148,10 @@ export default function TripRoomListPage() {
   }
 
 function resetCreateModal() {
+  if(thumbnailPreviewUrl){
+    URL.revokeObjectURL(thumbnailPreviewUrl);
+  }
+  
   setIsCreateModalOpen(false);
   setTripTitle("");
   setTripStartDate("");
@@ -162,6 +164,10 @@ function resetCreateModal() {
 
 function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
   const file = event.target.files?.[0] ?? null;
+
+  if (thumbnailPreviewUrl) {
+    URL.revokeObjectURL(thumbnailPreviewUrl);
+  }
 
   setThumbnailFile(file);
 

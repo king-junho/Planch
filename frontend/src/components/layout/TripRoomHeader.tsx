@@ -36,7 +36,7 @@ const navItems = [
   { key: "branch", label: "브랜치" },
 ] as const;
 
-type TripRoomStatus = "draft" | "voting" | "locked" | string;
+type TripRoomStatus = "voting" | "locked" | string;
 
 type ActivityLogItem = {
   id: number;
@@ -53,10 +53,8 @@ type BranchListItem = {
 };
 
 function statusLabel(status: TripRoomStatus) {
-  if (status === "draft") return "준비중";
-  if (status === "voting") return "진행중";
   if (status === "locked") return "확정";
-  return status;
+  return "진행중";
 }
 
 function statusDescription(status: TripRoomStatus) {
@@ -64,11 +62,7 @@ function statusDescription(status: TripRoomStatus) {
     return "최종 일정이 확정되어 브랜치 수정과 투표가 잠겨 있습니다.";
   }
 
-  if (status === "voting") {
-    return "브랜치 수정, 생성, 투표를 진행할 수 있습니다.";
-  }
-
-  return "여행방 준비가 진행 중입니다.";
+  return "브랜치 수정, 생성, 투표를 진행할 수 있습니다.";
 }
 
 function statusPillClass(status: TripRoomStatus) {
@@ -282,7 +276,7 @@ export default function TripRoomHeader({
 }: TripRoomHeaderProps) {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [roomStatus, setRoomStatus] = useState<TripRoomStatus>("draft");
+  const [roomStatus, setRoomStatus] = useState<TripRoomStatus>("voting");
   const [hostUserId, setHostUserId] = useState<number | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});

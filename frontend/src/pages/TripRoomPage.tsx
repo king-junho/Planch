@@ -29,45 +29,13 @@ function toDateTimeLocalValue(dateString?: string | null) {
   return localDate.toISOString().slice(0, 16);
 }
 
-function formatDateRange(startDate: string | null, endDate: string | null) {
-  if (!startDate && !endDate) return "여행 날짜 미정";
-
-  const formatter = new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  if (startDate && endDate) {
-    return `${formatter.format(new Date(startDate))} - ${formatter.format(
-      new Date(endDate)
-    )}`;
-  }
-
-  return formatter.format(new Date(startDate ?? endDate ?? ""));
-}
-
 function toDateInputText(date: string | null) {
   return date ? date.slice(0, 10) : "";
 }
 
 function statusLabel(status: string) {
-  if (status === "draft") return "준비중";
-  if (status === "voting") return "진행중";
   if (status === "locked") return "확정";
-  return status;
-}
-
-function statusBadgeClass(status: string) {
-  if (status === "voting") {
-    return "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-  }
-
-  if (status === "locked") {
-    return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-  }
-
-  return "bg-stone-100 text-stone-600 ring-1 ring-stone-200";
+  return "진행중";
 }
 
 export default function TripRoomPage() {
@@ -391,7 +359,7 @@ export default function TripRoomPage() {
               <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-6 px-8 pb-8">
                 <div className="min-w-0">
                   <span className="inline-flex rounded-full bg-white/85 px-4 py-2 text-sm font-medium text-stone-700 backdrop-blur">
-                    {tripRoomDetail.status === "locked" ? "확정됨" : "준비중"}
+                    {tripRoomDetail.status === "locked" ? "확정됨" : "진행중"}
                   </span>
 
                   <h1 className="mt-4 truncate text-5xl font-bold tracking-tight text-white">

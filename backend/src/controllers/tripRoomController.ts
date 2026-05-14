@@ -270,7 +270,7 @@ export const getTripRoomDetail = async (req: AuthenticatedRequest, res: Response
 
 export const createTripRoom = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { title, startDate, endDate, thumbnailUrl } = req.body;
+    const { title, startDate, endDate, thumbnailUrl, decisionDeadline } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: "title은 필수입니다." });
@@ -285,7 +285,8 @@ export const createTripRoom = async (req: AuthenticatedRequest, res: Response) =
       startDate,
       endDate,
       hostUserId: req.user.id,
-      thumbnailUrl: thumbnailUrl ?? null,
+      thumbnailUrl: thumbnailUrl,
+      decisionDeadline: decisionDeadline,
     });
 
     return res.status(201).json(newTripRoom);
