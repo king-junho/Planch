@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { X, CheckSquare, Square, Plus, Loader2, Lock } from 'lucide-react';
 import { usePreferenceStore } from '../store/usePreferenceStore';
 import { getAccessToken } from '../../../services/authStorage';
@@ -21,6 +21,7 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
 
     const [mustGoInput, setMustGoInput] = useState('');
     const [mustAvoidInput, setMustAvoidInput] = useState('');
+    const isComposingRef = useRef(false);
 
     const styleOptions = ['맛집', '카페', '관광', '휴식', '사진스팟', '쇼핑', '액티비티'];
     const timeOptions = ['오전', '오후', '저녁'];
@@ -47,7 +48,7 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
     }, [teamPreferences, initializeFormWithExisting]);
 
     const handleAddTag = (e: React.KeyboardEvent, type: 'go' | 'avoid') => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isComposingRef.current && !e.nativeEvent.isComposing) {
             e.preventDefault();
             if (isDisabled) return;
 
@@ -132,6 +133,8 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
                             value={mustGoInput}
                             onChange={(e) => setMustGoInput(e.target.value)}
                             onKeyDown={(e) => handleAddTag(e, 'go')}
+                            onCompositionStart={() => { isComposingRef.current = true; }}
+                            onCompositionEnd={() => { isComposingRef.current = false; }}
                             disabled={isDisabled}
                             placeholder="장소를 입력하고 Enter"
                             className="w-full h-12 pl-4 pr-10 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-blue-500 outline-none text-sm transition-all disabled:opacity-50 disabled:bg-gray-100"
@@ -156,6 +159,8 @@ export default function PreferenceForm({ isLocked = false }: PreferenceFormProps
                             value={mustAvoidInput}
                             onChange={(e) => setMustAvoidInput(e.target.value)}
                             onKeyDown={(e) => handleAddTag(e, 'avoid')}
+                            onCompositionStart={() => { isComposingRef.current = true; }}
+                            onCompositionEnd={() => { isComposingRef.current = false; }}
                             disabled={isDisabled}
                             placeholder="키워드를 입력하고 Enter"
                             className="w-full h-12 pl-4 pr-10 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-red-500 outline-none text-sm transition-all disabled:opacity-50 disabled:bg-gray-100"
