@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { branchApi } from "../api/branchApi";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { 
@@ -8,7 +8,7 @@ import {
   updateTripRoomImage,
   updateTripRoomDeadline,
 } from "../services/tripRoomApi";
-import { getAuthUser } from "../services/authStorage";
+import { getAccessToken, getAuthUser } from "../services/authStorage";
 import { TripRoomDetailResponse } from "../types/tripRoom";
 import { resolveImageUrl } from "../utils/image";
 import {getDeadlineStatus} from "../utils/deadline";
@@ -39,6 +39,8 @@ function statusLabel(status: string) {
 }
 
 export default function TripRoomPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { tripRoomId = "3" } = useParams();
   const numericTripRoomId = Number(tripRoomId);
   const [tripRoomDetail, setTripRoomDetail] = useState<TripRoomDetailResponse | null>(
@@ -82,6 +84,17 @@ export default function TripRoomPage() {
       return;
     }
 
+    if (!getAccessToken()) {
+      navigate("/login", {
+        replace: true,
+        state: {
+          loginMessage: "로그인 후 여행방을 확인할 수 있습니다.",
+          redirectTo: `${location.pathname}${location.search}`,
+        },
+      });
+      return;
+    }
+
     let isMounted = true;
 
     async function loadTripRoomDetail() {
@@ -119,7 +132,7 @@ export default function TripRoomPage() {
     return () => {
       isMounted = false;
     };
-  }, [numericTripRoomId]);
+  }, [location.pathname, location.search, navigate, numericTripRoomId]);
 
   useEffect(() => {
     if (!Number.isInteger(numericTripRoomId) || numericTripRoomId <= 0) {
@@ -288,11 +301,26 @@ export default function TripRoomPage() {
   }
 
   if (!tripRoomDetail) {
+    const isPermissionError =
+      Boolean(authUser) &&
+      (error.includes("권한") || error.includes("참여자만"));
+
     return (
       <div className="min-h-screen bg-stone-50 text-stone-900">
         <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-8">
-          <div className="rounded-3xl border border-red-100 bg-white px-8 py-6 text-sm text-red-600 shadow-sm">
-            {error || "여행방을 불러오지 못했습니다."}
+          <div className="w-full max-w-[420px] rounded-3xl border border-red-100 bg-white px-8 py-7 text-center shadow-sm">
+            <p className="text-base font-semibold text-red-600">
+              {isPermissionError
+                ? "이 여행방에 접근할 권한이 없습니다."
+                : error || "여행방을 불러오지 못했습니다."}
+            </p>
+            <button
+              className="mt-5 rounded-xl bg-stone-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-stone-800"
+              onClick={() => navigate("/trip-rooms", { replace: true })}
+              type="button"
+            >
+              여행방 목록으로 가기
+            </button>
           </div>
         </div>
       </div>
