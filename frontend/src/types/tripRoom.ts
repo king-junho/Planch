@@ -171,3 +171,8 @@ export type UpdateTripRoomDeadlineResponse = {
   updatedAt: string;
   saved: boolean;
 }
+
+export type DeleteTripRoomResponse = {
+  tripRoomId: number;
+  deleted: boolean;
+};

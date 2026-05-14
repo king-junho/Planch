@@ -35,3 +35,255 @@ body {
 #root {
   min-width: var(--app-min-width);
 }
+
+.loading-border {
+  --loading-border-color: #10b981;
+  --loading-border-soft-color: rgb(16 185 129 / 0.18);
+  --loading-border-angle: 0deg;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  padding: 3px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.loading-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 3px;
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from var(--loading-border-angle),
+      transparent 0deg,
+      transparent 225deg,
+      var(--loading-border-soft-color) 255deg,
+      var(--loading-border-color) 285deg,
+      var(--loading-border-color) 315deg,
+      var(--loading-border-soft-color) 345deg,
+      transparent 360deg
+    );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: loading-border-spin 1.8s linear infinite;
+}
+
+.loading-border::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--loading-border-soft-color);
+}
+
+.loading-border--green {
+  --loading-border-color: #10b981;
+  --loading-border-soft-color: rgb(16 185 129 / 0.18);
+}
+
+.loading-border--red {
+  --loading-border-color: #dc2626;
+  --loading-border-soft-color: rgb(220 38 38 / 0.18);
+}
+
+@property --loading-border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes loading-border-spin {
+  to {
+    --loading-border-angle: 360deg;
+  }
+}
+
+.planch-date-range-calendar.react-datepicker {
+  width: 100%;
+  border: 0;
+  font-family: inherit;
+}
+
+.planch-date-range-calendar .react-datepicker__month-container {
+  width: 100%;
+}
+
+.planch-date-range-calendar .react-datepicker__header {
+  border: 0;
+  background: #fff;
+  padding: 0;
+}
+
+.planch-date-range-calendar .react-datepicker__day-names,
+.planch-date-range-calendar .react-datepicker__week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.planch-date-range-calendar .react-datepicker__day-name,
+.planch-date-range-calendar .react-datepicker__day {
+  width: auto;
+  height: 36px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  color: #44403c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.planch-date-range-calendar .react-datepicker__day-name {
+  height: 34px;
+  color: #a8a29e;
+}
+
+.planch-date-range-calendar .react-datepicker__day--outside-month {
+  color: #d6d3d1;
+}
+
+.planch-date-range-calendar .react-datepicker__day:hover {
+  border-radius: 9999px;
+  background: #ecfdf5;
+}
+
+.planch-date-range-calendar .react-datepicker__day--in-selecting-range,
+.planch-date-range-calendar .react-datepicker__day--in-range {
+  background: #d1fae5;
+  color: #064e3b;
+}
+
+.planch-date-range-calendar .react-datepicker__day--range-start,
+.planch-date-range-calendar .react-datepicker__day--range-end,
+.planch-date-range-calendar .react-datepicker__day--selecting-range-start,
+.planch-date-range-calendar .react-datepicker__day--selecting-range-end,
+.planch-date-range-calendar .react-datepicker__day--selected {
+  position: relative;
+  background: #d1fae5;
+  color: #fff;
+}
+
+.planch-date-range-calendar .react-datepicker__day--range-start::before,
+.planch-date-range-calendar .react-datepicker__day--range-end::before,
+.planch-date-range-calendar .react-datepicker__day--selecting-range-start::before,
+.planch-date-range-calendar .react-datepicker__day--selecting-range-end::before,
+.planch-date-range-calendar .react-datepicker__day--selected::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: #059669;
+  transform: translate(-50%, -50%);
+}
+
+.planch-date-range-calendar .react-datepicker__day--today {
+  font-weight: 800;
+}
+
+.planch-date-range-calendar .react-datepicker__day--keyboard-selected {
+  background: transparent;
+}
+
+.planch-date-range-calendar .react-datepicker__day--range-start,
+.planch-date-range-calendar .react-datepicker__day--range-end,
+.planch-date-range-calendar .react-datepicker__day--selecting-range-start,
+.planch-date-range-calendar .react-datepicker__day--selecting-range-end,
+.planch-date-range-calendar .react-datepicker__day--selected {
+  border-radius: 9999px !important;
+  background: #059669 !important;
+  color: #fff !important;
+}
+
+.planch-deadline-calendar.react-datepicker {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+}
+
+.planch-deadline-calendar .react-datepicker__month-container {
+  flex: 1 1 auto;
+}
+
+.planch-deadline-calendar .react-datepicker__time-container {
+  width: 108px;
+  display: flex;
+  flex: 0 0 108px;
+  flex-direction: column;
+  border-left: 1px solid #e7e5e4;
+}
+
+.planch-deadline-calendar .react-datepicker__header--time {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: #fff;
+  padding: 0;
+}
+
+.planch-deadline-calendar .react-datepicker-time__header {
+  margin: 0;
+  color: #78716c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.planch-deadline-calendar .react-datepicker__time {
+  flex: 1 1 auto;
+  border-radius: 0 0.75rem 0.75rem 0;
+  background: #fff;
+}
+
+.planch-deadline-calendar .react-datepicker__time-box {
+  width: 100% !important;
+  height: 100%;
+}
+
+.planch-deadline-calendar .react-datepicker__time-list {
+  height: 306px !important;
+  padding: 6px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.planch-deadline-calendar .react-datepicker__time-list-item {
+  height: 36px !important;
+  min-height: 36px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  padding: 0 8px !important;
+  color: #57534e;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1 !important;
+}
+
+.planch-deadline-calendar .react-datepicker__time-list-item:hover {
+  background: #ecfdf5 !important;
+}
+
+.planch-deadline-calendar
+  .react-datepicker__time-list-item--selected {
+  background: #059669 !important;
+  color: #fff !important;
+}

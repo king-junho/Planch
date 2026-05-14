@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import TripDeadlinePicker from "../components/common/TripDeadlinePicker";
+import TripDateRangePicker from "../components/common/TripDateRangePicker";
 import {
   clearAuthSession,
   getAccessToken,
@@ -368,7 +370,15 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
                 />
               </label>
 
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <TripDateRangePicker
+                endDate={tripEndDate}
+                onChange={(startDate, endDate) => {
+                  setTripStartDate(startDate);
+                  setTripEndDate(endDate);
+                }}
+                startDate={tripStartDate}
+              />
+              <div className="hidden">
                 <label className="block">
                   <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
                     시작 날짜
@@ -393,7 +403,7 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
                   />
                 </label>
               </div>
-              <div>
+              <div className="hidden">
                 <p className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
                   결정 마감기한
                 </p>
@@ -405,6 +415,15 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
                 />
                 <p className="mt-2 text-xs text-stone-400">
                   이 시각 이후에는 투표 및 주요 일정 변경이 제한됩니다.
+                </p>
+              </div>
+              <div>
+                <TripDeadlinePicker
+                  onChange={setTripDecisionDeadline}
+                  value={tripDecisionDeadline}
+                />
+                <p className="mt-2 text-xs text-stone-400">
+                  마감 시각 이후에는 투표 및 주요 일정 변경이 제한됩니다.
                 </p>
               </div>
 

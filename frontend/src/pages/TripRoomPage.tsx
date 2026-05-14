@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { branchApi } from "../api/branchApi";
+import GlobalConfirmModal from "../components/common/GlobalConfirmModal";
+import TripDeadlinePicker from "../components/common/TripDeadlinePicker";
+import TripDateRangePicker from "../components/common/TripDateRangePicker";
 import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { 
   getTripRoomDetail,
+  deleteTripRoom,
   updateTripRoom,
   updateTripRoomImage,
   updateTripRoomDeadline,
 } from "../services/tripRoomApi";
 import { getAccessToken, getAuthUser } from "../services/authStorage";
 import { TripRoomDetailResponse } from "../types/tripRoom";
+import { useConfirmStore } from "../features/store/useConfirmStore";
 import { resolveImageUrl } from "../utils/image";
 import {getDeadlineStatus} from "../utils/deadline";
-import {ImagePlus} from "lucide-react";
+import {ImagePlus, Trash2} from "lucide-react";
 
 type BranchListItem = {
   branchId: number;
@@ -61,10 +66,12 @@ export default function TripRoomPage() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [isDeletingTripRoom, setIsDeletingTripRoom] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
   const [deadlineNow, setDeadlineNow] = useState(Date.now());
   const authUser = getAuthUser();
+  const { confirm } = useConfirmStore();
   const effectiveDecisionDeadline = tripInfo.decisionDeadline ? new Date(tripInfo.decisionDeadline).toISOString() : tripRoomDetail?.decisionDeadline ?? null;
   const deadlineStatus = getDeadlineStatus(effectiveDecisionDeadline, deadlineNow);
 
@@ -189,6 +196,8 @@ export default function TripRoomPage() {
     if(!tripRoomDetail || !authUser) return false;
     return tripRoomDetail.hostUser.id === authUser.id;
   },[tripRoomDetail,authUser]);
+  const isTripRoomLocked = tripRoomDetail?.status === "locked";
+  const isTripInfoDisabled = !isHost || isTripRoomLocked;
 
   const selectedBranchName = tripRoomDetail?.summary.selectedBranchId
     ? branchNameById[tripRoomDetail.summary.selectedBranchId] ?? null
@@ -208,6 +217,26 @@ export default function TripRoomPage() {
   function handleTripInfoSave() {
     setTripInfoMessage("여행 정보가 저장되었습니다.");
     setToast({ type: "success", message: "여행 정보가 저장되었습니다." });
+  }
+
+  async function handleTripRoomDeleteRequest() {
+    const confirmed = await confirm("여행방을 삭제하시겠습니까?");
+
+    if (!confirmed) return;
+
+    try {
+      setIsDeletingTripRoom(true);
+      await deleteTripRoom(numericTripRoomId);
+      navigate("/trip-rooms", { replace: true });
+    } catch (caughtError) {
+      setIsDeletingTripRoom(false);
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 삭제에 실패했습니다.";
+
+      setToast({ type: "error", message });
+    }
   }
 
   async function handleTripInfoSaveRequest() {
@@ -288,12 +317,20 @@ export default function TripRoomPage() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || isDeletingTripRoom) {
     return (
       <div className="min-h-screen bg-stone-50 text-stone-900">
         <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-8">
-          <div className="rounded-3xl border border-stone-200 bg-white px-8 py-6 text-sm text-stone-500 shadow-sm">
-            여행방 정보를 불러오는 중입니다.
+          <div
+            className={`loading-border ${
+              isDeletingTripRoom ? "loading-border--red" : "loading-border--green"
+            }`}
+          >
+            <div className="relative rounded-[22px] border border-stone-200 bg-white px-8 py-6 text-sm text-stone-500">
+              {isDeletingTripRoom
+                ? "여행방 정보를 삭제하는 중입니다."
+                : "여행방 정보를 불러오는 중입니다."}
+            </div>
           </div>
         </div>
       </div>
@@ -335,7 +372,7 @@ export default function TripRoomPage() {
       />
 
       <main className="mx-auto max-w-[1200px] px-8 pb-16 pt-10">
-        <section className="overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
+        <section className="relative overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
           <div className="relative overflow-hidden rounded-[32px] border border-stone-200 bg-stone-100">
             <input
               accept="image/*"
@@ -465,7 +502,38 @@ export default function TripRoomPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-5 sm:grid-cols-3">
+                <div className="mt-6 grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                  <label className="block">
+                    <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                      여행지
+                    </span>
+                    <input
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-[14px] text-[15px] text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                      disabled={isTripInfoDisabled}
+                      onChange={(event) =>
+                        handleTripInfoChange("destination", event.target.value)
+                      }
+                      placeholder="예: 부산 해운대"
+                      type="text"
+                      value={tripInfo.destination}
+                    />
+                  </label>
+                  <TripDateRangePicker
+                    disabled={isTripInfoDisabled}
+                    endDate={tripInfo.endDate}
+                    onChange={(startDate, endDate) => {
+                      setTripInfo((current) => ({
+                        ...current,
+                        startDate,
+                        endDate,
+                      }));
+                      setTripInfoMessage("");
+                    }}
+                    startDate={tripInfo.startDate}
+                  />
+                </div>
+
+                <div className="hidden">
                   {[
                     {
                       field: "destination" as const,
@@ -511,7 +579,7 @@ export default function TripRoomPage() {
                   ))}
                 </div>
                 <div className="mt-5 grid items-end gap-5 lg:grid-cols-2">
-                  <label className="block min-w-0">
+                  <label className="hidden">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="block text-[15px] font-semibold leading-[22.5px] text-stone-900">
                         결정 마감기한
@@ -539,6 +607,31 @@ export default function TripRoomPage() {
                       value={tripInfo.decisionDeadline}
                     />
                   </label>
+                  <TripDeadlinePicker
+                    disabled={isTripInfoDisabled}
+                    label={
+                      <>
+                        <span className="block text-[15px] font-semibold leading-[22.5px] text-stone-900">
+                          결정 마감기한
+                        </span>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            deadlineStatus.passed
+                              ? "bg-red-50 text-red-600"
+                              : deadlineStatus.hasDeadline
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-stone-100 text-stone-500"
+                          }`}
+                        >
+                          {deadlineStatus.badgeText}
+                        </span>
+                      </>
+                    }
+                    onChange={(value) =>
+                      handleTripInfoChange("decisionDeadline", value)
+                    }
+                    value={tripInfo.decisionDeadline}
+                  />
 
                   <div className="block min-w-0">
                     <span className="mb-2 block text-[15px] font-semibold leading-[22.5px] text-stone-900">
@@ -557,7 +650,8 @@ export default function TripRoomPage() {
                     {tripInfoMessage || ""}
                   </div>
                   <button
-                    className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white"
+                    className="rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-stone-300"
+                    disabled={isTripInfoDisabled}
                     onClick={handleTripInfoSaveRequest}
                     type="button"
                   >
@@ -675,6 +769,18 @@ export default function TripRoomPage() {
 
             </aside>
           </div>
+
+          {isHost ? (
+            <button
+              className="absolute bottom-6 right-8 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+              disabled={isDeletingTripRoom}
+              onClick={handleTripRoomDeleteRequest}
+              type="button"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              여행방 삭제
+            </button>
+          ) : null}
         </section>
       </main>
 
@@ -691,6 +797,7 @@ export default function TripRoomPage() {
           </div>
         </div>
       ) : null}
+      <GlobalConfirmModal />
     </div>
   );
 }

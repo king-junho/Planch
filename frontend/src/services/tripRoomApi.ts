@@ -14,6 +14,7 @@ import {
   UpdateTripRoomResponse,
   UpdateTripRoomImageResponse,
   UpdateTripRoomDeadlineResponse,
+  DeleteTripRoomResponse,
 } from "../types/tripRoom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
@@ -149,6 +150,40 @@ export async function getTripRoomDetail(
   }
 
   return (await response.json()) as TripRoomDetailResponse;
+}
+
+export async function deleteTripRoom(
+  tripRoomId: number
+): Promise<DeleteTripRoomResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms/${tripRoomId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = "여행방 삭제에 실패했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as DeleteTripRoomResponse;
 }
 
 export async function joinTripRoomByInviteLink(

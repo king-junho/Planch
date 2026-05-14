@@ -285,6 +285,71 @@ export const updateTripRoomService = async ({
   };
 };
 
+export const deleteTripRoomService = async (
+  tripRoomId: number,
+  userId: number,
+) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: { id: tripRoomId },
+    select: {
+      id: true,
+      hostUserId: true,
+    },
+  });
+
+  if (!tripRoom) {
+    throw new Error("Trip room not found");
+  }
+
+  if (tripRoom.hostUserId !== userId) {
+    throw new Error("Host only");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tripRoom.update({
+      where: { id: tripRoomId },
+      data: {
+        selectedBranchId: null,
+      },
+    });
+
+    await tx.branchPlace.deleteMany({
+      where: {
+        branch: {
+          tripRoomId,
+        },
+      },
+    });
+
+    await tx.branchVote.deleteMany({
+      where: {
+        branch: {
+          tripRoomId,
+        },
+      },
+    });
+
+    await tx.planBranch.deleteMany({
+      where: { tripRoomId },
+    });
+
+    await tx.placeProposal.deleteMany({
+      where: { tripRoomId },
+    });
+
+    await tx.tripRoom.delete({
+      where: { id: tripRoomId },
+    });
+  }, {
+    timeout: 30000,
+  });
+
+  return {
+    tripRoomId,
+    deleted: true as const,
+  };
+};
+
 export const unlockTripRoomService = async (tripRoomId : number, userId: number)=>{
   const tripRoom = await prisma.tripRoom.findUnique({
     where:{id: tripRoomId},
