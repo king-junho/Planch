@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useProposalStore } from '../../proposal/store/useProposalStore';
 import { useBranchStore } from '../store/useBranchStore';
@@ -43,6 +43,14 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         tripStartDate,
         fetchTripDuration
     } = useBranchStore();
+
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const scrollByAmount = (amount: number) => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+        }
+    };
 
     useEffect(() => {
         if (tripRoomId) {
@@ -153,30 +161,39 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                     isSaving={showOverlay}
                 />
 
-                <div className="flex items-center justify-center gap-6 py-3 bg-gray-50 border-b border-gray-100">
+                <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100 shrink-0">
                     <button
-                        disabled={currentDraftDay <= 1 || showOverlay}
-                        onClick={() => setCurrentDraftDay(currentDraftDay - 1)}
-                        className="p-1 disabled:opacity-20 hover:bg-white rounded-full transition-all"
+                        disabled={showOverlay}
+                        onClick={() => scrollByAmount(-150)}
+                        className="p-1 disabled:opacity-20 hover:bg-white hover:shadow-sm rounded-full transition-all shrink-0 text-gray-500"
                     >
                         <ChevronLeft size={20} />
                     </button>
-                    <div className="flex gap-2">
+
+                    <div
+                        ref={scrollContainerRef}
+                        className="flex gap-2 overflow-x-auto flex-nowrap scrollbar-hide scroll-smooth px-1"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
                         {Array.from({ length: tripDuration }).map((_, i) => (
                             <button
                                 key={i + 1}
                                 disabled={showOverlay}
                                 onClick={() => setCurrentDraftDay(i + 1)}
-                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${currentDraftDay === i + 1 ? 'bg-gray-900 text-white shadow-md' : 'bg-white text-gray-400 border border-gray-100'} disabled:opacity-50`}
+                                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${currentDraftDay === i + 1
+                                        ? 'bg-gray-900 text-white shadow-md'
+                                        : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300'
+                                    } disabled:opacity-50`}
                             >
                                 {getDateTabLabel(i + 1)}
                             </button>
                         ))}
                     </div>
+
                     <button
-                        disabled={currentDraftDay >= tripDuration || showOverlay}
-                        onClick={() => setCurrentDraftDay(currentDraftDay + 1)}
-                        className="p-1 disabled:opacity-20 hover:bg-white rounded-full transition-all"
+                        disabled={showOverlay}
+                        onClick={() => scrollByAmount(150)}
+                        className="p-1 disabled:opacity-20 hover:bg-white hover:shadow-sm rounded-full transition-all shrink-0 text-gray-500"
                     >
                         <ChevronRight size={20} />
                     </button>
@@ -194,6 +211,7 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                     />
                 </div>
             </div>
+
             <div className="flex-1 h-full relative z-0">
                 <BranchMap />
             </div>

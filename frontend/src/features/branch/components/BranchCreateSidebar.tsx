@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, ListChecks, MapPin, X, Loader2 } from 'lucide-react';
+import { Plus, Search, ListChecks, MapPin, X, Loader2, Sparkles } from 'lucide-react';
 import { ProposalResponse } from '../../../types/proposal';
 import { useToastStore } from '../../store/useToastStore';
 
@@ -76,45 +76,56 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                         {proposals.length === 0 ? (
                             <div className="text-center py-10 text-gray-400 text-xs">등록된 제안이 없습니다.</div>
                         ) : (
-                            proposals.map((prop: any) => (
-                                <div key={`prop-${prop.id}`} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm group hover:border-blue-200 transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-gray-900 font-bold text-xs">
-                                                {prop.place?.name || '장소명 없음'}
-                                            </span>
-                                            <span className="text-gray-400 text-[10px] mt-0.5 line-clamp-1">
-                                                {prop.place?.address || '주소 정보 없음'}
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={() => onAddPlace(
-                                                prop.place?.name || '이름 없음',
-                                                String(prop.place?.longitude || 0),
-                                                String(prop.place?.latitude || 0),
-                                                prop.place?.address || '',
-                                                prop.place?.id || prop.placeId,
-                                                prop.id
-                                            )}
-                                            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white shrink-0 ml-2"
-                                            title="일정에 추가"
-                                        >
-                                            <Plus size={14} />
-                                        </button>
-                                    </div>
+                            proposals.map((prop: any) => {
+                                const isAI = prop.source === 'ai';
 
-                                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
-                                        <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                                            {prop.proposerUser?.name || '익명'}
-                                        </span>
-                                        {prop.comment && (
-                                            <span className="text-[10px] text-gray-400 line-clamp-1">
-                                                {prop.comment}
-                                            </span>
-                                        )}
+                                return (
+                                    <div key={`prop-${prop.id}`} className={`bg-white p-4 rounded-xl border shadow-sm group transition-colors ${isAI ? 'border-blue-100 hover:border-blue-300' : 'border-gray-100 hover:border-blue-200'}`}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex flex-col min-w-0 flex-1 mr-2">
+                                                <span className="text-gray-900 font-bold text-xs truncate">
+                                                    {prop.place?.name || '장소명 없음'}
+                                                </span>
+                                                <span className="text-gray-400 text-[10px] mt-0.5 truncate">
+                                                    {prop.place?.address || '주소 정보 없음'}
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => onAddPlace(
+                                                    prop.place?.name || '이름 없음',
+                                                    String(prop.place?.longitude || 0),
+                                                    String(prop.place?.latitude || 0),
+                                                    prop.place?.address || '',
+                                                    prop.place?.id || prop.placeId,
+                                                    prop.id
+                                                )}
+                                                className="p-1.5 bg-blue-50 text-blue-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:text-white shrink-0 ml-1"
+                                                title="일정에 추가"
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-start gap-2 mt-3 pt-3 border-t border-gray-50 min-w-0">
+                                            {isAI ? (
+                                                <span className="flex items-center gap-0.5 text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-bold shrink-0 whitespace-nowrap mt-0.5">
+                                                    <Sparkles size={10} /> AI 추천
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap max-w-[100px] truncate mt-0.5">
+                                                    {prop.proposerUser?.name || '익명'}
+                                                </span>
+                                            )}
+
+                                            {(prop.comment || prop.aiReason) && (
+                                                <span className="text-[10px] text-gray-500 flex-1 break-words leading-relaxed whitespace-pre-wrap">
+                                                    {isAI ? (prop.aiReason || prop.comment) : prop.comment}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 ) : (
@@ -153,7 +164,7 @@ export default function BranchCreateSidebar({ proposals, onAddPlace }: BranchCre
                             ) : (
                                 searchResults.map((place) => (
                                     <div key={`search-${place.id}`} className="bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center group hover:border-blue-200 transition-colors">
-                                        <div className="flex flex-col gap-0.5 max-w-[220px]">
+                                        <div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-2">
                                             <span className="text-xs font-bold text-gray-900 truncate">{place.place_name}</span>
                                             <span className="text-[10px] text-gray-500 truncate">{place.address_name}</span>
                                         </div>

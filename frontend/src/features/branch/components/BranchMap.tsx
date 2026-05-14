@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Map, MapMarker, Polyline } from 'react-kakao-maps-sdk';
+import { Map as KakaoMap, Polyline, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
 
 interface BranchMapProps {
-    compareBranches?: Branch[]; // 비교 모드일 때 전달받는 브랜치 배열
-    compareDay?: number;        // 비교 모드일 때 전달받는 일차
+    compareBranches?: Branch[];
+    compareDay?: number;
+    visibleBranchIds?: number[];
 }
 
 const PATH_COLORS = ['#2563eb', '#dc2626', '#16a34a'];
+const MARKER_COLORS = ['bg-blue-600', 'bg-red-600', 'bg-green-600'];
 
-export default function BranchMap({ compareBranches, compareDay }: BranchMapProps) {
+export default function BranchMap({ compareBranches, compareDay, visibleBranchIds }: BranchMapProps) {
     const { selectedBranch, selectedDay, draftRoutes, currentDraftDay } = useBranchStore();
     const [map, setMap] = useState<any>(null);
 
-    // 실제 도로 경로 데이터를 저장할 상태
     const [singleRoadPath, setSingleRoadPath] = useState<{ lat: number, lng: number }[]>([]);
     const [compareRoadPaths, setCompareRoadPaths] = useState<{ lat: number, lng: number }[][]>([]);
 
@@ -23,7 +24,6 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
 
     const defaultCenter = { lat: 37.5546, lng: 126.9706 };
 
-    // 지도의 범위를 마커 및 경로가 모두 보이도록 조정하는 함수
     const updateBounds = (paths: { lat: number, lng: number }[][]) => {
         if (!map || paths.length === 0) return;
         const bounds = new window.kakao.maps.LatLngBounds();
@@ -41,15 +41,15 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
         }
     };
 
-    // 장소 데이터에서 좌표만 추출하는 함수 (마커용)
     const getPathFromRoute = (route: any[]) => {
         return route.map(item => ({
             lat: item.latitude ?? parseFloat(item.y || '0'),
-            lng: item.longitude ?? parseFloat(item.x || '0')
+            lng: item.longitude ?? parseFloat(item.x || '0'),
+            title: item.place || item.title || '장소명 없음',
+            placeId: item.placeId || item.id
         }));
     };
 
-    // 마커를 찍기 위한 원본 좌표 데이터
     const rawComparePaths = isCompareMode
         ? compareBranches.map(branch => getPathFromRoute(branch.routes?.[compareDay || 1] || []))
         : [];
@@ -58,14 +58,51 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
         ? getPathFromRoute(draftRoutes[currentDraftDay] || [])
         : getPathFromRoute(selectedBranch?.routes?.[selectedDay] || []);
 
-    // 카카오 모빌리티 API를 호출하여 실제 도로 경로를 가져오는 함수
+    const getOffsetComparePaths = () => {
+        const coordMap = new Map<string, number>();
+        const locationCount = new Map<string, number>();
+
+        const getKey = (pos: any) => pos.placeId ? `place_${pos.placeId}` : `${pos.lat.toFixed(4)},${pos.lng.toFixed(4)}`;
+
+        rawComparePaths.forEach((branchPath, idx) => {
+            if (visibleBranchIds && compareBranches && !visibleBranchIds.includes(compareBranches[idx].id)) return;
+
+            branchPath.forEach(pos => {
+                const key = getKey(pos);
+                locationCount.set(key, (locationCount.get(key) || 0) + 1);
+            });
+        });
+
+        return rawComparePaths.map((branchPath, idx) => {
+            return branchPath.map(pos => {
+                if (visibleBranchIds && compareBranches && !visibleBranchIds.includes(compareBranches[idx].id)) {
+                    return { ...pos, offsetX: 0, offsetY: 0 };
+                }
+
+                const key = getKey(pos);
+                const total = locationCount.get(key) || 1;
+
+                if (total === 1) return { ...pos, offsetX: 0, offsetY: 0 };
+
+                const currentIdx = coordMap.get(key) || 0;
+                coordMap.set(key, currentIdx + 1);
+
+                const offsetX = (currentIdx - (total - 1) / 2) * 32;
+                const offsetY = (currentIdx - (total - 1) / 2) * -12;
+
+                return { ...pos, offsetX, offsetY };
+            });
+        });
+    };
+
+    const offsetComparePaths = isCompareMode ? getOffsetComparePaths() : [];
+
     const fetchRealRoadPath = async (points: { lat: number, lng: number }[]) => {
-        if (points.length < 2) return points; // 장소가 1개 이하면 경로를 그릴 수 없으므로 원본 반환
+        if (points.length < 2) return points;
 
         try {
             const origin = points[0];
             const dest = points[points.length - 1];
-            // 출발지와 도착지를 제외한 나머지 장소들을 경유지(waypoints)로 묶음
             const waypoints = points.slice(1, -1).map(p => `${p.lng},${p.lat}`).join('|');
 
             const params = new URLSearchParams({
@@ -77,7 +114,6 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
             });
             if (waypoints) params.append('waypoints', waypoints);
 
-            // 환경변수에서 REST API 키 가져오기 (CRA 사용 시 process.env.REACT_APP_KAKAO_REST_API_KEY 로 변경)
             const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY;
 
             const response = await fetch(`https://apis-navi.kakaomobility.com/v1/directions?${params}`, {
@@ -89,7 +125,6 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
 
             const data = await response.json();
 
-            // 응답 데이터에서 수많은 세부 꺾임 좌표들을 하나의 배열로 합침
             if (data.routes && data.routes[0]) {
                 const linePath: { lat: number, lng: number }[] = [];
                 data.routes[0].sections.forEach((section: any) => {
@@ -106,11 +141,9 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
         } catch (error) {
             console.error("경로 조회 실패:", error);
         }
-        // API 에러 발생 시 기존처럼 직선(원본 좌표)으로 폴백
         return points;
     };
 
-    // 장소(rawPaths)가 바뀔 때마다 실제 경로 API를 호출
     useEffect(() => {
         let isMounted = true;
         const loadPaths = async () => {
@@ -126,56 +159,64 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
         return () => { isMounted = false; };
     }, [isCompareMode, compareBranches, compareDay, isCreating, draftRoutes, currentDraftDay, selectedBranch, selectedDay]);
 
-    // 경로가 업데이트되면 지도 범위를 다시 맞춤 (마커 + 경로 모두 포함)
     useEffect(() => {
-        if (isCompareMode) {
-            updateBounds([...rawComparePaths, ...compareRoadPaths]);
+        if (isCompareMode && compareBranches) {
+            const visibleRawPaths = rawComparePaths.filter((_, i) => visibleBranchIds?.includes(compareBranches[i].id));
+            const visibleRoadPaths = compareRoadPaths.filter((_, i) => visibleBranchIds?.includes(compareBranches[i].id));
+            updateBounds([...visibleRawPaths, ...visibleRoadPaths]);
         } else {
             updateBounds([rawSinglePath, singleRoadPath]);
         }
-    }, [map, rawComparePaths, compareRoadPaths, rawSinglePath, singleRoadPath, isCompareMode]);
+    }, [map, rawComparePaths, compareRoadPaths, rawSinglePath, singleRoadPath, isCompareMode, visibleBranchIds, compareBranches]);
 
     return (
-        <Map
+        <KakaoMap
             center={defaultCenter}
             style={{ width: '100%', height: '100%' }}
             level={3}
             onCreate={setMap}
         >
             {isCompareMode ? (
-                // 비교 모드: 여러 개의 선과 마커를 색상별로 렌더링
-                compareBranches!.map((branch, bIdx) => (
-                    <div key={`compare-group-${branch.id}`}>
-                        {/* 선은 실제 API로 가져온 도로 경로(compareRoadPaths) 사용 */}
-                        <Polyline
-                            path={compareRoadPaths[bIdx] || []}
-                            strokeWeight={5}
-                            strokeColor={PATH_COLORS[bIdx % PATH_COLORS.length]}
-                            strokeOpacity={0.8}
-                            strokeStyle="solid"
-                        />
-                        {/* 마커는 기존의 장소 원본 좌표(rawComparePaths) 사용 */}
-                        {(rawComparePaths[bIdx] || []).map((pos, pIdx) => (
-                            <MapMarker
-                                key={`marker-${branch.id}-${pIdx}`}
-                                position={pos}
-                                image={{
-                                    src: `https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_number_blue.png`,
-                                    size: { width: 36, height: 37 },
-                                    options: {
-                                        spriteSize: { width: 36, height: 691 },
-                                        spriteOrigin: { x: 0, y: (bIdx * 3) * 46 }, // 브랜치마다 다른 마커 스타일
-                                        offset: { x: 13, y: 37 }
-                                    }
-                                }}
+                compareBranches!.map((branch, bIdx) => {
+                    if (visibleBranchIds && !visibleBranchIds.includes(branch.id)) return null;
+
+                    return (
+                        <div key={`compare-group-${branch.id}`}>
+                            <Polyline
+                                path={compareRoadPaths[bIdx] || []}
+                                strokeWeight={5}
+                                strokeColor={PATH_COLORS[bIdx % PATH_COLORS.length]}
+                                strokeOpacity={0.8}
+                                strokeStyle="solid"
                             />
-                        ))}
-                    </div>
-                ))
+                            {(offsetComparePaths[bIdx] || []).map((pos, pIdx) => (
+                                <CustomOverlayMap
+                                    key={`compare-marker-${branch.id}-${pIdx}`}
+                                    position={pos}
+                                    yAnchor={1}
+                                    zIndex={10 + pIdx}
+                                >
+                                    <div
+                                        className="relative group cursor-pointer transition-transform z-10 hover:z-50 hover:scale-110"
+                                        style={{ transform: `translate(${pos.offsetX}px, ${pos.offsetY}px)` }}
+                                    >
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
+                                            플랜 {bIdx + 1} - {pIdx + 1}번째: {pos.title}
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                        </div>
+
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md ${MARKER_COLORS[bIdx % MARKER_COLORS.length]} border-white`}>
+                                            {pIdx + 1}
+                                        </div>
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
+                                    </div>
+                                </CustomOverlayMap>
+                            ))}
+                        </div>
+                    );
+                })
             ) : (
-                // 일반 모드: 단일 경로 렌더링
                 <>
-                    {/* 선은 실제 API로 가져온 도로 경로(singleRoadPath) 사용 */}
                     <Polyline
                         path={singleRoadPath}
                         strokeWeight={5}
@@ -183,24 +224,26 @@ export default function BranchMap({ compareBranches, compareDay }: BranchMapProp
                         strokeOpacity={0.7}
                         strokeStyle="solid"
                     />
-                    {/* 마커는 기존의 장소 원본 좌표(rawSinglePath) 사용 */}
                     {rawSinglePath.map((pos, idx) => (
-                        <MapMarker
+                        <CustomOverlayMap
                             key={`single-marker-${idx}`}
                             position={pos}
-                            image={{
-                                src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_number_blue.png",
-                                size: { width: 36, height: 37 },
-                                options: {
-                                    spriteSize: { width: 36, height: 691 },
-                                    spriteOrigin: { x: 0, y: idx * 46 },
-                                    offset: { x: 13, y: 37 }
-                                }
-                            }}
-                        />
+                            yAnchor={1}
+                        >
+                            <div className="relative group cursor-pointer transform hover:scale-110 transition-transform z-10 hover:z-50">
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
+                                    {idx + 1}번째: {pos.title}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                </div>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md bg-blue-600 border-white">
+                                    {idx + 1}
+                                </div>
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
+                            </div>
+                        </CustomOverlayMap>
                     ))}
                 </>
             )}
-        </Map>
+        </KakaoMap>
     );
 }
