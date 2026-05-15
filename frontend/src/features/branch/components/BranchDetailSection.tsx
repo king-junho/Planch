@@ -236,7 +236,9 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                         )}
                     </div>
                 </div>
-                <p className="text-sm text-gray-500 mt-2 truncate">{branch.description}</p>
+                <p className="text-sm text-gray-500 mt-2 leading-relaxed whitespace-normal break-keep">
+                    {branch.description}
+                </p>
             </div>
 
             <div className="flex items-center justify-between px-8 py-4 bg-gray-50 border-b border-gray-100 shrink-0">

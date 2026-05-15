@@ -401,7 +401,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         }
     },
 
-    generateAiBranches: async (tripRoomId, branchCount = 3) => {
+    generateAiBranches: async (tripRoomId, branchCount = 1) => {
         if (get().isLoading) return false;
 
         set({ isLoading: true });
@@ -417,7 +417,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
             if (error.response?.status === 403) {
                 useToastStore.getState().showToast('error', "방장만 AI 추천 일정을 생성할 수 있습니다.");
             } else if (error.response?.status === 400) {
-                useToastStore.getState().showToast('error', "AI가 일정을 구성하기 위해서는 먼저 장소를 제안해 주세요.");
+                useToastStore.getState().showToast('error', error.response?.data?.message || "AI가 일정을 구성하기 위해서는 먼저 장소를 제안해 주세요.");
             } else {
                 useToastStore.getState().showToast('error', "AI 추천 일정 생성 중 오류가 발생했습니다.");
             }

@@ -81,8 +81,9 @@ export default function BranchListView({
                         <span className="text-sm font-bold">브랜치 목록을 불러오는 중입니다...</span>
                     </div>
                 ) : sortedBranches.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-20 text-gray-400">
-                        등록된 브랜치가 없습니다. 새 브랜치를 만들어보세요.
+                    <div className="flex-1 flex flex-col items-center justify-center py-20 text-center text-gray-400">
+                        <span>등록된 브랜치가 없습니다.</span>
+                        <span>새 브랜치를 만들어보세요.</span>
                     </div>
                 ) : (
                     sortedBranches.map(branch => {

@@ -43,6 +43,8 @@ type AiProposalOption = {
   placeId: number;
   estimatedCost: number | null;
   estimatedDuration: number | null;
+  latitude: number;
+  longitude: number;
 };
 
 type BranchSignaturePlace = {
@@ -366,7 +368,6 @@ export const getBranchCompareService = async (tripRoomId: number, userId: number
 
 const buildBranchPrompt = ({
   tripRoom,
-  branchCount,
   tripDayCount,
   proposals,
 }: {
@@ -396,7 +397,6 @@ const buildBranchPrompt = ({
       }>;
     }>;
   };
-  branchCount: number;
   tripDayCount: number;
   proposals: Array<{
     id: number;
@@ -419,14 +419,14 @@ const buildBranchPrompt = ({
   const preferenceSummary = tripRoom.preferences
     .map(
       (preference) =>
-        `- ${preference.user.name}: 예산 ${preference.budgetMin ?? "미정"}~${preference.budgetMax ?? "미정"}, 스타일 ${JSON.stringify(preference.styles)}, 필수 ${JSON.stringify(preference.mustVisit)}, 회피 ${JSON.stringify(preference.avoid)}, 가능시간 ${JSON.stringify(preference.availableTime)}`,
+        `- ${preference.user.name}: budget ${preference.budgetMin ?? "unknown"}~${preference.budgetMax ?? "unknown"}, styles ${JSON.stringify(preference.styles)}, mustVisit ${JSON.stringify(preference.mustVisit)}, avoid ${JSON.stringify(preference.avoid)}, availableTime ${JSON.stringify(preference.availableTime)}`,
     )
     .join("\n");
 
   const proposalSummary = proposals
     .map(
       (proposal) =>
-        `- proposalId=${proposal.id}, placeId=${proposal.placeId}, 이름=${proposal.place.name}, 카테고리=${proposal.place.category ?? "미정"}, 주소=${proposal.place.address ?? "미정"}, 위도=${proposal.place.latitude}, 경도=${proposal.place.longitude}, 비용=${proposal.estimatedCost ?? "미정"}, 체류시간=${proposal.estimatedDuration ?? "미정"}, 상태=${proposal.status}, source=${proposal.source}, 코멘트=${proposal.comment ?? ""}, 사유=${proposal.aiReason ?? ""}`,
+        `- proposalId=${proposal.id}, placeId=${proposal.placeId}, name=${proposal.place.name}, category=${proposal.place.category ?? "unknown"}, address=${proposal.place.address ?? "unknown"}, latitude=${proposal.place.latitude}, longitude=${proposal.place.longitude}, estimatedCost=${proposal.estimatedCost ?? "unknown"}, estimatedDuration=${proposal.estimatedDuration ?? "unknown"}, status=${proposal.status}, source=${proposal.source}, comment=${proposal.comment ?? ""}, reason=${proposal.aiReason ?? ""}`,
     )
     .join("\n");
 
@@ -441,42 +441,42 @@ const buildBranchPrompt = ({
     .join("\n");
 
   return `
-여행방 정보, 참여자 선호, 장소 제안 목록을 바탕으로 후보 브랜치 ${branchCount}개를 JSON으로만 생성해줘.
+Create exactly one AI trip branch as JSON only, based on the trip room, member preferences, and all proposed places.
 
-중요:
-- 반드시 JSON 객체만 반환해. 설명 문장, 마크다운, 코드블록은 금지.
-- branches 배열 길이는 반드시 ${branchCount}개여야 해.
-- 각 브랜치의 places는 최소 ${tripDayCount * 2}개 이상 포함해.
-- 모든 dayNo(1부터 ${tripDayCount})를 반드시 포함해.
-- 각 dayNo마다 서로 다른 placeId를 최소 2개 이상 포함해.
-- placeId는 반드시 아래 장소 제안 목록에 있는 placeId만 사용해.
-- proposalId는 해당 placeId와 연결된 proposalId를 사용해.
-- dayNo는 1부터 ${tripDayCount} 사이의 숫자로만 작성해.
-- 기존 브랜치와 동일한 dayNo별 placeId 조합은 만들지 마.
-- 같은 dayNo 안에서는 위도/경도를 기준으로 서로 가까운 장소끼리 묶고, 이동 동선이 짧아지는 방문 순서대로 places 배열에 작성해.
-- places 배열의 같은 dayNo 내 작성 순서는 실제 방문 순서로 간주된다.
-- estimatedCost는 장소별 예상 비용을 숫자로 작성해.
-- aiReason은 해당 브랜치를 추천하는 이유를 한 문장으로 작성해. 예: 좌표 기반 동선 최적화, 선호 반영률이 높음, 예산 균형이 좋음.
-- name, totalCost, totalTravelTime, preferenceScore, densityScore, orderIndex, startTime, estimatedDuration은 작성하지 마. 이 값들은 서버에서 계산한다.
+Critical rules:
+- Return only a JSON object. Do not include explanations, markdown, or code fences.
+- The branches array must contain exactly 1 item.
+- The branch must use every proposal in the proposal list exactly once unless multiple proposals point to the same placeId.
+- Each dayNo from 1 to ${tripDayCount} must have at least 2 different placeId values.
+- Use only placeId values from the proposal list.
+- proposalId must match the proposal connected to the same placeId.
+- dayNo must be an integer from 1 to ${tripDayCount}.
+- Do not recreate the same per-day placeId combination as an existing branch.
+- Within each dayNo, group nearby places together using the Haversine formula with latitude and longitude.
+- Within each dayNo, order places by a short travel path among nearby places.
+- The order of places within the same dayNo is treated as the visit order.
+- estimatedCost must be a number for each place.
+- aiReason must be written in Korean, must be one sentence, must mention that nearby places were grouped into an optimized route, and must end with "입니다."
+- Do not write name, totalCost, totalTravelTime, preferenceScore, densityScore, orderIndex, startTime, or estimatedDuration. The server calculates them.
 
-여행방 제목: ${tripRoom.title}
-여행 기간: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split("T")[0] : "미정"} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split("T")[0] : "미정"}
-총 여행 일수: ${tripDayCount}
+Trip room title: ${tripRoom.title}
+Trip dates: ${tripRoom.startDate ? tripRoom.startDate.toISOString().split("T")[0] : "unknown"} ~ ${tripRoom.endDate ? tripRoom.endDate.toISOString().split("T")[0] : "unknown"}
+Trip day count: ${tripDayCount}
 
-참여자 선호:
+Member preferences:
 ${preferenceSummary || "- 없음"}
 
-장소 제안 목록:
+Proposal list:
 ${proposalSummary || "- 없음"}
 
-기존 브랜치 목록:
+Existing branches:
 ${existingBranchSummary || "- 없음"}
 
-응답 형식:
+Response format:
 {
   "branches": [
     {
-      "aiReason": "동선 최적화와 선호 반영률이 높아 추천합니다.",
+      "aiReason": "제안된 모든 장소를 가까운 동선으로 묶어 최적화된 동선을 바탕으로 반영한 일정입니다.",
       "places": [
         {
           "placeId": 1,
@@ -510,10 +510,13 @@ const normalizeAiBranchPlaces = (places: AiBranchPlaceInput[]) => {
       ...place,
       orderIndex: nextOrderIndex,
       startTime: formatAiStartTime(nextOrderIndex),
-      estimatedDuration: 60,
+      estimatedDuration: 0,
     };
   });
 };
+
+const calculateAiBranchDurations = (places: BranchPlaceDraft[]) =>
+  calculateManualBranchDurations(places);
 
 const countPlacesByDay = (places: AiBranchPlaceInput[]) => {
   const counts = new Map<number, number>();
@@ -523,6 +526,147 @@ const countPlacesByDay = (places: AiBranchPlaceInput[]) => {
   });
 
   return counts;
+};
+
+const toCoordinateNumber = (value: unknown) => {
+  const coordinate = Number(value);
+
+  return Number.isFinite(coordinate) ? coordinate : 0;
+};
+
+const toAiProposalOptions = (proposals: Array<{
+  id: number;
+  placeId: number;
+  estimatedCost: number | null;
+  estimatedDuration: number | null;
+  place: {
+    latitude: unknown;
+    longitude: unknown;
+  };
+}>) => proposals.map((proposal) => ({
+  id: proposal.id,
+  placeId: proposal.placeId,
+  estimatedCost: proposal.estimatedCost,
+  estimatedDuration: proposal.estimatedDuration,
+  latitude: toCoordinateNumber(proposal.place.latitude),
+  longitude: toCoordinateNumber(proposal.place.longitude),
+}));
+
+const uniqueProposalsByPlaceId = (proposals: AiProposalOption[]) => {
+  const seenPlaceIds = new Set<number>();
+  const uniqueProposals: AiProposalOption[] = [];
+
+  proposals.forEach((proposal) => {
+    if (seenPlaceIds.has(proposal.placeId)) {
+      return;
+    }
+
+    seenPlaceIds.add(proposal.placeId);
+    uniqueProposals.push(proposal);
+  });
+
+  return uniqueProposals;
+};
+
+const haversineDistanceMeters = (from: AiProposalOption, to: AiProposalOption) => {
+  const earthRadiusMeters = 6_371_000;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const latitudeDelta = toRadians(to.latitude - from.latitude);
+  const longitudeDelta = toRadians(to.longitude - from.longitude);
+  const fromLatitude = toRadians(from.latitude);
+  const toLatitude = toRadians(to.latitude);
+  const halfChordLength =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return 2 * earthRadiusMeters * Math.asin(Math.sqrt(halfChordLength));
+};
+
+const sortByNearestNeighbor = (proposals: AiProposalOption[]) => {
+  if (proposals.length <= 1) {
+    return [...proposals];
+  }
+
+  const remaining = [...proposals].sort(
+    (a, b) => a.latitude - b.latitude || a.longitude - b.longitude || a.placeId - b.placeId,
+  );
+  const ordered: AiProposalOption[] = [remaining.shift() as AiProposalOption];
+
+  while (remaining.length > 0) {
+    const current = ordered[ordered.length - 1];
+    let nearestIndex = 0;
+    let nearestDistance = haversineDistanceMeters(current, remaining[0]);
+
+    for (let index = 1; index < remaining.length; index += 1) {
+      const distance = haversineDistanceMeters(current, remaining[index]);
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    }
+
+    const [nearest] = remaining.splice(nearestIndex, 1);
+    ordered.push(nearest);
+  }
+
+  return ordered;
+};
+
+const getDayPlaceCounts = (placeCount: number, tripDayCount: number) => {
+  const counts = Array.from({ length: tripDayCount }, () => MIN_AI_PLACES_PER_DAY);
+  let remaining = placeCount - tripDayCount * MIN_AI_PLACES_PER_DAY;
+  let dayIndex = 0;
+
+  while (remaining > 0) {
+    counts[dayIndex % tripDayCount] += 1;
+    remaining -= 1;
+    dayIndex += 1;
+  }
+
+  return counts;
+};
+
+const assignProposalsToDaysByDistance = (
+  proposals: AiProposalOption[],
+  tripDayCount: number,
+): AiBranchPlaceInput[] => {
+  const orderedProposals = sortByNearestNeighbor(proposals);
+  const dayPlaceCounts = getDayPlaceCounts(orderedProposals.length, tripDayCount);
+  const places: AiBranchPlaceInput[] = [];
+  let offset = 0;
+
+  dayPlaceCounts.forEach((dayPlaceCount, index) => {
+    const dayNo = index + 1;
+    const dayProposals = sortByNearestNeighbor(
+      orderedProposals.slice(offset, offset + dayPlaceCount),
+    );
+
+    dayProposals.forEach((proposal) => {
+      places.push({
+        placeId: proposal.placeId,
+        proposalId: proposal.id,
+        dayNo,
+        estimatedCost: proposal.estimatedCost ?? 0,
+      });
+    });
+
+    offset += dayPlaceCount;
+  });
+
+  return places;
+};
+
+const normalizeAiReason = (value: unknown) => {
+  const fallbackReason = "제안된 모든 장소를 가까운 동선으로 묶어 최적화된 동선을 바탕으로 반영한 일정입니다.";
+
+  if (typeof value !== "string" || !value.trim()) {
+    return fallbackReason;
+  }
+
+  const reason = value.trim();
+
+  return reason.endsWith("입니다.") ? reason : `${reason.replace(/[.!?。]+$/g, "")}입니다.`;
 };
 
 const buildBranchSignature = (places: BranchSignaturePlace[]) => {
@@ -598,14 +742,16 @@ const normalizeBranchDraft = (
   proposals: AiProposalOption[],
   preferences: unknown[],
 ): GeneratedBranchDraft | null => {
-  if (!rawBranch || !Array.isArray(rawBranch.places)) {
+  if (!rawBranch) {
     return null;
   }
 
   const seenPlaceIds = new Set<number>();
   const places: AiBranchPlaceInput[] = [];
 
-  for (const [index, rawPlace] of rawBranch.places.entries()) {
+  const rawPlaces = Array.isArray(rawBranch.places) ? rawBranch.places : [];
+
+  for (const [index, rawPlace] of rawPlaces.entries()) {
     const placeId = Number(rawPlace?.placeId);
 
     if (Number.isNaN(placeId) || seenPlaceIds.has(placeId) || !validProposalByPlaceId.has(placeId)) {
@@ -641,12 +787,29 @@ const normalizeBranchDraft = (
     });
   }
 
-  if (places.length === 0) {
-    return null;
+  proposals.forEach((proposal) => {
+    if (seenPlaceIds.has(proposal.placeId)) {
+      return;
+    }
+
+    seenPlaceIds.add(proposal.placeId);
+    places.push({
+      placeId: proposal.placeId,
+      proposalId: proposal.id,
+      dayNo: 1,
+      estimatedCost: proposal.estimatedCost ?? 0,
+    });
+  });
+
+  if (places.length < maxDayNo * MIN_AI_PLACES_PER_DAY) {
+    throw new Error("Not enough proposals available");
   }
 
-  const completedPlaces = ensureMinimumPlacesPerDay(places, maxDayNo, proposals);
-  const normalizedPlaces = normalizeAiBranchPlaces(completedPlaces);
+  const completedPlaces = assignProposalsToDaysByDistance(
+    proposals.filter((proposal) => seenPlaceIds.has(proposal.placeId)),
+    maxDayNo,
+  );
+  const normalizedPlaces = calculateAiBranchDurations(normalizeAiBranchPlaces(completedPlaces));
   const { totalCost, totalTravelTime } = calculateBranchMetrics(normalizedPlaces);
   const preferenceScore = calculatePreferenceScore(normalizedPlaces, preferences);
 
@@ -655,10 +818,7 @@ const normalizeBranchDraft = (
     totalCost,
     totalTravelTime,
     preferenceScore,
-    aiReason:
-      typeof rawBranch?.aiReason === "string" && rawBranch.aiReason.trim()
-        ? rawBranch.aiReason.trim()
-        : "선호와 장소 제안을 종합해 균형 있게 구성한 브랜치입니다.",
+    aiReason: normalizeAiReason(rawBranch?.aiReason),
     places: normalizedPlaces,
   };
 };
@@ -734,14 +894,9 @@ const buildFallbackBranchDrafts = (
     const rotatedProposals = proposals
       .slice(attempt)
       .concat(proposals.slice(0, attempt));
-    const targetPlaceCount = tripDayCount * MIN_AI_PLACES_PER_DAY;
-    const selectedProposals = rotatedProposals.slice(0, Math.min(targetPlaceCount, rotatedProposals.length));
-    const places = normalizeAiBranchPlaces(selectedProposals.map((proposal, index) => ({
-      placeId: proposal.placeId,
-      proposalId: proposal.id,
-      dayNo: (index % tripDayCount) + 1,
-      estimatedCost: proposal.estimatedCost ?? 0,
-    })));
+    const places = calculateAiBranchDurations(
+      normalizeAiBranchPlaces(assignProposalsToDaysByDistance(rotatedProposals, tripDayCount)),
+    );
     const signature = buildBranchSignature(places);
 
     if (!signature || usedSignatures.has(signature)) {
@@ -756,7 +911,7 @@ const buildFallbackBranchDrafts = (
       totalCost,
       totalTravelTime,
       preferenceScore: calculatePreferenceScore(places, preferences),
-      aiReason: "AI 응답이 부족해 장소 제안을 기준으로 보완 생성한 브랜치입니다.",
+      aiReason: "제안된 모든 장소를 가까운 동선으로 묶어 최적화된 동선을 바탕으로 반영한 일정입니다.",
       places,
     });
     usedSignatures.add(signature);
@@ -768,7 +923,7 @@ const buildFallbackBranchDrafts = (
 export const generateAiBranchesService = async (
   tripRoomId: number,
   userId: number,
-  branchCount: number,
+  _branchCount: number,
 ) => {
   const membership = await prisma.tripMember.findUnique({
     where: {
@@ -783,7 +938,7 @@ export const generateAiBranchesService = async (
     },
   });
 
-  if (!membership || membership.role !== "host") {
+  if (!membership) {
     return null;
   }
 
@@ -867,11 +1022,23 @@ export const generateAiBranchesService = async (
 
   assertTripRoomDecisionOpen(tripRoom);
 
-  const safeBranchCount = Math.min(Math.max(branchCount, 1), 5);
+  const safeBranchCount = 1;
   const tripDayCount = getTripDayCount(tripRoom.startDate, tripRoom.endDate);
-  const validPlaceIds = new Set(tripRoom.proposals.map((proposal) => proposal.placeId));
+  const minimumProposalCount = tripDayCount * MIN_AI_PLACES_PER_DAY;
+
+  if (tripRoom.proposals.length < minimumProposalCount) {
+    throw new Error("Not enough proposals available");
+  }
+
+  const proposalOptions = uniqueProposalsByPlaceId(toAiProposalOptions(tripRoom.proposals));
+
+  if (proposalOptions.length < minimumProposalCount) {
+    throw new Error("Not enough proposals available");
+  }
+
+  const validPlaceIds = new Set(proposalOptions.map((proposal) => proposal.placeId));
   const validProposalMap = new Map(
-    tripRoom.proposals.map((proposal) => [
+    proposalOptions.map((proposal) => [
       proposal.id,
       {
         id: proposal.id,
@@ -882,7 +1049,7 @@ export const generateAiBranchesService = async (
     ]),
   );
   const validProposalByPlaceId = new Map(
-    tripRoom.proposals.map((proposal) => [
+    proposalOptions.map((proposal) => [
       proposal.placeId,
       {
         id: proposal.id,
@@ -908,7 +1075,6 @@ export const generateAiBranchesService = async (
           role: "user",
           content: buildBranchPrompt({
             tripRoom,
-            branchCount: safeBranchCount,
             tripDayCount,
             proposals: tripRoom.proposals,
           }),
@@ -929,7 +1095,7 @@ export const generateAiBranchesService = async (
           tripDayCount,
           validProposalMap,
           validProposalByPlaceId,
-          tripRoom.proposals,
+          proposalOptions,
           tripRoom.preferences,
         ),
       )
@@ -958,7 +1124,7 @@ export const generateAiBranchesService = async (
     branchDrafts,
     safeBranchCount,
     tripDayCount,
-    tripRoom.proposals,
+    proposalOptions,
     tripRoom.preferences,
     usedBranchSignatures,
   );

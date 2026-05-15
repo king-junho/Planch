@@ -21,9 +21,9 @@ export default function CreateBranchModal({ isOpen, onClose, onCreateManual }: C
     const handleGenerateAI = async () => {
         if (!tripRoomId || isLoading) return;
 
-        const isConfirmed = await confirm("팀원들의 선호도와 제안된 장소를 바탕으로 AI가 최적의 코스 3개를 생성합니다.\n(약 10~20초 정도 소요될 수 있습니다.)\n\n진행하시겠습니까?");
+        const isConfirmed = await confirm("팀원들의 선호도와 제안된 모든 장소를 바탕으로 AI가 최적의 일정 1개를 생성합니다.\n(약 10~20초 정도 소요될 수 있습니다.)\n\n진행하시겠습니까?");
         if (isConfirmed) {
-            const success = await generateAiBranches(Number(tripRoomId), 3);
+            const success = await generateAiBranches(Number(tripRoomId), 1);
             if (success) {
                 showToast('success', 'AI가 성공적으로 일정을 생성했습니다!');
 

@@ -113,7 +113,7 @@ export const generateAiBranches = async (req: AuthenticatedRequest, res: Respons
   try {
     const tripRoomId = Number(req.params.tripRoomId);
     const userId = req.user?.id;
-    const { branchCount = 3 } = req.body;
+    const { branchCount = 1 } = req.body;
     const normalizedBranchCount = Number(branchCount);
 
     if (Number.isNaN(tripRoomId)) {
@@ -144,6 +144,10 @@ export const generateAiBranches = async (req: AuthenticatedRequest, res: Respons
 
     if (error instanceof Error && error.message === "No proposals available") {
       return res.status(400).json({ message: "브랜치 생성에 사용할 장소 제안이 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Not enough proposals available") {
+      return res.status(400).json({ message: "여행 일수별 최소 2개 이상의 장소 제안이 필요합니다." });
     }
 
     return res.status(500).json({ message: "브랜치 생성 실패" });
