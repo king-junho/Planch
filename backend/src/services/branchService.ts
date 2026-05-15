@@ -65,15 +65,18 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
     throw new Error("Delete forbidden");
   }
 
-  if (branch.status === "locked") {
-    throw new Error("Branch is locked");
-  }
+  const transactionOperations: any[] = [];
 
   if (branch.tripRoom.selectedBranchId === branchId) {
-    throw new Error("Selected branch cannot be deleted");
+    transactionOperations.push(
+      prisma.tripRoom.update({
+        where: { id: branch.tripRoomId },
+        data: { selectedBranchId: null },
+      })
+    );
   }
 
-  await prisma.$transaction([
+  transactionOperations.push(
     prisma.decisionLog.create({
       data: {
         tripRoomId: branch.tripRoomId,
@@ -82,11 +85,16 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
         targetType: DECISION_LOG_TARGET.BRANCH,
         targetId: branchId,
       },
-    }),
+    })
+  );
+
+  transactionOperations.push(
     prisma.planBranch.delete({
       where: { id: branchId },
-    }),
-  ]);
+    })
+  );
+
+  await prisma.$transaction(transactionOperations);
 
   return {
     branchId,
