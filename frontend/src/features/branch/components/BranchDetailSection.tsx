@@ -23,6 +23,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
     const [myUserId, setMyUserId] = useState<number | null>(null);
     const [hostUserId, setHostUserId] = useState<number | null>(null);
+
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
 
@@ -47,6 +49,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         let isMounted = true;
 
         async function loadTripRoomHost() {
+            setIsAuthLoading(true);
             try {
                 const detail = await getTripRoomDetail(numericTripRoomId);
                 if (isMounted) {
@@ -54,6 +57,10 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 }
             } catch (error) {
                 console.error("여행방 호스트 조회 실패:", error);
+            } finally {
+                if (isMounted) {
+                    setIsAuthLoading(false);
+                }
             }
         }
 
@@ -193,27 +200,40 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {canDelete && !isLocked && (
-                            <button
-                                onClick={handleDelete}
-                                className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm text-red-600 bg-white hover:bg-red-50 border-red-100 hover:border-red-200"
-                            >
-                                <Trash2 size={14} />
-                                <span>삭제</span>
-                            </button>
-                        )}
+                        {isAuthLoading ? (
+                            <div className="flex gap-2">
+                                <div className="flex items-center justify-center w-[64px] h-[30px] bg-gray-50 rounded-lg border border-gray-100">
+                                    <Loader2 size={14} className="animate-spin text-gray-400" />
+                                </div>
+                                <div className="flex items-center justify-center w-[64px] h-[30px] bg-gray-50 rounded-lg border border-gray-100">
+                                    <Loader2 size={14} className="animate-spin text-gray-400" />
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {canDelete && !isLocked && (
+                                    <button
+                                        onClick={handleDelete}
+                                        className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm text-red-600 bg-white hover:bg-red-50 border-red-100 hover:border-red-200"
+                                    >
+                                        <Trash2 size={14} />
+                                        <span>삭제</span>
+                                    </button>
+                                )}
 
-                        <button
-                            onClick={handleEdit}
-                            disabled={isEditDisabled}
-                            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm ${isEditDisabled
-                                ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed opacity-60'
-                                : 'text-gray-600 bg-gray-50 hover:bg-gray-100 border-gray-100'
-                                }`}
-                        >
-                            <Edit2 size={14} />
-                            <span>수정</span>
-                        </button>
+                                <button
+                                    onClick={handleEdit}
+                                    disabled={isEditDisabled}
+                                    className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm ${isEditDisabled
+                                        ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed opacity-60'
+                                        : 'text-gray-600 bg-gray-50 hover:bg-gray-100 border-gray-100'
+                                        }`}
+                                >
+                                    <Edit2 size={14} />
+                                    <span>수정</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
                 <p className="text-sm text-gray-500 mt-2 truncate">{branch.description}</p>
@@ -288,7 +308,11 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             <CheckCircle2 size={24} className="text-green-600" />
                             <span className="text-sm font-bold text-green-800">이 일정이 최종 여행 코스로 확정되었습니다.</span>
                         </div>
-                        {canUnlock && (
+                        {isAuthLoading ? (
+                            <div className="flex items-center justify-center w-[120px] h-[34px] bg-white border border-gray-200 rounded-lg mt-1 text-gray-400">
+                                <Loader2 size={14} className="animate-spin" />
+                            </div>
+                        ) : canUnlock && (
                             <button
                                 onClick={handleUnlock}
                                 disabled={isUnlocking}
@@ -301,7 +325,11 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 ) : isLocked ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-4 bg-gray-50 border border-gray-200 rounded-xl">
                         <span className="text-sm font-bold text-gray-600">여행 일정이 확정되어 투표가 종료되었습니다.</span>
-                        {canUnlock && (
+                        {isAuthLoading ? (
+                            <div className="flex items-center justify-center w-[130px] h-[34px] bg-white border border-gray-200 rounded-lg text-gray-400">
+                                <Loader2 size={14} className="animate-spin" />
+                            </div>
+                        ) : canUnlock && (
                             <button
                                 onClick={handleUnlock}
                                 disabled={isUnlocking}
@@ -339,7 +367,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             <button onClick={() => handleVote('agree')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-blue-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 <ThumbsUp size={14} /> 찬성
                             </button>
-                            <button onClick={() => handleVote('hold')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button onClick={() => handleVote('hold')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-50 rounded-lg hover:bg-gray-100 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 <Minus size={14} /> 보류
                             </button>
                             <button onClick={() => handleVote('disagree')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-red-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -347,14 +375,21 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             </button>
                         </div>
 
-                        {isOwner && (
-                            <button
-                                onClick={handleFinalize}
-                                disabled={isVoteDisabled}
-                                className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <CheckCircle2 size={16} /> 이 일정으로 최종 확정하기
-                            </button>
+                        {isAuthLoading ? (
+                            <div className="w-full py-3 bg-gray-50 border border-gray-100 text-gray-400 rounded-xl flex justify-center items-center gap-2">
+                                <Loader2 size={16} className="animate-spin" />
+                                <span className="text-sm font-bold">권한 확인 중...</span>
+                            </div>
+                        ) : (
+                            isOwner && (
+                                <button
+                                    onClick={handleFinalize}
+                                    disabled={isVoteDisabled}
+                                    className="w-full py-3 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <CheckCircle2 size={16} /> 이 일정으로 최종 확정하기
+                                </button>
+                            )
                         )}
                     </>
                 )}
