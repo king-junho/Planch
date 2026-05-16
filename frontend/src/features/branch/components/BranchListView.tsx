@@ -1,6 +1,9 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import BranchCard from './BranchCard';
-import { CheckSquare, Loader2 } from 'lucide-react';
+import { CheckSquare, Loader2, Users } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 
 interface BranchListViewProps {
     onSelectBranch: (branch: any) => void;
@@ -12,6 +15,13 @@ interface BranchListViewProps {
     onOpenCompare: () => void;
 }
 
+interface ActiveSession {
+    sessionKey: string;
+    branchId: number | null;
+    isCreating: boolean;
+    users: { userId: number; name: string; color: string }[];
+}
+
 export default function BranchListView({
     onSelectBranch,
     onOpenCreateModal,
@@ -21,7 +31,49 @@ export default function BranchListView({
     toggleCompareSelection,
     onOpenCompare
 }: BranchListViewProps) {
+    const { tripRoomId } = useParams<{ tripRoomId: string }>();
+    const navigate = useNavigate();
     const { branches, isLoading } = useBranchStore();
+
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('planch.accessToken');
+        if (!tripRoomId || !token) return;
+
+        const socketUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:4000';
+
+        const newSocket = io(socketUrl, {
+            auth: { token },
+            transports: ['websocket']
+        });
+
+        newSocket.on('connect', () => {
+            newSocket.emit('collab:join', { tripRoomId: Number(tripRoomId) });
+        });
+
+        newSocket.on('collab:active_sessions', (sessions: ActiveSession[]) => {
+            setActiveSessions(sessions);
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, [tripRoomId]);
+
+    const handleJoinSession = (session: ActiveSession) => {
+        if (session.isCreating) {
+            navigate(`/trip-rooms/${tripRoomId}/branch/create`);
+        } else if (session.branchId) {
+            const targetBranch = branches.find(b => b.id === session.branchId);
+            if (targetBranch) {
+                navigate(`/trip-rooms/${tripRoomId}/branch/edit`, { state: { editBranch: targetBranch } });
+            }
+        }
+    };
 
     const branchesWithOverride = branches.map(branch => {
         let currentStatus = branch.status;
@@ -75,6 +127,55 @@ export default function BranchListView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-7 flex flex-col gap-5 custom-scrollbar">
+                {activeSessions.length > 0 && (
+                    <div className="flex flex-col gap-3 mb-2">
+                        <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 px-1">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            진행 중인 실시간 공동 작업
+                        </h3>
+                        {activeSessions.map(session => {
+                            const branchName = session.isCreating
+                                ? "새 브랜치 만들기"
+                                : (branches.find(b => b.id === session.branchId)?.title || "알 수 없는 브랜치");
+
+                            return (
+                                <div key={session.sessionKey} className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-xl shadow-sm hover:border-blue-300 transition-colors">
+                                    <div className="flex flex-col gap-1.5 min-w-0">
+                                        <span className="text-sm font-bold text-blue-900 truncate pr-2">{branchName}</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <Users size={12} className="text-blue-500" />
+                                            <span className="text-xs font-bold text-blue-700">{session.users.length}명 참여 중</span>
+                                            <div className="flex ml-2">
+                                                {session.users.slice(0, 3).map((u) => (
+                                                    <div
+                                                        key={u.userId}
+                                                        className="w-5 h-5 rounded-full border border-white flex items-center justify-center text-[8px] font-bold text-white -ml-1.5 first:ml-0"
+                                                        style={{ backgroundColor: u.color }}
+                                                        title={u.name}
+                                                    >
+                                                        {u.name.charAt(0)}
+                                                    </div>
+                                                ))}
+                                                {session.users.length > 3 && (
+                                                    <div className="w-5 h-5 rounded-full border border-white flex items-center justify-center text-[8px] font-bold text-blue-600 bg-blue-100 -ml-1.5">
+                                                        +{session.users.length - 3}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleJoinSession(session)}
+                                        className="shrink-0 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                    >
+                                        참여하기
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {isLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 py-20 text-gray-400">
                         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
