@@ -169,6 +169,7 @@ model BranchPlace {
   distanceMeters    Int?           @map("distance_meters")
   durationSeconds   Int?           @map("duration_seconds")
   routePolyline     String?        @map("route_polyline")
+  memo              String?        // 메모 필드 추가
   branch            PlanBranch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
   place             Place          @relation(fields: [placeId], references: [id], onDelete: Cascade)
   proposal          PlaceProposal? @relation(fields: [proposalId], references: [id])

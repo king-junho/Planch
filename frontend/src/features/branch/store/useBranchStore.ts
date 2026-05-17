@@ -157,6 +157,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                                     time: p.startTime || '',
                                     title: p.place.name,
                                     desc: p.place.address || '',
+                                    memo: p.memo || '',
                                     place: p.place.name,
                                     latitude: p.place.latitude,
                                     longitude: p.place.longitude,
@@ -251,6 +252,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                 estimatedCost: parseNumber(route.cost),
                 placeName: route.title || route.place,
                 address: route.desc,
+                memo: route.memo || '',
                 latitude: route.latitude,
                 longitude: route.longitude,
             }));
@@ -295,6 +297,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                 estimatedCost: parseNumber(route.cost),
                 placeName: route.title || route.place,
                 address: route.desc,
+                memo: route.memo || '',
                 latitude: route.latitude,
                 longitude: route.longitude,
             }));

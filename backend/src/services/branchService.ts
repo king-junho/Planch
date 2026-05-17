@@ -240,6 +240,7 @@ export const updateBranchService = async ({
         distanceMeters: place.distanceMeters ?? null,
         durationSeconds: place.durationSeconds ?? null,
         routePolyline: place.routePolyline ?? null,
+        memo: place.memo ?? null,
       })),
     }),
   ]);
@@ -299,6 +300,7 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
           distanceMeters: true,
           durationSeconds: true,
           routePolyline: true,
+          memo: true,
           place: {
             select: {
               id: true,
@@ -384,6 +386,7 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
         distanceMeters: branchPlace.distanceMeters,
         durationSeconds: branchPlace.durationSeconds,
         routePolyline: branchPlace.routePolyline,
+        memo: branchPlace.memo,
         place: {
           id: branchPlace.place.id,
           name: branchPlace.place.name,

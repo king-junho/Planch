@@ -17,6 +17,7 @@ export interface BranchPlaceInput {
   distanceMeters?: number;
   durationSeconds?: number;
   routePolyline?: string;
+  memo?: string;
 }
 
 export interface CreateBranchInput {
@@ -46,6 +47,7 @@ export interface BranchDetailLogInput {
     distanceMeters?: number | null;
     durationSeconds?: number | null;
     routePolyline?: string | null;
+    memo?: string | null;
     place: {
       id: number;
     };
@@ -69,6 +71,7 @@ export const toBranchLogJson = (
     distanceMeters: place.distanceMeters ?? null,
     durationSeconds: place.durationSeconds ?? null,
     routePolyline: place.routePolyline ?? null,
+    memo: place.memo ?? null,
   })),
 });
 
@@ -88,6 +91,7 @@ export const toBranchDetailLogJson = (
     distanceMeters: place.distanceMeters ?? null,
     durationSeconds: place.durationSeconds ?? null,
     routePolyline: place.routePolyline ?? null,
+    memo: place.memo ?? null,
   })),
 });
 

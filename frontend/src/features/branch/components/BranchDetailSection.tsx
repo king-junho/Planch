@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock, Wallet } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock, Wallet, AlignLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
@@ -295,7 +295,17 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                                         )}
                                     </div>
                                     <h4 className="text-sm font-bold text-gray-900 mt-2">{item.title}</h4>
-                                    <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
+
+                                    {item.desc && (
+                                        <p className="text-xs text-gray-500 mt-1 leading-relaxed break-keep">{item.desc}</p>
+                                    )}
+
+                                    {item.memo && (
+                                        <div className="mt-2.5 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-start gap-2 shadow-sm">
+                                            <AlignLeft size={14} className="text-gray-400 mt-0.5 shrink-0" />
+                                            <span className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap break-keep">{item.memo}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );

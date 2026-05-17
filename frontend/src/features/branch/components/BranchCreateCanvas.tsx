@@ -217,6 +217,7 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
             time: '12:00',
             title: name,
             desc: address || '',
+            memo: '',
             place: name,
             latitude: parseFloat(y),
             longitude: parseFloat(x),

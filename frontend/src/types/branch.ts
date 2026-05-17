@@ -5,6 +5,7 @@ export interface RouteItem {
     time: string;
     title: string;
     desc: string;
+    memo?: string;
     place?: string;
     latitude?: number;
     longitude?: number;
