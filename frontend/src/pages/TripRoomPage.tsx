@@ -458,25 +458,25 @@ export default function TripRoomPage() {
                   {
                     label: "참여 멤버",
                     value: `${tripRoomDetail.summary.memberCount}명`,
-                    hint: "현재 여행방 인원",
+                    hint: "현재 인원",
                   },
                   {
-                    label: "선호 입력 완료",
+                    label: "선호 입력",
                     value: `${tripRoomDetail.summary.submittedPreferenceCount}명`,
                     hint: `${participationRate}% 완료`,
                   },
                   {
                     label: "장소 제안",
                     value: `${tripRoomDetail.summary.proposalCount}개`,
-                    hint: "모인 후보 수",
+                    hint: "후보 수",
                   },
                   {
-                    label: "브랜치",
+                    label: "브랜치 생성",
                     value: `${tripRoomDetail.summary.branchCount}개`,
                     hint:
                       tripRoomDetail.summary.selectedBranchId === null
-                        ? "선택된 일정 없음"
-                        : `선택 브랜치 ${selectedBranchLabel}`,
+                        ? "일정 없음"
+                        : "선택 완료",
                   },
                 ].map((item) => (
                   <article

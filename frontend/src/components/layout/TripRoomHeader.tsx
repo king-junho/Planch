@@ -740,8 +740,8 @@ export default function TripRoomHeader({
                   <span className="min-w-0 text-xs text-stone-500">
                     {copyMessage ||
                       (inviteError
-                        ? "호스트 권한과 인증 상태를 확인해 주세요."
-                        : "복사 버튼으로 링크를 공유할 수 있어요.")}
+                        ? "호스트 권한과 인증을 확인해 주세요."
+                        : "복사 버튼으로 링크를 공유해 보세요.")}
                   </span>
                   <div className="flex gap-2">
                     <button
