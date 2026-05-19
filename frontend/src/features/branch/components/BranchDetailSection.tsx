@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock, Wallet, AlignLeft } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, CalendarX2, ThumbsUp, Minus, ThumbsDown, CheckCircle2, Users, Loader2, Trash2, Unlock, Wallet, AlignLeft, Timer } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
@@ -7,6 +7,7 @@ import { getTripRoomDetail, unlockTripRoom } from '../../../services/tripRoomApi
 import LoadingOverlay from '../../../components/common/LoadingOverlay';
 import { useToastStore } from '../../store/useToastStore';
 import { useConfirmStore } from '../../store/useConfirmStore';
+import { getDeadlineStatus } from '../../../utils/deadline';
 
 interface BranchDetailSectionProps {
     branch: Branch | null | undefined;
@@ -23,10 +24,20 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
     const [myUserId, setMyUserId] = useState<number | null>(null);
     const [hostUserId, setHostUserId] = useState<number | null>(null);
+    const [decisionDeadline, setDecisionDeadline] = useState<string | null>(null);
+    const [deadlineNow, setDeadlineNow] = useState(Date.now());
 
     const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => {
+            setDeadlineNow(Date.now());
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem('planch.accessToken');
@@ -53,7 +64,13 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
             try {
                 const detail = await getTripRoomDetail(numericTripRoomId);
                 if (isMounted) {
-                    setHostUserId(detail.hostUser.id);
+                    if (detail.hostUser) {
+                        setHostUserId(detail.hostUser.id);
+                    }
+
+                    if (detail.decisionDeadline) {
+                        setDecisionDeadline(detail.decisionDeadline);
+                    }
                 }
             } catch (error) {
                 console.error("여행방 호스트 조회 실패:", error);
@@ -74,6 +91,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     if (!branch) {
         return null;
     }
+
+    const deadlineStatus = getDeadlineStatus(decisionDeadline, deadlineNow);
 
     const maxDay = Math.max(tripDuration, 1);
     const minDay = 1;
@@ -102,7 +121,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const totalVotes = voteCounts.agree + voteCounts.hold + voteCounts.disagree;
 
     const isEditDisabled = branch.status === 'confirmed' || isLocked;
-    const isVoteDisabled = isLoading || isDeleting || isEditDisabled;
+
+    const isVoteDisabled = isLoading || isDeleting || isEditDisabled || deadlineStatus.passed;
 
     const handleEdit = () => {
         navigate(`/trip-rooms/${tripRoomId}/branch/edit`, {
@@ -357,6 +377,15 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                             <h4 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
                                 <Users size={16} className="text-blue-500" /> 투표 현황 <span className="text-gray-400 font-normal">({totalVotes}명 참여)</span>
                             </h4>
+
+                            {decisionDeadline && deadlineStatus.hasDeadline && !isLocked && (
+                                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border shadow-sm ${deadlineStatus.passed ? 'bg-red-50 text-red-600 border-red-100' : 'bg-orange-50 text-orange-600 border-orange-100 animate-pulse'}`}>
+                                    <Timer size={14} />
+                                    <span className="text-[11px] font-bold tracking-wide">
+                                        {deadlineStatus.passed ? '마감됨' : `마감까지 ${deadlineStatus.countdownText}`}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="w-full h-2 flex rounded-full overflow-hidden mb-3 bg-gray-100">
