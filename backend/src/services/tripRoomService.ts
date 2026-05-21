@@ -145,6 +145,18 @@ export const updateTripRoomDeadlineService = async(
     tripRoom.startDate,
   );
 
+  const previousDeadlineTime = tripRoom.decisionDeadline?.getTime() ?? null;
+  const nextDeadlineTime = parsedDecisionDeadline?.getTime() ?? null;
+  
+  if (previousDeadlineTime === nextDeadlineTime) {
+    return {
+      tripRoomId: tripRoom.id,
+      decisionDeadline: tripRoom.decisionDeadline,
+      updatedAt: new Date(),
+      saved: true as const,
+    };
+  }
+
   const updated = await prisma.tripRoom.update({
     where: {id: tripRoomId},
     data: {

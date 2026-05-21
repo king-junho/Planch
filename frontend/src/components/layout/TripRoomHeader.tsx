@@ -52,6 +52,13 @@ type BranchListItem = {
   name: string;
 };
 
+function voteTypeLabel(value: string | null) {
+  if (value === "agree") return "찬성";
+  if (value === "hold") return "보류";
+  if (value === "disagree") return "반대";
+  return "의견";
+}
+
 function statusLabel(status: TripRoomStatus) {
   if (status === "locked") return "확정";
   return "진행중";
@@ -173,7 +180,7 @@ function toActivityLogItem(
     case "room_created":
       return {
         id: log.logId,
-        actor: log.actor.name,
+        actor: actorName,
         action: "여행방 생성",
         detail: "새 여행방을 만들었어요.",
         timeAgo,
@@ -182,7 +189,7 @@ function toActivityLogItem(
     case "place_proposed":
       return {
         id: log.logId,
-        actor: log.actor.name,
+        actor: actorName,
         action: "장소 제안 추가",
         detail: placeName
           ? `${placeName}을 후보 장소로 제안했어요.`
@@ -202,7 +209,7 @@ function toActivityLogItem(
     case "branch_create":
       return {
         id: log.logId,
-        actor: log.actor.name,
+        actor: actorName,
         action: "브랜치 생성",
         detail: afterName
           ? `${afterName} 브랜치를 만들었어요.`
@@ -271,9 +278,9 @@ function toActivityLogItem(
         action: "브랜치 투표",
         detail:
           beforeVoteType && afterVoteType && beforeVoteType !== afterVoteType
-          ? `${beforeVoteType}에서 ${afterVoteType}로 투표를 변경했어요.`
+          ? `${voteTypeLabel(beforeVoteType)}에서 ${voteTypeLabel(afterVoteType)}로 투표를 변경했어요.`
           : afterVoteType
-          ? `${afterVoteType}로 투표했어요.`
+          ? `${voteTypeLabel(afterVoteType)}로 투표했어요.`
           : "브랜치 투표를 했어요.",
           timeAgo,
           tone: "blue",
@@ -298,7 +305,7 @@ function toActivityLogItem(
             ? `${beforeTitle}에서 ${afterTitle}로 여행방 정보를 수정했어요.`
             : "여행지 또는 여행 일정을 수정했어요.",
         timeAgo,
-        tone: "emerald",
+        tone: "amber",
       };
 
     case "trip_room_image_updated":
@@ -313,11 +320,41 @@ function toActivityLogItem(
         timeAgo,
         tone: "emerald",
       };
+
+    case "decision_deadline_set":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "결정 마감기한 설정",
+        detail: "결정 마감기한을 설정했어요.",
+        timeAgo,
+        tone: "amber",
+      };
+
+    case "decision_deadline_updated":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "결정 마감기한 수정",
+        detail: "결정 마감기한을 변경했어요.",
+        timeAgo,
+        tone: "amber",
+      };
+
+    case "decision_deadline_cleared":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "결정 마감기한 해제",
+        detail: "결정 마감기한을 해제했어요.",
+        timeAgo,
+        tone: "amber",
+      };
       
     default:
       return {
         id: log.logId,
-        actor: log.actor.name,
+        actor: actorName,
         action: "활동 기록",
         detail: `${log.targetType} 항목이 변경되었어요.`,
         timeAgo,
