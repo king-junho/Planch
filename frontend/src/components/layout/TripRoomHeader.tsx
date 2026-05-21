@@ -161,6 +161,13 @@ function toActivityLogItem(
     readLogDataValue(log.beforeData, "selectedBranchId");
   const selectedBranchName = readBranchName(selectedBranchId, branchNameById);
   const timeAgo = formatRelativeTime(log.createdAt);
+  const actorName = log.actor?.name ?? "알 수 없는 사용자";
+  const beforeVoteType = readLogDataValue(log.beforeData, "voteType");
+  const afterVoteType = readLogDataValue(log.afterData, "voteType");
+  const beforeTitle = readLogDataValue(log.beforeData, "title");
+  const afterTitle = readLogDataValue(log.afterData, "title");
+  const beforeThumbnail = readLogDataValue(log.beforeData, "thumbnailUrl");
+  const afterThumbnail = readLogDataValue(log.afterData, "thumbnailUrl");
 
   switch (log.actionType) {
     case "room_created":
@@ -257,6 +264,56 @@ function toActivityLogItem(
         timeAgo,
         tone: "amber",
       };
+    case "branch_vote_saved":
+      return{
+        id: log.logId,
+        actor:actorName,
+        action: "브랜치 투표",
+        detail:
+          beforeVoteType && afterVoteType && beforeVoteType !== afterVoteType
+          ? `${beforeVoteType}에서 ${afterVoteType}로 투표를 변경했어요.`
+          : afterVoteType
+          ? `${afterVoteType}로 투표했어요.`
+          : "브랜치 투표를 했어요.",
+          timeAgo,
+          tone: "blue",
+        };
+    case "member_preference_saved":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "선호 입력 저장",
+        detail: "여행 선호 정보를 입력하거나 수정했어요.",
+        timeAgo,
+        tone: "blue",
+      };
+
+    case "trip_room_info_updated":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "여행방 정보 수정",
+        detail:
+          beforeTitle && afterTitle && beforeTitle !== afterTitle
+            ? `${beforeTitle}에서 ${afterTitle}로 여행방 정보를 수정했어요.`
+            : "여행지 또는 여행 일정을 수정했어요.",
+        timeAgo,
+        tone: "emerald",
+      };
+
+    case "trip_room_image_updated":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "대표 이미지 변경",
+        detail:
+          !beforeThumbnail && afterThumbnail
+            ? "여행방 대표 이미지를 등록했어요."
+            : "여행방 대표 이미지를 변경했어요.",
+        timeAgo,
+        tone: "emerald",
+      };
+      
     default:
       return {
         id: log.logId,

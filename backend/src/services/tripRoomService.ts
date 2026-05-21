@@ -33,6 +33,44 @@ interface SaveMyPreferenceInput{
   freeTextNote?: string;
 }
 
+function isSameStringArray(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
+function hasPreferenceChanged(
+  previousPreference: {
+    budgetMin: number | null;
+    budgetMax: number | null;
+    availableTime: string[];
+    freeTextNote: string | null;
+    mustVisit: string[];
+    styles: string[];
+    avoid: string[];
+  } | null,
+  savedPreference: {
+    budgetMin: number | null;
+    budgetMax: number | null;
+    availableTime: string[];
+    freeTextNote: string | null;
+    mustVisit: string[];
+    styles: string[];
+    avoid: string[];
+  }
+) {
+  if (!previousPreference) return true;
+
+  return (
+    previousPreference.budgetMin !== savedPreference.budgetMin ||
+    previousPreference.budgetMax !== savedPreference.budgetMax ||
+    previousPreference.freeTextNote !== savedPreference.freeTextNote ||
+    !isSameStringArray(previousPreference.availableTime, savedPreference.availableTime) ||
+    !isSameStringArray(previousPreference.mustVisit, savedPreference.mustVisit) ||
+    !isSameStringArray(previousPreference.styles, savedPreference.styles) ||
+    !isSameStringArray(previousPreference.avoid, savedPreference.avoid)
+  );
+}
+
 function parseOptionalDate(value: string | null | undefined, fieldName: "startDate" | "endDate") {
   if (value === undefined) {
     return undefined;
@@ -121,7 +159,14 @@ export const updateTripRoomDeadlineService = async(
 
   type DecisionLogActionValue = (typeof DECISION_LOG_ACTION)[keyof typeof DECISION_LOG_ACTION];
 
-  let actionType : DecisionLogActionValue = DECISION_LOG_ACTION.DECISION_DEADLINE_UPDATED;
+  let actionType: DecisionLogActionValue =
+  DECISION_LOG_ACTION.DECISION_DEADLINE_UPDATED;
+  
+  if (!tripRoom.decisionDeadline && updated.decisionDeadline) {
+    actionType = DECISION_LOG_ACTION.DECISION_DEADLINE_SET;
+  } else if (tripRoom.decisionDeadline && !updated.decisionDeadline) {
+    actionType = DECISION_LOG_ACTION.DECISION_DEADLINE_CLEARED;
+  }
 
   await prisma.decisionLog.create({
     data:{
@@ -220,6 +265,7 @@ export const updateTripRoomService = async ({
       id: true,
       hostUserId: true,
       status: true,
+      title: true,
       startDate: true,
       endDate: true,
       decisionDeadline: true,
@@ -271,6 +317,37 @@ export const updateTripRoomService = async ({
       updatedAt: true,
     },
   });
+
+  const hasTripInfoChanged =
+  tripRoom.title !== updatedTripRoom.title ||
+  (tripRoom.startDate?.getTime() ?? null) !==
+    (updatedTripRoom.startDate?.getTime() ?? null) ||
+  (tripRoom.endDate?.getTime() ?? null) !==
+    (updatedTripRoom.endDate?.getTime() ?? null);
+
+
+  if(hasTripInfoChanged){
+      await prisma.decisionLog.create({
+    data: {
+      tripRoomId,
+      userId,
+      actionType: DECISION_LOG_ACTION.TRIP_ROOM_INFO_UPDATED,
+      targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+      targetId: tripRoomId,
+      beforeData: {
+        title: tripRoom.title,
+        startDate: tripRoom.startDate,
+        endDate: tripRoom.endDate,
+      },
+      afterData: {
+        title: updatedTripRoom.title,
+        startDate: updatedTripRoom.startDate,
+        endDate: updatedTripRoom.endDate,
+      },
+    },
+  });
+  }
+
 
   return {
     tripRoomId: updatedTripRoom.id,
@@ -647,6 +724,24 @@ export const saveMyPreferenceService = async({
   if(tripRoom.status === "locked"){
     throw new Error("Trip room is locked");
   }
+
+  const previousPreference = await prisma.memberPreference.findUnique({
+    where:{
+      tripRoomId_userId: {
+        tripRoomId,
+        userId,
+      },
+    },
+    select:{
+      budgetMin:true,
+      budgetMax:true,
+      styles:true,
+      mustVisit:true,
+      avoid:true,
+      availableTime:true,
+      freeTextNote:true,
+    },
+  });
   
   const savedPreference = await prisma.memberPreference.upsert({
     where:{
@@ -689,6 +784,44 @@ export const saveMyPreferenceService = async({
       updatedAt:true,
     },
   });
+
+  const changed = hasPreferenceChanged(previousPreference, savedPreference);
+
+  if(changed){
+    await prisma.decisionLog.create({
+    data: {
+      tripRoomId,
+      userId,
+      actionType: DECISION_LOG_ACTION.MEMBER_PREFERENCE_SAVED,
+      targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+      targetId: tripRoomId,
+      ...(previousPreference
+        ?{
+          beforeData : {
+            budgetMin: previousPreference.budgetMin,
+            budgetMax: previousPreference.budgetMax,
+            availableTime: previousPreference.availableTime,
+            freeTextNote: previousPreference.freeTextNote,
+            mustVisit: previousPreference.mustVisit,
+            styles: previousPreference.styles,
+            avoid: previousPreference.avoid,
+          },
+        }
+        : {}),
+        afterData: {
+          budgetMin: savedPreference.budgetMin,
+          budgetMax: savedPreference.budgetMax,
+          availableTime: savedPreference.availableTime,
+          freeTextNote: savedPreference.freeTextNote,
+          mustVisit: savedPreference.mustVisit,
+          styles: savedPreference.styles,
+          avoid: savedPreference.avoid,
+        },
+    },
+  });
+  }
+  
+
   return {
     ...savedPreference,
     saved : true as const
@@ -902,7 +1035,7 @@ export const updateTripRoomImageService = async(
 
   const thumbnailUrl = `/uploads/${fileName}`;
 
-  const updated = await prisma.tripRoom.update({
+  const updatedTripRoom = await prisma.tripRoom.update({
     where:{id: tripRoomId},
     data:{
       thumbnailUrl,
@@ -915,11 +1048,28 @@ export const updateTripRoomImageService = async(
     },
   });
   
+  await prisma.decisionLog.create({
+    data: {
+      tripRoomId,
+      userId,
+      actionType: DECISION_LOG_ACTION.TRIP_ROOM_IMAGE_UPDATED,
+      targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+      targetId: tripRoomId,
+      beforeData: {
+        thumbnailUrl: tripRoom.thumbnailUrl,
+      },
+      afterData: {
+        thumbnailUrl: updatedTripRoom.thumbnailUrl,
+      },
+    },
+  });
+
+  
   return{
-    tripRoomId: updated.id,
-    title : updated.title,
-    thumbnailUrl: updated.thumbnailUrl,
-    updatedAt: updated.updatedAt,
+    tripRoomId: updatedTripRoom.id,
+    title : updatedTripRoom.title,
+    thumbnailUrl: updatedTripRoom.thumbnailUrl,
+    updatedAt: updatedTripRoom.updatedAt,
     saved: true as const,
   };
 };

@@ -118,7 +118,11 @@ export type DecisionLogActionType =
   | "trip_room_unlock"
   | "decision_deadline_set"
   | "decision_deadline_updated"
-  | "decision_deadline_cleared";
+  | "decision_deadline_cleared"
+  | "branch_vote_saved"
+  | "member_preference_saved"
+  | "trip_room_info_updated"
+  | "trip_room_image_updated";
 
 export type DecisionLogTargetType = "trip_room" | "proposal" | "branch";
 

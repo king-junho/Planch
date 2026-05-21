@@ -14,6 +14,7 @@ import {
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
 import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
+import { Prisma } from "../generated/prisma/browser";
 
 export const deleteBranchService = async (branchId: number, userId: number) => {
   const branch = await prisma.planBranch.findUnique({
@@ -463,6 +464,18 @@ export const saveBranchVoteService = async (
     };
   }
 
+  const previousVote = await prisma.branchVote.findUnique({
+    where:{
+      branchId_userId:{
+        branchId,
+        userId,
+      },
+    },
+    select:{
+      voteType: true,
+    },
+  });
+
   const vote = await prisma.branchVote.upsert({
     where: {
       branchId_userId: {
@@ -484,6 +497,31 @@ export const saveBranchVoteService = async (
       voteType: true,
     },
   });
+
+  const hasVoteChanged = previousVote?.voteType !== voteType;
+
+  if(hasVoteChanged){
+      await prisma.decisionLog.create({
+    data: {
+      tripRoomId: branch.tripRoomId,
+      userId,
+      actionType: DECISION_LOG_ACTION.BRANCH_VOTE_SAVED,
+      targetType: DECISION_LOG_TARGET.BRANCH,
+      targetId: branchId,
+      ...(previousVote
+        ?{
+          beforeData : {
+            voteType: previousVote.voteType,
+          },
+        }
+        : {}),
+        afterData: {
+          voteType : vote.voteType,
+        },
+    },
+  });
+  }
+
 
   return {
     found: true as const,

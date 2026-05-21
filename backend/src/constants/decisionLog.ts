@@ -11,6 +11,10 @@ export const DECISION_LOG_ACTION = {
   DECISION_DEADLINE_SET : "decision_deadline_set",
   DECISION_DEADLINE_UPDATED : "decision_deadline_updated",
   DECISION_DEADLINE_CLEARED: "decision_deadline_cleared",
+  BRANCH_VOTE_SAVED : "branch_vote_saved",
+  MEMBER_PREFERENCE_SAVED : "member_preference_saved",
+  TRIP_ROOM_INFO_UPDATED : "trip_room_info_updated",
+  TRIP_ROOM_IMAGE_UPDATED : "trip_room_image_updated",
 } as const;
 
 export const DECISION_LOG_TARGET = {
