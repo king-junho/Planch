@@ -8,6 +8,7 @@ import LoadingOverlay from '../../../components/common/LoadingOverlay';
 import { useToastStore } from '../../store/useToastStore';
 import { useConfirmStore } from '../../store/useConfirmStore';
 import { getDeadlineStatus } from '../../../utils/deadline';
+import { io, Socket } from 'socket.io-client';
 
 interface BranchDetailSectionProps {
     branch: Branch | null | undefined;
@@ -26,6 +27,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const [hostUserId, setHostUserId] = useState<number | null>(null);
     const [decisionDeadline, setDecisionDeadline] = useState<string | null>(null);
     const [deadlineNow, setDeadlineNow] = useState(Date.now());
+    const [socket, setSocket] = useState<Socket | null>(null);
 
     const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -38,6 +40,28 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
         return () => window.clearInterval(timer);
     }, []);
+
+    useEffect(() => {
+        const token = localStorage.getItem('planch.accessToken');
+        if (!tripRoomId || !token) return;
+
+        const socketUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:4000';
+        const newSocket = io(socketUrl, {
+            auth: { token },
+            transports: ['websocket']
+        });
+
+        newSocket.on('connect', () => {
+            newSocket.emit('collab:join', { tripRoomId: Number(tripRoomId) });
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+            newSocket.emit('collab:leave', { tripRoomId: Number(tripRoomId) });
+            newSocket.disconnect();
+        };
+    }, [tripRoomId]);
 
     useEffect(() => {
         const token = localStorage.getItem('planch.accessToken');
@@ -140,6 +164,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
             setIsDeleting(false);
 
             if (success) {
+                socket?.emit('collab:sync_action', { type: 'REFRESH_BRANCH_LIST' });
                 showToast('success', '브랜치가 삭제되었습니다.');
                 setTimeout(() => onBack(), 1000);
             }
@@ -156,6 +181,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 await unlockTripRoom(Number(tripRoomId));
                 showToast('success', '일정 확정이 해제되었습니다.');
                 await fetchBranches(Number(tripRoomId));
+                socket?.emit('collab:sync_action', { type: 'REFRESH_BRANCH_LIST' });
                 window.dispatchEvent(new CustomEvent("trip-room-unlocked"));
                 onBack();
             } catch (error) {
@@ -171,6 +197,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         if (!tripRoomId || isVoteDisabled) return;
         const success = await voteBranch(Number(tripRoomId), branch.id, type);
         if (success) {
+            socket?.emit('collab:sync_action', { type: 'REFRESH_BRANCH_LIST' });
             showToast('success', '투표가 반영되었습니다.');
         }
     };
@@ -182,6 +209,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         if (isConfirmed) {
             const success = await finalizeBranch(Number(tripRoomId), branch.id);
             if (success) {
+                socket?.emit('collab:sync_action', { type: 'REFRESH_BRANCH_LIST' });
                 showToast('success', '최종 일정으로 확정되었습니다.');
                 setTimeout(() => window.location.reload(), 1500);
             }

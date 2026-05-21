@@ -8,44 +8,45 @@ import {
 } from "../services/tripRoomBranchService";
 
 export const createBranch = async (req: AuthenticatedRequest, res: Response) => {
-  try{
+  try {
     const tripRoomId = Number(req.params.tripRoomId);
     const userId = req.user?.id;
-    const {name, places} = req.body;
+    const { name, description, places } = req.body;
 
-    if(Number.isNaN(tripRoomId)){
-      return res.status(400).json({message:"유효하지 않은 tripRoomId입니다."});
+    if (Number.isNaN(tripRoomId)) {
+      return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
     }
 
-    if(!userId){
-      return res.status(401).json({message:"인증이 필요합니다."});
+    if (!userId) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
     const result = await createBranchService({
       tripRoomId,
       userId,
       name,
+      description,
       places,
     });
 
     return res.status(201).json(result);
-  }catch(error){
-    if (error instanceof Error && error.message ==="Trip room not found"){
-      return res.status(404).json({message:"여행방을 찾을 수 없습니다."});
+  } catch (error) {
+    if (error instanceof Error && error.message === "Trip room not found") {
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
     }
-    if (error instanceof Error && error.message ==="Forbidden"){
-      return res.status(403).json({message:"해당 여행방 참여자만 브랜치를 생성할 수 있습니다."});
+    if (error instanceof Error && error.message === "Forbidden") {
+      return res.status(403).json({ message: "해당 여행방 참여자만 브랜치를 생성할 수 있습니다." });
     }
-    if (error instanceof Error && error.message === "Trip room is locked"){
-      return res.status(409).json({message:"여행방이 확정되어 브랜치 생성할 수 없습니다."});
+    if (error instanceof Error && error.message === "Trip room is locked") {
+      return res.status(409).json({ message: "여행방이 확정되어 브랜치 생성할 수 없습니다." });
     }
 
-    if (error instanceof Error && error.message === "Places are required"){
-      return res.status(400).json({message:"places는 1개 이상이어야 합니다."});
+    if (error instanceof Error && error.message === "Places are required") {
+      return res.status(400).json({ message: "places는 1개 이상이어야 합니다." });
     }
 
     console.error("createBranch error:", error);
-    return res.status(500).json({message:"브랜치 생성 실패"});
+    return res.status(500).json({ message: "브랜치 생성 실패" });
   }
 };
 
@@ -64,11 +65,11 @@ export const getBranchList = async (req: AuthenticatedRequest, res: Response) =>
 
     const result = await getBranchListService(tripRoomId, userId);
 
-    if (!result.found){
+    if (!result.found) {
       return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
     }
 
-    if(!result.authorized){
+    if (!result.authorized) {
       return res.status(403).json({ message: "해당 여행방 참여자만 브랜치 목록을 조회할 수 있습니다." });
     }
 

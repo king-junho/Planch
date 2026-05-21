@@ -56,6 +56,7 @@ export const createBranchService = async ({
   tripRoomId,
   userId,
   name,
+  description,
   places,
 }: CreateBranchInput) => {
   const tripRoom = await prisma.tripRoom.findUnique({
@@ -151,6 +152,7 @@ export const createBranchService = async ({
     data: {
       tripRoomId,
       name: name.trim(),
+      aiReason: description?.trim() || null,
       createdBy: "user",
       createdUserId: userId,
       totalCost,

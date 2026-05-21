@@ -106,6 +106,7 @@ export const updateBranchService = async ({
   branchId,
   userId,
   name,
+  description,
   places,
 }: UpdateBranchInput) => {
   const branch = await prisma.planBranch.findUnique({
@@ -221,6 +222,7 @@ export const updateBranchService = async ({
       where: { id: branchId },
       data: {
         name: name.trim(),
+        aiReason: description?.trim() || null,
         totalCost,
         totalTravelTime,
         preferenceScore,

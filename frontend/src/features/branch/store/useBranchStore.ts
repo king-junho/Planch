@@ -37,8 +37,8 @@ interface BranchState {
     resetDraft: () => void;
 
     fetchBranches: (tripRoomId: number) => Promise<void>;
-    createBranch: (tripRoomId: number, title: string) => Promise<boolean>;
-    updateBranch: (branchId: number, tripRoomId: number, title: string) => Promise<boolean>;
+    createBranch: (tripRoomId: number, title: string, description: string) => Promise<boolean>;
+    updateBranch: (branchId: number, tripRoomId: number, title: string, description: string) => Promise<boolean>;
     voteBranch: (tripRoomId: number, branchId: number, voteType: 'agree' | 'hold' | 'disagree') => Promise<boolean>;
     finalizeBranch: (tripRoomId: number, branchId: number) => Promise<boolean>;
     deleteBranch: (tripRoomId: number, branchId: number) => Promise<boolean>;
@@ -236,7 +236,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         }
     },
 
-    createBranch: async (tripRoomId, title) => {
+    createBranch: async (tripRoomId, title, description) => {
         if (get().isLoading) return false;
 
         const { draftRoutes } = get();
@@ -267,6 +267,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         try {
             await api.post(`/trip-rooms/${tripRoomId}/branches`, {
                 name: title,
+                description: description,
                 places: formattedPlaces
             });
 
@@ -281,7 +282,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         }
     },
 
-    updateBranch: async (branchId, tripRoomId, title) => {
+    updateBranch: async (branchId, tripRoomId, title, description) => {
         if (get().isLoading) return false;
 
         const { draftRoutes } = get();
@@ -312,6 +313,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         try {
             await api.put(`/branches/${branchId}`, {
                 name: title,
+                description: description,
                 places: formattedPlaces
             });
 

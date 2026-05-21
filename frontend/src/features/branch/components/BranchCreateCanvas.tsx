@@ -28,6 +28,7 @@ interface OmitCursorData {
 export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateCanvasProps) {
     const { tripRoomId } = useParams<{ tripRoomId: string }>();
     const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
 
@@ -131,6 +132,9 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                 case 'UPDATE_TITLE':
                     setTitle(action.title);
                     break;
+                case 'UPDATE_DESCRIPTION':
+                    setDescription(action.description);
+                    break;
                 case 'SAVE_STARTED':
                     setIsPartnerSaving(true);
                     break;
@@ -194,12 +198,14 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
     useEffect(() => {
         if (editBranch) {
             setTitle(editBranch.title || editBranch.name || '');
+            setDescription(editBranch.description && editBranch.description !== "팀원이 구성한 일정입니다." ? editBranch.description : '');
             setCurrentDraftDay(1);
             if (editBranch?.routes) {
                 setDraftRoutes(editBranch.routes);
             }
         } else {
             setTitle('');
+            setDescription('');
             resetDraft();
             setSelectedBranch(null);
         }
@@ -245,14 +251,15 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
         let success = false;
 
         if (editBranch) {
-            success = await updateBranch(editBranch.id, Number(tripRoomId), title);
+            success = await updateBranch(editBranch.id, Number(tripRoomId), title, description);
         } else {
-            success = await createBranch(Number(tripRoomId), title);
+            success = await createBranch(Number(tripRoomId), title, description);
         }
 
         if (success) {
             showToast('success', editBranch ? '브랜치가 수정되었습니다.' : '새 브랜치가 생성되었습니다.');
             socket?.emit('collab:sync_action', { type: 'SAVE_COMPLETED' });
+            socket?.emit('collab:sync_action', { type: 'REFRESH_BRANCH_LIST' });
             onBack();
         } else {
             setIsSaving(false);
@@ -309,6 +316,13 @@ export default function BranchCreateCanvas({ onBack, editBranch }: BranchCreateC
                         if (typeof newTitle === 'string') {
                             setTitle(newTitle);
                             socket?.emit('collab:sync_action', { type: 'UPDATE_TITLE', title: newTitle });
+                        }
+                    }}
+                    description={description}
+                    setDescription={(newDesc) => {
+                        if (typeof newDesc === 'string') {
+                            setDescription(newDesc);
+                            socket?.emit('collab:sync_action', { type: 'UPDATE_DESCRIPTION', description: newDesc });
                         }
                     }}
                     onSave={handleSave}
