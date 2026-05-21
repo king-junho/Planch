@@ -427,6 +427,77 @@ export const deleteTripRoomService = async (
   };
 };
 
+export const leaveTripRoomService = async (
+  tripRoomId: number,
+  userId: number,
+) => {
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where: { id: tripRoomId },
+    select: {
+      id: true,
+      hostUserId: true,
+    },
+  });
+
+  if (!tripRoom) {
+    throw new Error("Trip room not found");
+  }
+
+  const membership = await prisma.tripMember.findUnique({
+    where: {
+      tripRoomId_userId: {
+        tripRoomId,
+        userId,
+      },
+    },
+    select: {
+      id: true,
+      role: true,
+    },
+  });
+
+  if (!membership) {
+    throw new Error("Forbidden");
+  }
+
+  if (membership.role === "host" || tripRoom.hostUserId === userId) {
+    throw new Error("Host cannot leave");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tripMember.delete({
+      where: {
+        tripRoomId_userId: {
+          tripRoomId,
+          userId,
+        },
+      },
+    });
+
+    await tx.decisionLog.create({
+      data: {
+        tripRoomId,
+        userId,
+        actionType: DECISION_LOG_ACTION.MEMBER_LEAVE,
+        targetType: DECISION_LOG_TARGET.TRIP_ROOM,
+        targetId: tripRoomId,
+        beforeData: {
+          memberUserId: userId,
+          role: membership.role,
+        },
+        afterData: {
+          left: true,
+        },
+      },
+    });
+  });
+
+  return {
+    tripRoomId,
+    left: true as const,
+  };
+};
+
 export const unlockTripRoomService = async (tripRoomId : number, userId: number)=>{
   const tripRoom = await prisma.tripRoom.findUnique({
     where:{id: tripRoomId},
