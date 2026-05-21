@@ -7,27 +7,27 @@ import {
   updateBranchService,
 } from "../services/branchService";
 
-export const deleteBranch = async(req: AuthenticatedRequest, res: Response) => {
-  try{
+export const deleteBranch = async (req: AuthenticatedRequest, res: Response) => {
+  try {
     const branchId = Number(req.params.branchId);
     const userId = req.user?.id;
 
-    if(Number.isNaN(branchId) || branchId <= 0){
+    if (Number.isNaN(branchId) || branchId <= 0) {
       return res.status(400).json({ message: "유효하지 않은 branchId입니다." });
     }
 
-    if(!userId){
+    if (!userId) {
       return res.status(401).json({ message: "인증이 필요합니다." });
     }
 
     const result = await deleteBranchService(branchId, userId);
     return res.status(200).json(result);
-  }catch(error){
+  } catch (error) {
     if (error instanceof Error && error.message === "Branch not found") {
       return res.status(404).json({ message: "브랜치를 찾을 수 없습니다." });
     }
 
-    if(error instanceof Error && error.message === "Forbidden"){
+    if (error instanceof Error && error.message === "Forbidden") {
       return res.status(403).json({ message: "해당 여행방 참여자만 브랜치를 삭제할 수 있습니다." });
     }
 
@@ -47,7 +47,7 @@ export const deleteBranch = async(req: AuthenticatedRequest, res: Response) => {
       return res.status(409).json({ message: "최종 선택된 브랜치는 삭제할 수 없습니다." });
     }
 
-    console.error("deleteBranch error:", error); 
+    console.error("deleteBranch error:", error);
     return res.status(500).json({ message: "브랜치 삭제 실패" });
   }
 };
@@ -56,7 +56,7 @@ export const updateBranch = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const branchId = Number(req.params.branchId);
     const userId = req.user?.id;
-    const { name, places } = req.body;
+    const { name, description, places } = req.body;
 
     if (Number.isNaN(branchId)) {
       return res.status(400).json({ message: "유효하지 않은 branchId입니다." });
@@ -70,6 +70,7 @@ export const updateBranch = async (req: AuthenticatedRequest, res: Response) => 
       branchId,
       userId,
       name,
+      description,
       places,
     });
 

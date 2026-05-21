@@ -34,6 +34,7 @@ interface ProposalState {
     setSearchResults: (results: KakaoSearchResult[]) => void;
     setSelectedPlace: (place: KakaoSearchResult | null) => void;
     setFocusedProposal: (proposal: ProposalResponse | null) => void;
+    resetSearchState: () => void;
 
     fetchProposals: (tripRoomId: number) => Promise<void>;
     addProposal: (tripRoomId: number, payload: ProposalPayload) => Promise<boolean>;
@@ -53,6 +54,8 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
     setSearchResults: (results) => set({ searchResults: results }),
     setSelectedPlace: (place) => set({ selectedPlace: place }),
     setFocusedProposal: (proposal) => set({ focusedProposal: proposal }),
+
+    resetSearchState: () => set({ keyword: '', searchResults: [], selectedPlace: null }),
 
     fetchProposals: async (tripRoomId) => {
         set({ isLoading: true });

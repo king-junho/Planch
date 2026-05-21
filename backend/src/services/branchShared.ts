@@ -24,6 +24,7 @@ export interface CreateBranchInput {
   tripRoomId: number;
   userId: number;
   name: string;
+  description?: string;
   places: BranchPlaceInput[];
 }
 
@@ -31,6 +32,7 @@ export interface UpdateBranchInput {
   branchId: number;
   userId: number;
   name: string;
+  description?: string;
   places: BranchPlaceInput[];
 }
 
@@ -213,14 +215,34 @@ export const calculatePreferenceScore = (
     if (pref.budgetMax) maxBudgets.push(pref.budgetMax);
   });
 
+  const styleKeywordMap: Record<string, string[]> = {
+    "맛집": ["음식점", "식당", "맛집", "식사", "음식", "요리"],
+    "카페": ["카페", "커피", "디저트", "베이커리", "다방"],
+    "관광": ["관광", "명소", "유적지", "문화", "박물관", "미술관", "전시"],
+    "휴식": ["휴식", "공원", "마사지", "스파", "자연", "힐링", "테라피"],
+    "사진스팟": ["사진", "스팟", "전망대", "랜드마크", "스튜디오", "풍경"],
+    "쇼핑": ["쇼핑", "시장", "백화점", "마트", "아울렛", "면세점", "상점"],
+    "액티비티": ["액티비티", "스포츠", "레저", "체험", "놀이공원", "테마파크", "수상"]
+  };
+
   places.forEach((p) => {
     totalCost += p.estimatedCost || 0;
     const name = p.placeName || p.name || "";
     const cat = p.category || "";
 
-    if (allAvoids.some((a) => name.includes(a))) score -= 15;
-    if (allMustGos.some((m) => name.includes(m))) score += 10;
-    if (allStyles.some((s) => cat.includes(s) || name.includes(s))) score += 5;
+    const combinedText = `${name} ${cat}`.toLowerCase();
+
+    if (allAvoids.some((a) => combinedText.includes(a.toLowerCase()))) score -= 15;
+    if (allMustGos.some((m) => combinedText.includes(m.toLowerCase()))) score += 10;
+
+    if (allStyles.length > 0) {
+      const hasMatchingStyle = allStyles.some((style) => {
+        const keywords = styleKeywordMap[style] || [style];
+        return keywords.some(keyword => combinedText.includes(keyword.toLowerCase()));
+      });
+
+      if (hasMatchingStyle) score += 5;
+    }
   });
 
   if (maxBudgets.length > 0) {
