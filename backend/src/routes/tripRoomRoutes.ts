@@ -5,6 +5,7 @@ import {
     createTripRoom,
     deleteTripRoom,
     updateTripRoom,
+    leaveTripRoom,
     finalizeTripRoom,
     saveMyPreference,
     getPreferenceList,
@@ -26,6 +27,7 @@ router.post("/",authenticate, createTripRoom);
 router.get("/:tripRoomId", authenticate,getTripRoomDetail);
 router.put("/:tripRoomId", authenticate, updateTripRoom);
 router.delete("/:tripRoomId", authenticate, deleteTripRoom);
+router.post("/:tripRoomId/leave", authenticate, leaveTripRoom);
 
 router.put("/:tripRoomId/preferences/me",authenticate ,saveMyPreference);
 router.get("/:tripRoomId/preferences",authenticate ,getPreferenceList);

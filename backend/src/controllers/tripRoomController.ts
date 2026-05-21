@@ -12,6 +12,7 @@ import {
   getDecisionService,
   updateTripRoomImageService,
   updateTripRoomDeadlineService,
+  leaveTripRoomService,
 } from "../services/tripRoomService";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
@@ -138,6 +139,40 @@ export const deleteTripRoom = async (req: AuthenticatedRequest, res: Response) =
 
     console.error("deleteTripRoom error:", error);
     return res.status(500).json({ message: "여행방 삭제 실패" });
+  }
+};
+
+export const leaveTripRoom = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tripRoomId = Number(req.params.tripRoomId);
+    const userId = req.user?.id;
+
+    if (Number.isNaN(tripRoomId)) {
+      return res.status(400).json({ message: "유효하지 않은 tripRoomId입니다." });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ message: "인증이 필요합니다." });
+    }
+
+    const result = await leaveTripRoomService(tripRoomId, userId);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Trip room not found") {
+      return res.status(404).json({ message: "여행방을 찾을 수 없습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Forbidden") {
+      return res.status(403).json({ message: "해당 여행방 참여자만 나갈 수 있습니다." });
+    }
+
+    if (error instanceof Error && error.message === "Host cannot leave") {
+      return res.status(403).json({ message: "호스트는 여행방 나가기를 할 수 없습니다." });
+    }
+
+    console.error("leaveTripRoom error:", error);
+    return res.status(500).json({ message: "여행방 나가기 실패" });
   }
 };
 

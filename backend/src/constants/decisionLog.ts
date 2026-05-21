@@ -6,6 +6,7 @@ export const DECISION_LOG_ACTION = {
   BRANCH_UPDATE: "branch_update",
   BRANCH_DELETE: "branch_delete",
   PROPOSAL_DELETE: "proposal_delete",
+  MEMBER_LEAVE: "member_leave",
   TRIP_ROOM_FINALIZE: "trip_room_finalize",
   TRIP_ROOM_UNLOCK: "trip_room_unlock",
   DECISION_DEADLINE_SET : "decision_deadline_set",
