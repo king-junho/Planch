@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, X, Sparkles } from 'lucide-react';
 import { useProposalStore } from '../store/useProposalStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -18,7 +18,8 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
         setSelectedPlace,
         addProposal,
         generateAiProposals,
-        isLoading
+        isLoading,
+        resetSearchState
     } = useProposalStore();
 
     const [searchText, setSearchText] = useState('');
@@ -27,6 +28,14 @@ export default function ProposalSearchArea({ tripRoomId, isLocked = false }: Pro
 
     const { showToast } = useToastStore();
     const { confirm } = useConfirmStore();
+
+    useEffect(() => {
+        return () => {
+            resetSearchState();
+            setSearchText('');
+            setMemoText('');
+        };
+    }, [resetSearchState]);
 
     if (isLocked) {
         return (
