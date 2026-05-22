@@ -6,6 +6,7 @@ import {
   DecisionLogItem,
   InviteLinkPreviewResponse,
   JoinInviteLinkResponse,
+  LeaveTripRoomResponse,
   TripRoomDetailResponse,
   TripRoomListItem,
   TripRoomSummary,
@@ -184,6 +185,40 @@ export async function deleteTripRoom(
   }
 
   return (await response.json()) as DeleteTripRoomResponse;
+}
+
+export async function leaveTripRoom(
+  tripRoomId: number
+): Promise<LeaveTripRoomResponse> {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    throw new Error("인증이 필요합니다.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/trip-rooms/${tripRoomId}/leave`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    let message = "여행방 나가기에 실패했습니다.";
+
+    try {
+      const errorBody = (await response.json()) as Partial<ApiErrorResponse>;
+      if (typeof errorBody.message === "string" && errorBody.message.trim()) {
+        message = errorBody.message;
+      }
+    } catch {
+      // Fall back to the default message when the server response is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as LeaveTripRoomResponse;
 }
 
 export async function joinTripRoomByInviteLink(

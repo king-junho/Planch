@@ -8,6 +8,7 @@ import TripRoomHeader from "../components/layout/TripRoomHeader";
 import { 
   getTripRoomDetail,
   deleteTripRoom,
+  leaveTripRoom,
   updateTripRoom,
   updateTripRoomImage,
   updateTripRoomDeadline,
@@ -17,7 +18,7 @@ import { TripRoomDetailResponse } from "../types/tripRoom";
 import { useConfirmStore } from "../features/store/useConfirmStore";
 import { resolveImageUrl } from "../utils/image";
 import {getDeadlineStatus} from "../utils/deadline";
-import {ImagePlus, Trash2} from "lucide-react";
+import {ImagePlus, LogOut, Trash2} from "lucide-react";
 
 type BranchListItem = {
   branchId: number;
@@ -67,6 +68,7 @@ export default function TripRoomPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [isDeletingTripRoom, setIsDeletingTripRoom] = useState(false);
+  const [isLeavingTripRoom, setIsLeavingTripRoom] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
   const [deadlineNow, setDeadlineNow] = useState(Date.now());
@@ -239,6 +241,26 @@ export default function TripRoomPage() {
     }
   }
 
+  async function handleTripRoomLeaveRequest() {
+    const confirmed = await confirm("여행방에서 나가시겠습니까?");
+
+    if (!confirmed) return;
+
+    try {
+      setIsLeavingTripRoom(true);
+      await leaveTripRoom(numericTripRoomId);
+      navigate("/trip-rooms", { replace: true });
+    } catch (caughtError) {
+      setIsLeavingTripRoom(false);
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 나가기에 실패했습니다.";
+
+      setToast({ type: "error", message });
+    }
+  }
+
   async function handleTripInfoSaveRequest() {
     setTripInfoMessage("");
 
@@ -317,18 +339,22 @@ export default function TripRoomPage() {
     }
   }
 
-  if (isLoading || isDeletingTripRoom) {
+  if (isLoading || isDeletingTripRoom || isLeavingTripRoom) {
     return (
       <div className="min-h-screen bg-stone-50 text-stone-900">
         <div className="mx-auto flex min-h-screen max-w-[1200px] items-center justify-center px-8">
           <div
             className={`loading-border ${
-              isDeletingTripRoom ? "loading-border--red" : "loading-border--green"
+              isDeletingTripRoom || isLeavingTripRoom
+                ? "loading-border--red"
+                : "loading-border--green"
             }`}
           >
             <div className="relative rounded-[22px] border border-stone-200 bg-white px-8 py-6 text-sm text-stone-500">
               {isDeletingTripRoom
                 ? "여행방 정보를 삭제하는 중입니다."
+                : isLeavingTripRoom
+                ? "여행방에서 나가는 중입니다."
                 : "여행방 정보를 불러오는 중입니다."}
             </div>
           </div>
@@ -780,7 +806,17 @@ export default function TripRoomPage() {
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               여행방 삭제
             </button>
-          ) : null}
+          ) : (
+            <button
+              className="absolute bottom-6 right-8 inline-flex items-center gap-2 rounded-xl bg-stone-800 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2"
+              disabled={isLeavingTripRoom}
+              onClick={handleTripRoomLeaveRequest}
+              type="button"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              여행방 나가기
+            </button>
+          )}
         </section>
       </main>
 

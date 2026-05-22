@@ -79,6 +79,11 @@ export type JoinInviteLinkResponse = {
   role: string;
 };
 
+export type LeaveTripRoomResponse = {
+  tripRoomId: number;
+  left: boolean;
+};
+
 export type CreateInviteLinkResponse = {
   inviteUrl: string;
   token: string;
@@ -121,6 +126,7 @@ export type DecisionLogActionType =
   | "decision_deadline_cleared"
   | "branch_vote_saved"
   | "member_preference_saved"
+  | "member_leave"
   | "trip_room_info_updated"
   | "trip_room_image_updated";
 

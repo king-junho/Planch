@@ -295,6 +295,16 @@ function toActivityLogItem(
         tone: "blue",
       };
 
+    case "member_leave":
+      return {
+        id: log.logId,
+        actor: actorName,
+        action: "여행방 나가기",
+        detail: "여행방에서 나갔어요.",
+        timeAgo,
+        tone: "stone",
+      };
+
     case "trip_room_info_updated":
       return {
         id: log.logId,
