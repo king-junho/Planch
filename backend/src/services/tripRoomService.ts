@@ -3,6 +3,10 @@ import {
   DECISION_LOG_ACTION,
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
+import {
+  lockExpiredTripRoomIfNeeded,
+  lockExpiredTripRoomsForUser,
+} from "./tripRoomDeadlineLockService";
 
 interface CreateTripRoomInput {
   title: string;
@@ -117,6 +121,8 @@ export const updateTripRoomDeadlineService = async(
   userId : number,
   decisionDeadline?: string | null,
 )=> {
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where: {id: tripRoomId},
     select:{
@@ -271,6 +277,8 @@ export const updateTripRoomService = async ({
   startDate,
   endDate,
 }: UpdateTripRoomInput) => {
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
     select: {
@@ -511,6 +519,8 @@ export const leaveTripRoomService = async (
 };
 
 export const unlockTripRoomService = async (tripRoomId : number, userId: number)=>{
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where:{id: tripRoomId},
     select:{
@@ -518,6 +528,7 @@ export const unlockTripRoomService = async (tripRoomId : number, userId: number)
       hostUserId:true,
       status:true,
       selectedBranchId:true,
+      decisionDeadline:true,
     },
   });
   if(!tripRoom){
@@ -558,10 +569,12 @@ export const unlockTripRoomService = async (tripRoomId : number, userId: number)
         beforeData:{
           status: "locked",
           selectedBranchId: tripRoom.selectedBranchId,
+          decisionDeadline: tripRoom.decisionDeadline,
         },
         afterData:{
           status:"voting",
           selectedBranchId: tripRoom.selectedBranchId,
+          decisionDeadline: tripRoom.decisionDeadline,
         },
       },
     });
@@ -575,6 +588,8 @@ export const unlockTripRoomService = async (tripRoomId : number, userId: number)
 };
 
 export const getMyTripRoomsService = async (userId:number) => {
+  await lockExpiredTripRoomsForUser(userId);
+
   const tripRooms = await prisma.tripRoom.findMany({
     where:{
       members:{
@@ -779,6 +794,8 @@ export const saveMyPreferenceService = async({
   availableTime,
   freeTextNote,
 }: SaveMyPreferenceInput) => {
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where: {id: tripRoomId},
     select:{ status: true},
@@ -913,6 +930,8 @@ export const saveMyPreferenceService = async({
 
 
 export const getTripRoomDetailService = async (tripRoomId : number, userId: number) => {
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where : {id : tripRoomId},
     select : {
@@ -1099,6 +1118,8 @@ export const updateTripRoomImageService = async(
   userId : number,
   fileName : string,
 )=>{
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where:{id: tripRoomId},
     select:{

@@ -12,6 +12,6 @@ export function assertTripRoomDecisionOpen({
   }
 
   if (decisionDeadline && decisionDeadline.getTime() <= Date.now()) {
-    throw new Error("Decision deadline passed");
+    throw new Error("Trip room is locked");
   }
 }

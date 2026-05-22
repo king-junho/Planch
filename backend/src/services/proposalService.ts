@@ -5,6 +5,7 @@ import {
   DECISION_LOG_TARGET,
 } from "../constants/decisionLog";
 import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
+import { lockExpiredTripRoomIfNeeded } from "./tripRoomDeadlineLockService";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const AI_PROPOSAL_COUNT = 3;
@@ -98,6 +99,7 @@ export const deleteProposalService = async (
     throw new Error("Forbidden");
   }
 
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
   assertTripRoomDecisionOpen(proposal.tripRoom);
 
   const isHost = proposal.tripRoom.hostUserId === userId;
@@ -164,6 +166,7 @@ export const generateAiProposalsService = async (tripRoomId: number, userId: num
     };
   }
 
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
   assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({
@@ -564,6 +567,7 @@ export const createProposalService = async ({
     throw new Error("Trip room not found");
   }
 
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
   assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({

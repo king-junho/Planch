@@ -15,6 +15,7 @@ import {
 } from "../constants/decisionLog";
 import { assertTripRoomDecisionOpen } from "../utils/tripRoomDecisionGuard";
 import { Prisma } from "../generated/prisma/browser";
+import { lockExpiredTripRoomIfNeeded } from "./tripRoomDeadlineLockService";
 
 export const deleteBranchService = async (branchId: number, userId: number) => {
   const branch = await prisma.planBranch.findUnique({
@@ -56,6 +57,7 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
     throw new Error("Forbidden");
   }
 
+  await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
   assertTripRoomDecisionOpen(branch.tripRoom);
 
   const isHost = branch.tripRoom.hostUserId === userId;
@@ -146,6 +148,7 @@ export const updateBranchService = async ({
     throw new Error("Forbidden");
   }
 
+  await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
   assertTripRoomDecisionOpen(branch.tripRoom);
 
   if (branch.status === "locked") {
@@ -454,6 +457,7 @@ export const saveBranchVoteService = async (
     };
   }
 
+  await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
   assertTripRoomDecisionOpen(branch.tripRoom);
 
   if (branch.status === "locked") {
