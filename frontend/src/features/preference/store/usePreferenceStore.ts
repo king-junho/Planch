@@ -13,6 +13,7 @@ interface PreferenceData {
 
 interface PreferenceState {
     formData: PreferenceData;
+    originalData: PreferenceData;
     teamPreferences: any[];
     isLoading: boolean;
 
@@ -24,6 +25,7 @@ interface PreferenceState {
     fetchPreferences: (tripRoomId: number) => Promise<void>;
     saveMyPreference: (tripRoomId: number) => Promise<boolean>;
     resetForm: () => void;
+    resetPreferenceState: () => void;
     initializeFormWithExisting: (myUserId: string | number) => void;
 }
 
@@ -39,6 +41,7 @@ const initialForm: PreferenceData = {
 
 export const usePreferenceStore = create<PreferenceState>((set, get) => ({
     formData: initialForm,
+    originalData: initialForm,
     teamPreferences: [],
     isLoading: false,
 
@@ -60,32 +63,47 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
             formData: { ...state.formData, [field]: state.formData[field].filter((_, i) => i !== index) }
         })),
 
-    resetForm: () => set({ formData: initialForm }),
+    resetForm: () => set({ formData: initialForm, originalData: initialForm }),
+
+    resetPreferenceState: () => set({
+        formData: initialForm,
+        originalData: initialForm,
+        teamPreferences: [],
+        isLoading: false
+    }),
 
     initializeFormWithExisting: (myUserId) => {
         const { teamPreferences } = get();
         const safePreferences = Array.isArray(teamPreferences) ? teamPreferences : [];
 
-        // 데이터가 아직 로드되지 않았다면 빈 폼으로 덮어쓰지 않고 무시합니다.
-        if (safePreferences.length === 0) return;
+        if (safePreferences.length === 0) {
+            set({ formData: initialForm, originalData: initialForm });
+            return;
+        }
 
-        // 타입 불일치 오류를 막기 위해 전부 문자열로 변환하여 안전하게 비교합니다.
         const myPref = safePreferences.find((p: any) =>
             String(p.user?.id || p.userId) === String(myUserId) ||
             String(p.user?.email) === String(myUserId)
         );
 
         if (myPref) {
+            const loadedData = {
+                budgetMin: myPref.budgetMin || 0,
+                budgetMax: myPref.budgetMax || 500000,
+                styles: Array.isArray(myPref.styles) ? myPref.styles : [],
+                mustGo: Array.isArray(myPref.mustVisit) ? myPref.mustVisit : [],
+                mustAvoid: Array.isArray(myPref.avoid) ? myPref.avoid : [],
+                activeTimes: Array.isArray(myPref.availableTime) ? myPref.availableTime : [],
+                freeText: myPref.freeTextNote || myPref.memo || ''
+            };
             set({
-                formData: {
-                    budgetMin: myPref.budgetMin || 0,
-                    budgetMax: myPref.budgetMax || 500000,
-                    styles: Array.isArray(myPref.styles) ? myPref.styles : [],
-                    mustGo: Array.isArray(myPref.mustVisit) ? myPref.mustVisit : [],
-                    mustAvoid: Array.isArray(myPref.avoid) ? myPref.avoid : [],
-                    activeTimes: Array.isArray(myPref.availableTime) ? myPref.availableTime : [],
-                    freeText: myPref.memo || ''
-                }
+                formData: loadedData,
+                originalData: loadedData
+            });
+        } else {
+            set({
+                formData: initialForm,
+                originalData: initialForm
             });
         }
     },
@@ -121,9 +139,13 @@ export const usePreferenceStore = create<PreferenceState>((set, get) => ({
                 mustVisit: formData.mustGo,
                 avoid: formData.mustAvoid,
                 availableTime: formData.activeTimes,
+                freeTextNote: formData.freeText,
                 memo: formData.freeText
             });
             await get().fetchPreferences(tripRoomId);
+
+            set({ originalData: get().formData });
+
             return true;
         } catch (error) {
             console.error("선호도 저장 실패:", error);
