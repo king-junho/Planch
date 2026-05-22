@@ -567,9 +567,6 @@ export const createProposalService = async ({
     throw new Error("Trip room not found");
   }
 
-  await lockExpiredTripRoomIfNeeded(tripRoomId);
-  assertTripRoomDecisionOpen(tripRoom);
-
   const membership = await prisma.tripMember.findUnique({
     where: {
       tripRoomId_userId: {
@@ -586,10 +583,9 @@ export const createProposalService = async ({
     throw new Error("Forbidden");
   }
 
-  if (tripRoom.status === "locked") {
-    throw new Error("Trip room is locked");
-  }
-
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+  assertTripRoomDecisionOpen(tripRoom);
+  
   let place = null;
 
   if (placeId) {

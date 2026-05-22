@@ -39,11 +39,6 @@ function toDateInputText(date: string | null) {
   return date ? date.slice(0, 10) : "";
 }
 
-function statusLabel(status: string) {
-  if (status === "locked") return "확정";
-  return "진행중";
-}
-
 export default function TripRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,11 +119,26 @@ export default function TripRoomPage() {
       } catch (caughtError) {
         if (!isMounted) return;
 
-        if (caughtError instanceof Error && caughtError.message.trim()) {
-          setError(caughtError.message);
-        } else {
-          setError("여행방을 찾을 수 없습니다.");
+        const message = caughtError instanceof Error && caughtError.message.trim() ? caughtError.message : "여행방을 찾을 수 없습니다.";
+        
+        if (message.includes("인증이 필요합니다")){
+          navigate("/login", {
+            replace: true,
+            state:{
+              loginMessage: "로그인 후 여행방을 확인할 수 있습니다.",
+              redirectTo: `${location.pathname}${location.search}`,
+            },
+          });
+          return;
         }
+        if(
+          message.includes("해당 여행방 참여자만 조회할 수 있습니다.") ||
+          message.includes("여행방을 찾을 수 없습니다")
+        ){
+          navigate("/trip-rooms", {replace:true});
+          return;
+        }
+        setError(message);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -249,15 +259,22 @@ export default function TripRoomPage() {
     try {
       setIsLeavingTripRoom(true);
       await leaveTripRoom(numericTripRoomId);
+
+      window.dispatchEvent(
+        new CustomEvent("trip-room:left",{
+          detail:{tripRoomId: numericTripRoomId},
+        })
+      );
+      
       navigate("/trip-rooms", { replace: true });
     } catch (caughtError) {
-      setIsLeavingTripRoom(false);
       const message =
         caughtError instanceof Error && caughtError.message.trim()
           ? caughtError.message
           : "여행방 나가기에 실패했습니다.";
 
       setToast({ type: "error", message });
+      setIsLeavingTripRoom(false);
     }
   }
 

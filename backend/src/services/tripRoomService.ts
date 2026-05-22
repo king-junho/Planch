@@ -480,7 +480,7 @@ export const leaveTripRoomService = async (
     throw new Error("Forbidden");
   }
 
-  if (membership.role === "host" || tripRoom.hostUserId === userId) {
+  if (membership.role === "host") {
     throw new Error("Host cannot leave");
   }
 
@@ -507,7 +507,15 @@ export const leaveTripRoomService = async (
         },
         afterData: {
           left: true,
+          leftAt: new Date(),
         },
+      },
+    });
+
+    await tx.tripRoom.update({
+      where: {id: tripRoomId},
+      data:{
+        updatedAt: new Date(),
       },
     });
   });
@@ -930,7 +938,6 @@ export const saveMyPreferenceService = async({
 
 
 export const getTripRoomDetailService = async (tripRoomId : number, userId: number) => {
-  await lockExpiredTripRoomIfNeeded(tripRoomId);
 
   const tripRoom = await prisma.tripRoom.findUnique({
     where : {id : tripRoomId},
@@ -1004,6 +1011,8 @@ export const getTripRoomDetailService = async (tripRoomId : number, userId: numb
       authorized: false as const,
     };
   }
+
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
 
   const submittedUserIds = new Set(tripRoom.preferences.map((pref)=> pref.userId));
 

@@ -230,6 +230,34 @@ export default function FloatingChatRooms() {
     };
   }, [canShow, activeTripRoomId]);
 
+  useEffect(() => {
+    function handleTripRoomLeft(event: Event) {
+      const customEvent = event as CustomEvent<{ tripRoomId: number }>;
+      const leftTripRoomId = customEvent.detail?.tripRoomId;
+
+      if (!leftTripRoomId) return;
+
+      if (joinedTripRoomIdRef.current === leftTripRoomId) {
+        socketRef.current?.emit("chat:leave", { tripRoomId: leftTripRoomId });
+      }
+
+      if (activeTripRoomIdRef.current === leftTripRoomId) {
+        setActiveTripRoomId(null);
+        setActiveChat(null);
+        setMessageDraft("");
+        setSendErrorMessage("");
+        setSocketErrorMessage("");
+        localStorage.removeItem("activeTripRoomId");
+      }
+    }
+
+    window.addEventListener("trip-room:left", handleTripRoomLeft);
+
+    return () => {
+      window.removeEventListener("trip-room:left", handleTripRoomLeft);
+    };
+  }, []);
+
   const activeChatRoomInfo = useMemo(
     () =>
       chatRooms.find((chatRoom) => chatRoom.tripRoomId === activeTripRoomId) ??

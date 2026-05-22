@@ -8,6 +8,7 @@ import {
   buildVoteSummary,
   calculatePreferenceScore,
   calculateManualBranchDurations,
+  toBranchDetailLogJson,
 } from "./branchShared";
 import {
   DECISION_LOG_ACTION,
@@ -60,22 +61,16 @@ export const createBranchService = async ({
   description,
   places,
 }: CreateBranchInput) => {
-  const tripRoom = await prisma.tripRoom.findUnique({
+  const tripRoomExists = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
     select: {
       id: true,
-      status: true,
-      preferences: true,
-      decisionDeadline: true,
     },
   });
 
-  if (!tripRoom) {
+  if (!tripRoomExists) {
     throw new Error("Trip room not found");
   }
-
-  await lockExpiredTripRoomIfNeeded(tripRoomId);
-  assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({
     where: {
@@ -92,6 +87,24 @@ export const createBranchService = async ({
   if (!membership) {
     throw new Error("Forbidden");
   }
+
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+  
+  const tripRoom = await prisma.tripRoom.findUnique({
+    where : {id: tripRoomId},
+    select: {
+      id: true,
+      status: true,
+      preferences: true,
+      decisionDeadline: true,
+    },
+  });
+
+  if(!tripRoom){
+    throw new Error("Trip room not found");
+  }
+  
+  assertTripRoomDecisionOpen(tripRoom);
 
   if (!name.trim()) {
     throw new Error("Branch name is required");
@@ -183,6 +196,12 @@ export const createBranchService = async ({
     },
   });
 
+  const result = await getBranchDetailService(branch.id, userId);
+
+  if (!result.found || !result.authorized) {
+    throw new Error("Created branch fetch failed");
+  }
+
   await prisma.decisionLog.create({
     data: {
       tripRoomId,
@@ -190,15 +209,9 @@ export const createBranchService = async ({
       actionType: DECISION_LOG_ACTION.BRANCH_CREATE,
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branch.id,
-      afterData: toBranchLogJson(name, resolvedPlacesWithDurations),
+      afterData: toBranchDetailLogJson(result.data),
     },
   });
-
-  const result = await getBranchDetailService(branch.id, userId);
-
-  if (!result.found || !result.authorized) {
-    throw new Error("Created branch fetch failed");
-  }
 
   return result.data;
 };
@@ -947,6 +960,8 @@ export const generateAiBranchesService = async (
     return null;
   }
 
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
   const tripRoom = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
     select: {
@@ -1019,12 +1034,6 @@ export const generateAiBranchesService = async (
 
   if (tripRoom.proposals.length === 0) {
     throw new Error("No proposals available");
-  }
-
-  await lockExpiredTripRoomIfNeeded(tripRoomId);
-
-  if (tripRoom.status === "locked") {
-    throw new Error("Trip room is locked");
   }
 
   assertTripRoomDecisionOpen(tripRoom);

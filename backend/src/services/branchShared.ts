@@ -38,6 +38,7 @@ export interface UpdateBranchInput {
 
 export interface BranchDetailLogInput {
   name: string;
+  description?: string | null;
   places: Array<{
     dayNo: number;
     orderIndex: number;
@@ -58,9 +59,11 @@ export interface BranchDetailLogInput {
 
 export const toBranchLogJson = (
   name: string,
+  description: string | undefined,
   places: BranchPlaceInput[],
 ): Prisma.InputJsonValue => ({
   name: name.trim(),
+  description: description?.trim() || null,
   places: places.map((place) => ({
     placeId: place.placeId as number,
     proposalId: place.proposalId ?? null,
@@ -81,6 +84,7 @@ export const toBranchDetailLogJson = (
   branchDetail: BranchDetailLogInput,
 ): Prisma.InputJsonValue => ({
   name: branchDetail.name,
+  description: branchDetail.description ?? null,
   places: branchDetail.places.map((place) => ({
     placeId: place.place.id,
     proposalId: place.proposalId ?? null,

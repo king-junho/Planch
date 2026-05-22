@@ -58,7 +58,23 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
   }
 
   await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
-  assertTripRoomDecisionOpen(branch.tripRoom);
+
+  const refreshedTripRoom = await prisma.tripRoom.findUnique({
+    where : {id: branch.tripRoomId},
+    select:{
+      status: true,
+      decisionDeadline: true,
+      hostUserId: true,
+      selectedBranchId: true,
+      preferences: true,
+    },
+  });
+
+  if(!refreshedTripRoom){
+    throw new Error("Trip room not found");
+  }
+  
+  assertTripRoomDecisionOpen(refreshedTripRoom);
 
   const isHost = branch.tripRoom.hostUserId === userId;
   const isOwner = branch.createdUserId === userId;
@@ -149,7 +165,23 @@ export const updateBranchService = async ({
   }
 
   await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
-  assertTripRoomDecisionOpen(branch.tripRoom);
+  
+  const refreshedTripRoom = await prisma.tripRoom.findUnique({
+    where : {id: branch.tripRoomId},
+    select:{
+      status: true,
+      decisionDeadline: true,
+      hostUserId: true,
+      selectedBranchId: true,
+      preferences: true,
+    },
+  });
+
+  if(!refreshedTripRoom){
+    throw new Error("Trip room not found");
+  }
+  
+  assertTripRoomDecisionOpen(refreshedTripRoom);
 
   if (branch.status === "locked") {
     throw new Error("Branch is locked");
@@ -264,7 +296,7 @@ export const updateBranchService = async ({
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branchId,
       beforeData: toBranchDetailLogJson(before.data),
-      afterData: toBranchLogJson(name, resolvedPlaces),
+      afterData: toBranchDetailLogJson(after.data),
     },
   });
 
@@ -458,7 +490,23 @@ export const saveBranchVoteService = async (
   }
 
   await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
-  assertTripRoomDecisionOpen(branch.tripRoom);
+  
+  const refreshedTripRoom = await prisma.tripRoom.findUnique({
+    where : {id: branch.tripRoomId},
+    select:{
+      status: true,
+      decisionDeadline: true,
+      hostUserId: true,
+      selectedBranchId: true,
+      preferences: true,
+    },
+  });
+
+  if(!refreshedTripRoom){
+    throw new Error("Trip room not found");
+  }
+  
+  assertTripRoomDecisionOpen(refreshedTripRoom);
 
   if (branch.status === "locked") {
     return {
@@ -479,6 +527,19 @@ export const saveBranchVoteService = async (
       voteType: true,
     },
   });
+
+  if(previousVote?.voteType === voteType){
+    return {
+      found: true as const,
+      authorized: true as const,
+      locked: false as const,
+      vote:{
+        branchId,
+        userId,
+        voteType,
+      },
+    };
+  }
 
   const vote = await prisma.branchVote.upsert({
     where: {
@@ -502,10 +563,7 @@ export const saveBranchVoteService = async (
     },
   });
 
-  const hasVoteChanged = previousVote?.voteType !== voteType;
-
-  if(hasVoteChanged){
-      await prisma.decisionLog.create({
+  await prisma.decisionLog.create({
     data: {
       tripRoomId: branch.tripRoomId,
       userId,
@@ -513,18 +571,17 @@ export const saveBranchVoteService = async (
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branchId,
       ...(previousVote
-        ?{
-          beforeData : {
-            voteType: previousVote.voteType,
+        ? {
+          beforeData: {
+            voteType : previousVote.voteType,
           },
         }
-        : {}),
-        afterData: {
-          voteType : vote.voteType,
+        : {} ),
+        afterData:{
+          voteType:vote.voteType,
         },
-    },
-  });
-  }
+      },
+    });
 
 
   return {
