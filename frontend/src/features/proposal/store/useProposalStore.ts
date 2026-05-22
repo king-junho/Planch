@@ -20,6 +20,8 @@ export interface KakaoSearchResult {
     x: string;
     y: string;
     phone?: string;
+    place_url?: string;
+    road_address_name?: string;
 }
 
 interface ProposalState {
@@ -52,10 +54,12 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
 
     setKeyword: (keyword) => set({ keyword }),
     setSearchResults: (results) => set({ searchResults: results }),
-    setSelectedPlace: (place) => set({ selectedPlace: place }),
-    setFocusedProposal: (proposal) => set({ focusedProposal: proposal }),
 
-    resetSearchState: () => set({ keyword: '', searchResults: [], selectedPlace: null }),
+    setSelectedPlace: (place) => set({ selectedPlace: place, focusedProposal: null }),
+
+    setFocusedProposal: (proposal) => set({ focusedProposal: proposal, selectedPlace: null }),
+
+    resetSearchState: () => set({ keyword: '', searchResults: [], selectedPlace: null, focusedProposal: null }),
 
     fetchProposals: async (tripRoomId) => {
         set({ isLoading: true });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PreferenceSidebar from './PreferenceSidebar';
 import PreferenceOverallView from './PreferenceOverallView';
@@ -23,16 +23,45 @@ export default function PreferenceSection() {
         fetchPreferences,
         saveMyPreference,
         isLoading,
-        initializeFormWithExisting
+        initializeFormWithExisting,
+        resetPreferenceState,
+        formData,
+        originalData
     } = usePreferenceStore();
 
     const { toast, showToast } = useToastStore();
+
+    const isDirty = useMemo(() => {
+        if (!formData || !originalData) return false;
+
+        if (formData.budgetMin !== originalData.budgetMin) return true;
+        if (formData.budgetMax !== originalData.budgetMax) return true;
+        if (formData.freeText !== originalData.freeText) return true;
+
+        const arrayEq = (a: string[], b: string[]) => {
+            if (!a || !b) return false;
+            if (a.length !== b.length) return false;
+            const sortedA = [...a].sort();
+            const sortedB = [...b].sort();
+            return sortedA.every((val, idx) => val === sortedB[idx]);
+        };
+
+        if (!arrayEq(formData.styles, originalData.styles)) return true;
+        if (!arrayEq(formData.mustGo, originalData.mustGo)) return true;
+        if (!arrayEq(formData.mustAvoid, originalData.mustAvoid)) return true;
+        if (!arrayEq(formData.activeTimes, originalData.activeTimes)) return true;
+
+        return false;
+    }, [formData, originalData]);
 
     useEffect(() => {
         if (!tripRoomId) return;
 
         const numericId = Number(tripRoomId);
         if (!Number.isInteger(numericId) || numericId <= 0) return;
+
+        resetPreferenceState();
+        setViewMode('form');
 
         const loadRoomState = () => {
             fetchPreferences(numericId);
@@ -54,8 +83,9 @@ export default function PreferenceSection() {
 
         return () => {
             window.removeEventListener("trip-room-unlocked", loadRoomState);
+            resetPreferenceState();
         };
-    }, [tripRoomId, fetchPreferences]);
+    }, [tripRoomId, fetchPreferences, resetPreferenceState]);
 
     useEffect(() => {
         if (viewMode === 'form') {
@@ -86,7 +116,8 @@ export default function PreferenceSection() {
     };
 
     const handleSave = async () => {
-        if (!tripRoomId) return;
+        if (!tripRoomId || !isDirty) return;
+
         const success = await saveMyPreference(Number(tripRoomId));
         if (success) {
             showToast('success', '선호도가 저장되었습니다.');
@@ -115,7 +146,7 @@ export default function PreferenceSection() {
             mustGo: pref?.mustVisit || [],
             mustAvoid: pref?.avoid || [],
             activeTimes: pref?.availableTime || [],
-            freeText: pref?.memo || ''
+            freeText: pref?.freeTextNote || pref?.memo || ''
         };
     });
 
@@ -140,7 +171,7 @@ export default function PreferenceSection() {
                                 </div>
                                 <button
                                     onClick={handleSave}
-                                    disabled={isLoading || isLocked}
+                                    disabled={isLoading || isLocked || !isDirty}
                                     className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0"
                                 >
                                     {isLoading ? '저장 중...' : '저장하기'}

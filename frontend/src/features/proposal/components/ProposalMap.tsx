@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Map, MapMarker } from 'react-kakao-maps-sdk';
 import { useProposalStore, KakaoSearchResult } from '../store/useProposalStore';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, X, Phone, ExternalLink } from 'lucide-react';
 
 export default function ProposalMap() {
     const {
@@ -18,7 +18,6 @@ export default function ProposalMap() {
     const [map, setMap] = useState<any>(null);
     const defaultCenter = { lat: 37.5546, lng: 126.9706 };
 
-    // 키워드 검색 및 검색 결과 마커 범위 조정
     useEffect(() => {
         if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services || !map || !keyword) return;
 
@@ -35,14 +34,12 @@ export default function ProposalMap() {
         });
     }, [keyword, map, setSearchResults]);
 
-    // 선택된 장소 또는 제안 클릭 시 중심 이동
     useEffect(() => {
         if (!map) return;
 
         if (selectedPlace) {
             map.panTo(new window.kakao.maps.LatLng(Number(selectedPlace.y), Number(selectedPlace.x)));
         } else if (focusedProposal) {
-            // 값이 문자열일 수 있으므로 Number로 안전하게 변환합니다.
             const lat = Number(focusedProposal.latitude || focusedProposal.place?.latitude);
             const lng = Number(focusedProposal.longitude || focusedProposal.place?.longitude);
 
@@ -55,24 +52,20 @@ export default function ProposalMap() {
     return (
         <div className="relative w-full h-full">
             <Map center={defaultCenter} className="w-full h-full" level={3} onCreate={setMap}>
-                {/* 검색 결과 마커 */}
+
                 {searchResults.map((place) => (
                     <MapMarker
                         key={`search-${place.id}`}
                         position={{ lat: Number(place.y), lng: Number(place.x) }}
-                        // 타입 에러를 일으키던 isViewing을 제거했습니다.
                         onClick={() => setSelectedPlace(place)}
                     />
                 ))}
 
-                {/* 이미 등록된 제안 마커 */}
                 {proposals.map((proposal) => {
-                    // 데이터가 누락되어 에러가 나지 않도록 방어 코드를 작성합니다.
                     const lat = Number(proposal.latitude || proposal.place?.latitude);
                     const lng = Number(proposal.longitude || proposal.place?.longitude);
                     const proposalId = proposal.id || proposal.proposalId;
 
-                    // 좌표가 없으면 마커를 그리지 않고 건너뜁니다.
                     if (!lat || !lng) return null;
 
                     return (
@@ -89,7 +82,6 @@ export default function ProposalMap() {
                 })}
             </Map>
 
-            {/* 하단 상세 정보 카드 (백엔드 데이터 형식에 맞춰 안전하게 출력합니다) */}
             {focusedProposal && (
                 <div className="absolute bottom-8 left-8 right-8 z-30 bg-white p-6 rounded-3xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex justify-between items-start mb-4">
@@ -111,6 +103,57 @@ export default function ProposalMap() {
                     </div>
                     <div className="bg-gray-50 p-4 rounded-2xl text-sm text-gray-700 leading-relaxed border border-gray-100">
                         {focusedProposal.memo || focusedProposal.comment || '메모가 없습니다.'}
+                    </div>
+                </div>
+            )}
+
+            {selectedPlace && (
+                <div className="absolute bottom-8 left-8 right-8 z-30 bg-white p-6 rounded-3xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md uppercase">
+                                {selectedPlace.category_group_name || '카테고리 없음'}
+                            </span>
+                            <h3 className="text-xl font-bold text-gray-900 mt-2">
+                                {selectedPlace.place_name}
+                            </h3>
+                        </div>
+                        <button onClick={() => setSelectedPlace(null)} className="p-2 hover:bg-gray-100 rounded-full shrink-0">
+                            <X size={20} className="text-gray-400" />
+                        </button>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-2xl text-sm text-gray-700 border border-gray-100 flex flex-col gap-3">
+                        <div className="flex items-start gap-2">
+                            <MapPin size={16} className="text-gray-400 shrink-0 mt-0.5" />
+                            <div className="flex flex-col">
+                                <span className="font-medium text-gray-900">{selectedPlace.road_address_name || selectedPlace.address_name}</span>
+                                {selectedPlace.road_address_name && (
+                                    <span className="text-[11px] text-gray-500 mt-0.5">(지번) {selectedPlace.address_name}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {selectedPlace.phone && (
+                            <div className="flex items-center gap-2">
+                                <Phone size={16} className="text-gray-400 shrink-0" />
+                                <span className="font-medium">{selectedPlace.phone}</span>
+                            </div>
+                        )}
+
+                        {selectedPlace.place_url && (
+                            <div className="mt-1 pt-3 border-t border-gray-200">
+                                <a
+                                    href={selectedPlace.place_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-bold transition-colors"
+                                >
+                                    <ExternalLink size={14} />
+                                    <span>카카오맵에서 장소 사진 및 상세 정보 보기</span>
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
