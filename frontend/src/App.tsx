@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import FloatingChatErrorBoundary from "./components/chat/FloatingChatErrorBoundary";
 import FloatingChatRooms from "./components/chat/FloatingChatRooms";
+import HomePage from "./pages/HomePage";
 import InvitePage from "./pages/InvitePage";
 import TripBranchCreatePage from "./pages/TripBranchCreatePage";
 import LoginPage from "./pages/LoginPage";
@@ -15,7 +16,7 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route element={<Navigate replace to="/login" />} path="/" />
+        <Route element={<HomePage />} path="/" />
         <Route element={<LoginPage />} path="/login" />
         <Route element={<RegisterPage />} path="/register" />
         <Route element={<TripRoomListPage />} path="/trip-rooms" />
