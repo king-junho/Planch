@@ -58,23 +58,7 @@ export const deleteBranchService = async (branchId: number, userId: number) => {
   }
 
   await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
-
-  const refreshedTripRoom = await prisma.tripRoom.findUnique({
-    where : {id: branch.tripRoomId},
-    select:{
-      status: true,
-      decisionDeadline: true,
-      hostUserId: true,
-      selectedBranchId: true,
-      preferences: true,
-    },
-  });
-
-  if(!refreshedTripRoom){
-    throw new Error("Trip room not found");
-  }
-  
-  assertTripRoomDecisionOpen(refreshedTripRoom);
+  assertTripRoomDecisionOpen(branch.tripRoom);
 
   const isHost = branch.tripRoom.hostUserId === userId;
   const isOwner = branch.createdUserId === userId;
@@ -165,23 +149,7 @@ export const updateBranchService = async ({
   }
 
   await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
-  
-  const refreshedTripRoom = await prisma.tripRoom.findUnique({
-    where : {id: branch.tripRoomId},
-    select:{
-      status: true,
-      decisionDeadline: true,
-      hostUserId: true,
-      selectedBranchId: true,
-      preferences: true,
-    },
-  });
-
-  if(!refreshedTripRoom){
-    throw new Error("Trip room not found");
-  }
-  
-  assertTripRoomDecisionOpen(refreshedTripRoom);
+  assertTripRoomDecisionOpen(branch.tripRoom);
 
   if (branch.status === "locked") {
     throw new Error("Branch is locked");
@@ -296,7 +264,7 @@ export const updateBranchService = async ({
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branchId,
       beforeData: toBranchDetailLogJson(before.data),
-      afterData: toBranchDetailLogJson(after.data),
+      afterData: toBranchLogJson(name, description, resolvedPlaces),
     },
   });
 
@@ -319,6 +287,7 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
       preferenceScore: true,
       votes: {
         select: {
+          userId: true,
           voteType: true,
         },
       },
@@ -413,6 +382,7 @@ export const getBranchDetailService = async (branchId: number, userId: number) =
         preferenceScore: branch.preferenceScore,
       },
       voteSummary,
+      myVote: branch.votes.find((v) => v.userId === userId)?.voteType || null,
       places: branch.branchPlaces.map((branchPlace) => ({
         dayNo: branchPlace.dayNo,
         orderIndex: branchPlace.orderIndex,
@@ -490,23 +460,7 @@ export const saveBranchVoteService = async (
   }
 
   await lockExpiredTripRoomIfNeeded(branch.tripRoomId);
-  
-  const refreshedTripRoom = await prisma.tripRoom.findUnique({
-    where : {id: branch.tripRoomId},
-    select:{
-      status: true,
-      decisionDeadline: true,
-      hostUserId: true,
-      selectedBranchId: true,
-      preferences: true,
-    },
-  });
-
-  if(!refreshedTripRoom){
-    throw new Error("Trip room not found");
-  }
-  
-  assertTripRoomDecisionOpen(refreshedTripRoom);
+  assertTripRoomDecisionOpen(branch.tripRoom);
 
   if (branch.status === "locked") {
     return {
@@ -517,29 +471,16 @@ export const saveBranchVoteService = async (
   }
 
   const previousVote = await prisma.branchVote.findUnique({
-    where:{
-      branchId_userId:{
+    where: {
+      branchId_userId: {
         branchId,
         userId,
       },
     },
-    select:{
+    select: {
       voteType: true,
     },
   });
-
-  if(previousVote?.voteType === voteType){
-    return {
-      found: true as const,
-      authorized: true as const,
-      locked: false as const,
-      vote:{
-        branchId,
-        userId,
-        voteType,
-      },
-    };
-  }
 
   const vote = await prisma.branchVote.upsert({
     where: {
@@ -563,25 +504,29 @@ export const saveBranchVoteService = async (
     },
   });
 
-  await prisma.decisionLog.create({
-    data: {
-      tripRoomId: branch.tripRoomId,
-      userId,
-      actionType: DECISION_LOG_ACTION.BRANCH_VOTE_SAVED,
-      targetType: DECISION_LOG_TARGET.BRANCH,
-      targetId: branchId,
-      ...(previousVote
-        ? {
-          beforeData: {
-            voteType : previousVote.voteType,
-          },
-        }
-        : {} ),
-        afterData:{
-          voteType:vote.voteType,
+  const hasVoteChanged = previousVote?.voteType !== voteType;
+
+  if (hasVoteChanged) {
+    await prisma.decisionLog.create({
+      data: {
+        tripRoomId: branch.tripRoomId,
+        userId,
+        actionType: DECISION_LOG_ACTION.BRANCH_VOTE_SAVED,
+        targetType: DECISION_LOG_TARGET.BRANCH,
+        targetId: branchId,
+        ...(previousVote
+          ? {
+            beforeData: {
+              voteType: previousVote.voteType,
+            },
+          }
+          : {}),
+        afterData: {
+          voteType: vote.voteType,
         },
       },
     });
+  }
 
 
   return {

@@ -8,7 +8,6 @@ import {
   buildVoteSummary,
   calculatePreferenceScore,
   calculateManualBranchDurations,
-  toBranchDetailLogJson,
 } from "./branchShared";
 import {
   DECISION_LOG_ACTION,
@@ -61,16 +60,22 @@ export const createBranchService = async ({
   description,
   places,
 }: CreateBranchInput) => {
-  const tripRoomExists = await prisma.tripRoom.findUnique({
+  const tripRoom = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
     select: {
       id: true,
+      status: true,
+      preferences: true,
+      decisionDeadline: true,
     },
   });
 
-  if (!tripRoomExists) {
+  if (!tripRoom) {
     throw new Error("Trip room not found");
   }
+
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+  assertTripRoomDecisionOpen(tripRoom);
 
   const membership = await prisma.tripMember.findUnique({
     where: {
@@ -87,24 +92,6 @@ export const createBranchService = async ({
   if (!membership) {
     throw new Error("Forbidden");
   }
-
-  await lockExpiredTripRoomIfNeeded(tripRoomId);
-  
-  const tripRoom = await prisma.tripRoom.findUnique({
-    where : {id: tripRoomId},
-    select: {
-      id: true,
-      status: true,
-      preferences: true,
-      decisionDeadline: true,
-    },
-  });
-
-  if(!tripRoom){
-    throw new Error("Trip room not found");
-  }
-  
-  assertTripRoomDecisionOpen(tripRoom);
 
   if (!name.trim()) {
     throw new Error("Branch name is required");
@@ -196,12 +183,6 @@ export const createBranchService = async ({
     },
   });
 
-  const result = await getBranchDetailService(branch.id, userId);
-
-  if (!result.found || !result.authorized) {
-    throw new Error("Created branch fetch failed");
-  }
-
   await prisma.decisionLog.create({
     data: {
       tripRoomId,
@@ -209,9 +190,15 @@ export const createBranchService = async ({
       actionType: DECISION_LOG_ACTION.BRANCH_CREATE,
       targetType: DECISION_LOG_TARGET.BRANCH,
       targetId: branch.id,
-      afterData: toBranchDetailLogJson(result.data),
+      afterData: toBranchLogJson(name, description, resolvedPlacesWithDurations),
     },
   });
+
+  const result = await getBranchDetailService(branch.id, userId);
+
+  if (!result.found || !result.authorized) {
+    throw new Error("Created branch fetch failed");
+  }
 
   return result.data;
 };
@@ -253,6 +240,7 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
       aiReason: true,
       votes: {
         select: {
+          userId: true,
           voteType: true,
         },
       },
@@ -273,6 +261,7 @@ export const getBranchListService = async (tripRoomId: number, userId: number) =
       preferenceScore: branch.preferenceScore,
       aiReason: branch.aiReason,
       voteSummary: buildVoteSummary(branch.votes),
+      myVote: branch.votes.find((v) => v.userId === userId)?.voteType || null,
     })),
   };
 };
@@ -960,8 +949,6 @@ export const generateAiBranchesService = async (
     return null;
   }
 
-  await lockExpiredTripRoomIfNeeded(tripRoomId);
-
   const tripRoom = await prisma.tripRoom.findUnique({
     where: { id: tripRoomId },
     select: {
@@ -1034,6 +1021,12 @@ export const generateAiBranchesService = async (
 
   if (tripRoom.proposals.length === 0) {
     throw new Error("No proposals available");
+  }
+
+  await lockExpiredTripRoomIfNeeded(tripRoomId);
+
+  if (tripRoom.status === "locked") {
+    throw new Error("Trip room is locked");
   }
 
   assertTripRoomDecisionOpen(tripRoom);

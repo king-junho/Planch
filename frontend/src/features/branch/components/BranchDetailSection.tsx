@@ -33,6 +33,8 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
 
+    const [votingType, setVotingType] = useState<'agree' | 'hold' | 'disagree' | null>(null);
+
     useEffect(() => {
         const timer = window.setInterval(() => {
             setDeadlineNow(Date.now());
@@ -116,6 +118,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         return null;
     }
 
+    const currentMyVote = (branch as any).myVote || null;
     const deadlineStatus = getDeadlineStatus(decisionDeadline, deadlineNow);
 
     const maxDay = Math.max(tripDuration, 1);
@@ -146,7 +149,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
 
     const isEditDisabled = branch.status === 'confirmed' || isLocked;
 
-    const isVoteDisabled = isLoading || isDeleting || isEditDisabled || deadlineStatus.passed;
+    const isVoteDisabled = isLoading || isDeleting || isEditDisabled || deadlineStatus.passed || isAuthLoading;
 
     const handleEdit = () => {
         navigate(`/trip-rooms/${tripRoomId}/branch/edit`, {
@@ -194,12 +197,19 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
     };
 
     const handleVote = async (type: 'agree' | 'hold' | 'disagree') => {
-        if (!tripRoomId || isVoteDisabled) return;
+        if (!tripRoomId || isVoteDisabled || votingType !== null) return;
+
+        if (currentMyVote === type) {
+            return;
+        }
+
+        setVotingType(type);
         const success = await voteBranch(Number(tripRoomId), branch.id, type);
         if (success) {
             socket?.emit('collab:sync_action', { type: 'REFRESH_BRANCH_LIST' });
             showToast('success', '투표가 반영되었습니다.');
         }
+        setVotingType(null);
     };
 
     const handleFinalize = async () => {
@@ -223,7 +233,7 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
         return `${date.getMonth() + 1}월 ${date.getDate()}일 (${dayIndex}일차) 일정`;
     };
 
-    const showOverlay = isLoading || isDeleting || isUnlocking;
+    const showOverlay = (isLoading && votingType === null) || isDeleting || isUnlocking;
 
     return (
         <div className="flex flex-col h-full bg-white relative z-10">
@@ -433,14 +443,35 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                         </div>
 
                         <div className="flex gap-2 mb-4">
-                            <button onClick={() => handleVote('agree')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-blue-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                <ThumbsUp size={14} /> 찬성
+                            <button
+                                onClick={() => handleVote('agree')}
+                                disabled={isVoteDisabled || votingType !== null || currentMyVote === 'agree'}
+                                className={`flex-1 flex justify-center items-center gap-1.5 py-2.5 border rounded-lg text-xs font-bold transition-colors disabled:cursor-not-allowed ${currentMyVote === 'agree'
+                                    ? 'bg-blue-50 border-blue-200 text-blue-700 disabled:opacity-100'
+                                    : 'border-gray-200 hover:bg-gray-50 text-gray-600 disabled:opacity-50'
+                                    }`}
+                            >
+                                {votingType === 'agree' ? <Loader2 size={14} className="animate-spin" /> : <ThumbsUp size={14} />} 찬성
                             </button>
-                            <button onClick={() => handleVote('hold')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-50 rounded-lg hover:bg-gray-100 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Minus size={14} /> 보류
+                            <button
+                                onClick={() => handleVote('hold')}
+                                disabled={isVoteDisabled || votingType !== null || currentMyVote === 'hold'}
+                                className={`flex-1 flex justify-center items-center gap-1.5 py-2.5 border rounded-lg text-xs font-bold transition-colors disabled:cursor-not-allowed ${currentMyVote === 'hold'
+                                    ? 'bg-gray-100 border-gray-300 text-gray-800 disabled:opacity-100'
+                                    : 'border-gray-50 hover:bg-gray-100 text-gray-600 disabled:opacity-50'
+                                    }`}
+                            >
+                                {votingType === 'hold' ? <Loader2 size={14} className="animate-spin" /> : <Minus size={14} />} 보류
                             </button>
-                            <button onClick={() => handleVote('disagree')} disabled={isVoteDisabled} className="flex-1 flex justify-center items-center gap-1.5 py-2.5 border border-gray-200 rounded-lg hover:bg-red-50 text-xs font-bold text-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                <ThumbsDown size={14} /> 반대
+                            <button
+                                onClick={() => handleVote('disagree')}
+                                disabled={isVoteDisabled || votingType !== null || currentMyVote === 'disagree'}
+                                className={`flex-1 flex justify-center items-center gap-1.5 py-2.5 border rounded-lg text-xs font-bold transition-colors disabled:cursor-not-allowed ${currentMyVote === 'disagree'
+                                    ? 'bg-red-50 border-red-200 text-red-700 disabled:opacity-100'
+                                    : 'border-gray-200 hover:bg-gray-50 text-gray-600 disabled:opacity-50'
+                                    }`}
+                            >
+                                {votingType === 'disagree' ? <Loader2 size={14} className="animate-spin" /> : <ThumbsDown size={14} />} 반대
                             </button>
                         </div>
 

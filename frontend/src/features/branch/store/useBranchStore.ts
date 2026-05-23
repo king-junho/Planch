@@ -177,7 +177,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             id: b.branchId || b.id,
                             title: b.name || detail.name,
                             name: b.name || detail.name,
-                            description: detail.aiReason || "팀원이 구성한 일정입니다.",
+                            description: detail.aiReason || "직접 구성한 일정입니다.",
                             proposer: finalCreatedBy,
                             isAI: finalIsAi,
                             status: detail.status || b.status,
@@ -188,7 +188,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             agreeCount: detail.voteSummary?.agreeCount || b.voteSummary?.agreeCount || 0,
                             holdCount: detail.voteSummary?.holdCount || b.voteSummary?.holdCount || 0,
                             disagreeCount: detail.voteSummary?.disagreeCount || b.voteSummary?.disagreeCount || 0,
-
+                            myVote: detail.myVote || b.myVote || null,
                             createdBy: finalCreatedBy,
                             createdUserId: finalCreatedUserId,
                         };
@@ -201,7 +201,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             id: b.branchId || b.id,
                             title: b.name,
                             name: b.name,
-                            description: b.aiReason || "팀원이 구성한 일정입니다.",
+                            description: b.aiReason || "직접 구성한 일정입니다..",
                             proposer: fallbackProposer,
                             isAI: fallbackIsAi,
                             status: b.status,
@@ -212,6 +212,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             agreeCount: b.voteSummary?.agreeCount || 0,
                             holdCount: b.voteSummary?.holdCount || 0,
                             disagreeCount: b.voteSummary?.disagreeCount || 0,
+                            myVote: b.myVote || null,
                             createdBy: fallbackProposer,
                             createdUserId: b.createdUserId || b.userId || null,
                         };
@@ -333,6 +334,15 @@ export const useBranchStore = create<BranchState>((set, get) => ({
     voteBranch: async (tripRoomId, branchId, voteType) => {
         set({ isLoading: true });
         try {
+            set((state) => ({
+                branches: state.branches.map(b =>
+                    b.id === branchId ? { ...b, myVote: voteType } : b
+                ),
+                selectedBranch: state.selectedBranch?.id === branchId
+                    ? { ...state.selectedBranch, myVote: voteType }
+                    : state.selectedBranch
+            }));
+
             await api.put(`/branches/${branchId}/vote`, { voteType });
             await get().fetchBranches(tripRoomId);
 
