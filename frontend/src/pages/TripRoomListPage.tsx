@@ -1,11 +1,40 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { LogOut, Trash2 } from "lucide-react";
+import GlobalConfirmModal from "../components/common/GlobalConfirmModal";
 import TripDeadlinePicker from "../components/common/TripDeadlinePicker";
 import TripDateRangePicker from "../components/common/TripDateRangePicker";
 import AppHeader from "../components/layout/AppHeader";
-import { createTripRoom, getMyTripRooms, updateTripRoomImage } from "../services/tripRoomApi";
+import {
+  createTripRoom,
+  deleteTripRoom,
+  getMyTripRooms,
+  leaveTripRoom,
+  updateTripRoomImage,
+} from "../services/tripRoomApi";
+import { getAccessToken, getAuthUser } from "../services/authStorage";
 import { TripRoomListItem } from "../types/tripRoom";
+import { useConfirmStore } from "../features/store/useConfirmStore";
 import { resolveImageUrl } from "../utils/image";
+
+function readCurrentUserId() {
+  const accessToken = getAccessToken();
+  if (!accessToken) return null;
+
+  try {
+    const payloadPart = accessToken.split(".")[1] ?? "";
+    const normalizedPayload = payloadPart
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(payloadPart.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(normalizedPayload));
+    const id = payload.sub ?? payload.userId ?? payload.id;
+    const numericId = Number(id);
+    return Number.isFinite(numericId) ? numericId : null;
+  } catch {
+    return null;
+  }
+}
 
 function TripRoomCard({
   tripRoomId,
@@ -15,6 +44,10 @@ function TripRoomCard({
   memberCount,
   memberNamesPreview,
   remainingMemberCount,
+  isHost,
+  isActionLoading,
+  onDelete,
+  onLeave,
 }: {
   tripRoomId: number;
   status: string;
@@ -23,6 +56,10 @@ function TripRoomCard({
   memberCount: number;
   memberNamesPreview: string[];
   remainingMemberCount: number;
+  isHost: boolean;
+  isActionLoading: boolean;
+  onDelete: (tripRoomId: number) => void;
+  onLeave: (tripRoomId: number) => void;
 }) {
   const participantsLabel =
     remainingMemberCount > 0
@@ -38,41 +75,64 @@ function TripRoomCard({
     status === "locked" ? "확정" : "진행중";
 
   return (
-    <Link
-      className="block overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg"
-      to={`/trip-rooms/${tripRoomId}`}
-    >
-      <div className="relative h-[193.5px] bg-stone-100">
-        <img
-        alt={title}
-        className="h-full w-full object-cover"
-        src={resolveImageUrl(thumbnailUrl, "https://placehold.co/258x194")}
-        />
-        <div className="absolute inset-0 bg-black/5" />
-      </div>
-
-      <div className="space-y-4 px-6 pb-6 pt-6">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-xl font-bold leading-[30px] text-stone-900">
-            {title}
-          </h3>
-          <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClassName}`}
-          >
-            {statusLabel}
-          </span>
+    <article className="overflow-hidden rounded-2xl border border-stone-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg">
+      <Link className="block" to={`/trip-rooms/${tripRoomId}`}>
+        <div className="relative h-[193.5px] bg-stone-100">
+          <img
+            alt={title}
+            className="h-full w-full object-cover"
+            src={resolveImageUrl(thumbnailUrl, "https://placehold.co/258x194")}
+          />
+          <div className="absolute inset-0 bg-black/5" />
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-sm font-medium leading-[21px] text-stone-700">
-            <span>현재 참여 인원 : {memberCount}명</span>
+        <div className="space-y-4 px-6 pt-6">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-xl font-bold leading-[30px] text-stone-900">
+              {title}
+            </h3>
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClassName}`}
+            >
+              {statusLabel}
+            </span>
           </div>
-          <p className="text-sm leading-[21px] text-stone-500">
-            참가자 : {participantsLabel}
-          </p>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-sm font-medium leading-[21px] text-stone-700">
+              <span>현재 참여 인원 : {memberCount}명</span>
+            </div>
+            <p className="text-sm leading-[21px] text-stone-500">
+              참가자 : {participantsLabel}
+            </p>
+          </div>
         </div>
+      </Link>
+
+      <div className="flex justify-end px-6 pb-5 pt-4">
+        <button
+          className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            isHost
+              ? "border-red-100 bg-red-50 text-red-600 hover:border-red-200 hover:bg-red-100"
+              : "border-stone-200 bg-stone-50 text-stone-600 hover:border-stone-300 hover:bg-stone-100"
+          }`}
+          disabled={isActionLoading}
+          onClick={() => (isHost ? onDelete(tripRoomId) : onLeave(tripRoomId))}
+          type="button"
+        >
+          {isHost ? (
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          {isActionLoading
+            ? "처리 중..."
+            : isHost
+            ? "여행방 삭제"
+            : "여행방 나가기"}
+        </button>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -90,6 +150,10 @@ export default function TripRoomListPage() {
   const [listError, setListError] = useState("");
   const [isListLoading, setIsListLoading] = useState(true);
   const [tripDecisionDeadline, setTripDecisionDeadline] = useState("");
+  const [actionLoadingTripRoomId, setActionLoadingTripRoomId] = useState<number | null>(null);
+  const authUser = getAuthUser();
+  const currentUserId = readCurrentUserId() ?? authUser?.id ?? null;
+  const { confirm } = useConfirmStore();
 
   useEffect(() => {
     let isMounted = true;
@@ -214,6 +278,49 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
   }
 }
 
+  async function handleDeleteTripRoom(tripRoomId: number) {
+    const confirmed = await confirm("여행방을 삭제하시겠습니까?");
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoadingTripRoomId(tripRoomId);
+      await deleteTripRoom(tripRoomId);
+      setTripRooms((current) =>
+        current.filter((tripRoom) => tripRoom.tripRoomId !== tripRoomId)
+      );
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 삭제에 실패했습니다.";
+      setListError(message);
+    } finally {
+      setActionLoadingTripRoomId(null);
+    }
+  }
+
+  async function handleLeaveTripRoom(tripRoomId: number) {
+    const confirmed = await confirm("여행방에서 나가시겠습니까?");
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoadingTripRoomId(tripRoomId);
+      await leaveTripRoom(tripRoomId);
+      setTripRooms((current) =>
+        current.filter((tripRoom) => tripRoom.tripRoomId !== tripRoomId)
+      );
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error && caughtError.message.trim()
+          ? caughtError.message
+          : "여행방 나가기에 실패했습니다.";
+      setListError(message);
+    } finally {
+      setActionLoadingTripRoomId(null);
+    }
+  }
   return (
     <div className="min-h-screen bg-white text-stone-900">
       <AppHeader />
@@ -265,6 +372,10 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
                     memberCount={tripRoom.memberCount}
                     memberNamesPreview={tripRoom.memberNamesPreview}
                     remainingMemberCount={tripRoom.remainingMemberCount}
+                    isHost={tripRoom.hostUser.id === currentUserId}
+                    isActionLoading={actionLoadingTripRoomId === tripRoom.tripRoomId}
+                    onDelete={handleDeleteTripRoom}
+                    onLeave={handleLeaveTripRoom}
                   />
                 ))
               )}
@@ -416,7 +527,7 @@ function handleThumbnailFileChange(event: React.ChangeEvent<HTMLInputElement>) {
           </div>
         </div>
       ) : null}
-
+      <GlobalConfirmModal />
     </div>
   );
 }

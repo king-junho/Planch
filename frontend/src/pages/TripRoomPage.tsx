@@ -39,6 +39,25 @@ function toDateInputText(date: string | null) {
   return date ? date.slice(0, 10) : "";
 }
 
+function readCurrentUserId() {
+  const accessToken = getAccessToken();
+  if (!accessToken) return null;
+
+  try {
+    const payloadPart = accessToken.split(".")[1] ?? "";
+    const normalizedPayload = payloadPart
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(payloadPart.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(normalizedPayload));
+    const id = payload.sub ?? payload.userId ?? payload.id;
+    const numericId = Number(id);
+    return Number.isFinite(numericId) ? numericId : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function TripRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,6 +87,7 @@ export default function TripRoomPage() {
   const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
   const [deadlineNow, setDeadlineNow] = useState(Date.now());
   const authUser = getAuthUser();
+  const currentUserId = readCurrentUserId() ?? authUser?.id ?? null;
   const { confirm } = useConfirmStore();
   const effectiveDecisionDeadline = tripInfo.decisionDeadline ? new Date(tripInfo.decisionDeadline).toISOString() : tripRoomDetail?.decisionDeadline ?? null;
   const deadlineStatus = getDeadlineStatus(effectiveDecisionDeadline, deadlineNow);
@@ -205,9 +225,9 @@ export default function TripRoomPage() {
   }, [tripRoomDetail]);
 
   const isHost = useMemo(() => {
-    if(!tripRoomDetail || !authUser) return false;
-    return tripRoomDetail.hostUser.id === authUser.id;
-  },[tripRoomDetail,authUser]);
+    if(!tripRoomDetail || !currentUserId) return false;
+    return tripRoomDetail.hostUser.id === currentUserId;
+  },[tripRoomDetail,currentUserId]);
   const isTripRoomLocked = tripRoomDetail?.status === "locked";
   const isTripInfoDisabled = !isHost || isTripRoomLocked;
 
