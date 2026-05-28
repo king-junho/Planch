@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Map as KakaoMap, Polyline, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
+import { Route } from 'lucide-react';
 
 interface BranchMapProps {
     compareBranches?: Branch[];
@@ -13,7 +14,11 @@ const PATH_COLORS = ['#2563eb', '#dc2626', '#16a34a'];
 const MARKER_COLORS = ['bg-blue-600', 'bg-red-600', 'bg-green-600'];
 
 export default function BranchMap({ compareBranches, compareDay, visibleBranchIds }: BranchMapProps) {
-    const { selectedBranch, selectedDay, draftRoutes, currentDraftDay } = useBranchStore();
+    const {
+        selectedBranch, selectedDay, draftRoutes, currentDraftDay,
+        globalTransportModes, setGlobalTransportMode
+    } = useBranchStore();
+
     const [map, setMap] = useState<any>(null);
 
     const [singleRoadPath, setSingleRoadPath] = useState<{ lat: number, lng: number }[]>([]);
@@ -22,6 +27,7 @@ export default function BranchMap({ compareBranches, compareDay, visibleBranchId
     const isCreating = Object.values(draftRoutes).some(r => r.length > 0);
     const isCompareMode = compareBranches && compareBranches.length > 0;
 
+    const currentMode = globalTransportModes?.[currentDraftDay] || 'auto';
     const defaultCenter = { lat: 37.5546, lng: 126.9706 };
 
     const updateBounds = (paths: { lat: number, lng: number }[][]) => {
@@ -125,10 +131,12 @@ export default function BranchMap({ compareBranches, compareDay, visibleBranchId
 
             const data = await response.json();
 
-            if (data.routes && data.routes[0]) {
+            if (data.routes && data.routes[0] && data.routes[0].sections) {
                 const linePath: { lat: number, lng: number }[] = [];
                 data.routes[0].sections.forEach((section: any) => {
+                    if (!section.roads) return;
                     section.roads.forEach((road: any) => {
+                        if (!road.vertexes) return;
                         road.vertexes.forEach((vertex: number, index: number) => {
                             if (index % 2 === 0) {
                                 linePath.push({ lng: vertex, lat: road.vertexes[index + 1] });
@@ -170,80 +178,105 @@ export default function BranchMap({ compareBranches, compareDay, visibleBranchId
     }, [map, rawComparePaths, compareRoadPaths, rawSinglePath, singleRoadPath, isCompareMode, visibleBranchIds, compareBranches]);
 
     return (
-        <KakaoMap
-            center={defaultCenter}
-            style={{ width: '100%', height: '100%' }}
-            level={3}
-            onCreate={setMap}
-        >
-            {isCompareMode ? (
-                compareBranches!.map((branch, bIdx) => {
-                    if (visibleBranchIds && !visibleBranchIds.includes(branch.id)) return null;
+        <div className="w-full h-full relative">
+            <KakaoMap
+                center={defaultCenter}
+                style={{ width: '100%', height: '100%' }}
+                level={3}
+                onCreate={setMap}
+            >
+                {isCompareMode ? (
+                    compareBranches!.map((branch, bIdx) => {
+                        if (visibleBranchIds && !visibleBranchIds.includes(branch.id)) return null;
 
-                    return (
-                        <div key={`compare-group-${branch.id}`}>
-                            <Polyline
-                                path={compareRoadPaths[bIdx] || []}
-                                strokeWeight={5}
-                                strokeColor={PATH_COLORS[bIdx % PATH_COLORS.length]}
-                                strokeOpacity={0.8}
-                                strokeStyle="solid"
-                            />
-                            {(offsetComparePaths[bIdx] || []).map((pos, pIdx) => (
-                                <CustomOverlayMap
-                                    key={`compare-marker-${branch.id}-${pIdx}`}
-                                    position={pos}
-                                    yAnchor={1}
-                                    zIndex={10 + pIdx}
-                                >
-                                    <div
-                                        className="relative group cursor-pointer transition-transform z-10 hover:z-50 hover:scale-110"
-                                        style={{ transform: `translate(${pos.offsetX}px, ${pos.offsetY}px)` }}
+                        return (
+                            <div key={`compare-group-${branch.id}`}>
+                                <Polyline
+                                    path={compareRoadPaths[bIdx] || []}
+                                    strokeWeight={5}
+                                    strokeColor={PATH_COLORS[bIdx % PATH_COLORS.length]}
+                                    strokeOpacity={0.8}
+                                    strokeStyle="solid"
+                                />
+                                {(offsetComparePaths[bIdx] || []).map((pos, pIdx) => (
+                                    <CustomOverlayMap
+                                        key={`compare-marker-${branch.id}-${pIdx}`}
+                                        position={pos}
+                                        yAnchor={1}
+                                        zIndex={10 + pIdx}
                                     >
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
-                                            플랜 {bIdx + 1} - {pIdx + 1}번째: {pos.title}
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                                        </div>
+                                        <div
+                                            className="relative group cursor-pointer transition-transform z-10 hover:z-50 hover:scale-110"
+                                            style={{ transform: `translate(${pos.offsetX}px, ${pos.offsetY}px)` }}
+                                        >
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
+                                                플랜 {bIdx + 1} - {pIdx + 1}번째: {pos.title}
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                            </div>
 
-                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md ${MARKER_COLORS[bIdx % MARKER_COLORS.length]} border-white`}>
-                                            {pIdx + 1}
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md ${MARKER_COLORS[bIdx % MARKER_COLORS.length]} border-white`}>
+                                                {pIdx + 1}
+                                            </div>
+                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
                                         </div>
-                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
-                                    </div>
-                                </CustomOverlayMap>
-                            ))}
-                        </div>
-                    );
-                })
-            ) : (
-                <>
-                    <Polyline
-                        path={singleRoadPath}
-                        strokeWeight={5}
-                        strokeColor="#2563eb"
-                        strokeOpacity={0.7}
-                        strokeStyle="solid"
-                    />
-                    {rawSinglePath.map((pos, idx) => (
-                        <CustomOverlayMap
-                            key={`single-marker-${idx}`}
-                            position={pos}
-                            yAnchor={1}
-                        >
-                            <div className="relative group cursor-pointer transform hover:scale-110 transition-transform z-10 hover:z-50">
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
-                                    {idx + 1}번째: {pos.title}
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                                </div>
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md bg-blue-600 border-white">
-                                    {idx + 1}
-                                </div>
-                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
+                                    </CustomOverlayMap>
+                                ))}
                             </div>
-                        </CustomOverlayMap>
-                    ))}
-                </>
+                        );
+                    })
+                ) : (
+                    <>
+                        <Polyline
+                            path={singleRoadPath}
+                            strokeWeight={5}
+                            strokeColor="#2563eb"
+                            strokeOpacity={0.7}
+                            strokeStyle="solid"
+                        />
+                        {rawSinglePath.map((pos, idx) => (
+                            <CustomOverlayMap
+                                key={`single-marker-${idx}`}
+                                position={pos}
+                                yAnchor={1}
+                            >
+                                <div className="relative group cursor-pointer transform hover:scale-110 transition-transform z-10 hover:z-50">
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
+                                        {idx + 1}번째: {pos.title}
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                                    </div>
+                                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md bg-blue-600 border-white">
+                                        {idx + 1}
+                                    </div>
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
+                                </div>
+                            </CustomOverlayMap>
+                        ))}
+                    </>
+                )}
+            </KakaoMap>
+
+            {isCreating && (
+                <div className="absolute top-4 right-4 z-50 flex items-center bg-white rounded-xl shadow-sm border border-gray-200 p-1.5 transition-all">
+                    <div className="flex items-center justify-center w-8 h-8 bg-gray-50 text-gray-600 rounded-lg mr-2">
+                        <Route size={16} />
+                    </div>
+                    <div className="flex flex-col pr-2">
+                        <span className="text-[10px] text-gray-400 font-bold leading-none mb-1">추가 장소 이동 수단</span>
+                        <select
+                            value={currentMode}
+                            onChange={(e) => setGlobalTransportMode(currentDraftDay, e.target.value as any)}
+                            className="text-xs font-bold text-gray-700 bg-transparent outline-none cursor-pointer"
+                        >
+                            <option value="auto">🌟 거리 비례 자동 추천</option>
+                            <option value="walk">🚶 도보 이동</option>
+                            <option value="transit">🚌 대중교통</option>
+                            <option value="taxi">🚕 택시 탑승</option>
+                            <option value="car">🚗 자가용/렌터카</option>
+                            <option value="flight">✈️ 항공/KTX</option>
+                        </select>
+                    </div>
+                </div>
             )}
-        </KakaoMap>
+        </div>
     );
 }

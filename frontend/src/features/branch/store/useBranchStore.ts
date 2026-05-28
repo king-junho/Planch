@@ -2,12 +2,30 @@ import { create } from 'zustand';
 import { Branch, RouteItem } from '../../../types/branch';
 import api from '../../../api/axiosInstance';
 import { useToastStore } from '../../store/useToastStore';
+import { kakaoMobilityApi } from '../../../api/kakaoMobilityApi';
+import { odsayApi } from '../../../api/odsayApi';
 
 const parseNumber = (value: string | number | null | undefined): number => {
     if (!value) return 0;
     if (typeof value === 'number') return value;
     return parseInt(value.replace(/[^0-9]/g, ''), 10) || 0;
 };
+
+const getStraightDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3;
+    const p1 = lat1 * Math.PI / 180;
+    const p2 = lat2 * Math.PI / 180;
+    const dp = (lat2 - lat1) * Math.PI / 180;
+    const dl = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
+        Math.cos(p1) * Math.cos(p2) *
+        Math.sin(dl / 2) * Math.sin(dl / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+type TransportMode = 'walk' | 'transit' | 'taxi' | 'car' | 'flight' | 'auto';
 
 interface BranchState {
     branches: Branch[];
@@ -23,12 +41,17 @@ interface BranchState {
     draftRoutes: Record<number, RouteItem[]>;
     currentDraftDay: number;
 
+    globalTransportModes: Record<number, TransportMode>;
+    setGlobalTransportMode: (day: number, mode: TransportMode) => Promise<void>;
+    setTransportMode: (day: number, itemId: number, mode: TransportMode) => Promise<void>;
+
     setSelectedBranch: (branch: Branch | null) => void;
     setSelectedDay: (day: number) => void;
 
     setCurrentDraftDay: (day: number) => void;
     setDraftRoutes: (routes: Record<number, RouteItem[]>) => void;
-    addPlaceToDraft: (day: number, item: RouteItem) => void;
+
+    addPlaceToDraft: (day: number, item: RouteItem) => Promise<void>;
     removePlaceFromDraft: (day: number, itemId: number) => void;
     updateDraftPlace: (day: number, itemId: number, updates: Partial<RouteItem>) => void;
 
@@ -77,6 +100,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
 
     draftRoutes: { 1: [] },
     currentDraftDay: 1,
+    globalTransportModes: {},
 
     setSelectedBranch: (branch) => set({ selectedBranch: branch, selectedDay: 1 }),
     setSelectedDay: (day) => set({ selectedDay: day }),
@@ -84,12 +108,175 @@ export const useBranchStore = create<BranchState>((set, get) => ({
     setCurrentDraftDay: (day) => set({ currentDraftDay: day }),
     setDraftRoutes: (routes) => set({ draftRoutes: routes }),
 
-    addPlaceToDraft: (day, item) => set((state) => ({
-        draftRoutes: {
-            ...state.draftRoutes,
-            [day]: [...(state.draftRoutes[day] || []), item]
+    setGlobalTransportMode: async (day, mode) => {
+        set(state => ({
+            globalTransportModes: {
+                ...state.globalTransportModes,
+                [day]: mode
+            }
+        }));
+
+        const routes = get().draftRoutes[day] || [];
+        for (let i = 1; i < routes.length; i++) {
+            await get().setTransportMode(day, routes[i].id, mode);
         }
-    })),
+    },
+
+    setTransportMode: async (day, itemId, mode) => {
+        const { draftRoutes } = get();
+        const currentDayRoutes = draftRoutes[day] || [];
+        const index = currentDayRoutes.findIndex(i => i.id === itemId);
+
+        if (index <= 0) return;
+
+        const item: any = currentDayRoutes[index];
+        const prevItem: any = currentDayRoutes[index - 1];
+
+        if (!item.routeInfo) return;
+
+        let travelMinutes = 0;
+        let travelMemo = '';
+        let addedCost = 0;
+
+        const { distanceMeters, durationSeconds, taxiFare } = item.routeInfo;
+        const distanceKm = ((distanceMeters || 0) / 1000).toFixed(1);
+
+        let actualMode = mode;
+
+        if (actualMode === 'auto') {
+            if ((distanceMeters || 0) > 200000) actualMode = 'flight';
+            else if ((distanceMeters || 0) < 1500) actualMode = 'walk';
+            else if ((distanceMeters || 0) < 30000) actualMode = 'transit';
+            else actualMode = 'car';
+        }
+
+        if (actualMode === 'flight') {
+            const transitInfo = await odsayApi.getTransitRoute(
+                { lat: Number(prevItem.latitude), lng: Number(prevItem.longitude) },
+                { lat: Number(item.latitude), lng: Number(item.longitude) }
+            );
+
+            if (transitInfo) {
+                travelMinutes = transitInfo.durationMinutes || 0;
+                addedCost = transitInfo.payment || 0;
+                const costText = addedCost > 0 ? `\n* 예상 요금 ${addedCost.toLocaleString()}원` : '';
+                travelMemo = `[항공/KTX] 약 ${travelMinutes}분 소요 (${distanceKm}km)${costText}`;
+            } else {
+                travelMinutes = 150;
+                travelMemo = `[항공/KTX] 약 2시간 30분 소요 예상 (직선거리 ${distanceKm}km)`;
+            }
+        } else if (actualMode === 'walk') {
+            travelMinutes = Math.ceil((distanceMeters || 0) / 67);
+            travelMemo = `[도보 이동] 약 ${travelMinutes}분 소요 (${distanceMeters || 0}m)`;
+        } else if (actualMode === 'transit') {
+            const transitInfo = await odsayApi.getTransitRoute(
+                { lat: Number(prevItem.latitude), lng: Number(prevItem.longitude) },
+                { lat: Number(item.latitude), lng: Number(item.longitude) }
+            );
+
+            if (transitInfo) {
+                travelMinutes = transitInfo.durationMinutes || 0;
+                addedCost = transitInfo.payment || 0;
+                const costText = addedCost > 0 ? `\n* 예상 요금 ${addedCost.toLocaleString()}원` : '';
+                travelMemo = `[대중교통] 약 ${travelMinutes}분 소요 (${distanceKm}km)${costText}`;
+            } else {
+                const taxiMinutes = Math.round((durationSeconds || 0) / 60) || Math.round(((distanceMeters || 0) / 1000) / 40 * 60);
+                travelMinutes = Math.round(taxiMinutes * 1.5 + 10);
+                const safeTaxiFare = taxiFare || 0;
+                const taxiText = safeTaxiFare > 0 ? `택시 이용시 ${taxiMinutes}분, 약 ${safeTaxiFare.toLocaleString()}원` : `차량 이용시 ${taxiMinutes}분`;
+                travelMemo = `[대중교통] 약 ${travelMinutes}분 소요 (${distanceKm}km)\n* ${taxiText}`;
+                addedCost = 1500;
+            }
+        } else if (actualMode === 'taxi') {
+            travelMinutes = Math.round((durationSeconds || 0) / 60) || Math.round(((distanceMeters || 0) / 1000) / 40 * 60);
+            const safeTaxiFare = taxiFare || 0;
+            const costText = safeTaxiFare > 0 ? `\n* 예상 택시비 ${safeTaxiFare.toLocaleString()}원` : '';
+            travelMemo = `[택시 이동] 약 ${travelMinutes}분 소요 (${distanceKm}km)${costText}`;
+            addedCost = safeTaxiFare;
+        } else if (actualMode === 'car') {
+            travelMinutes = Math.round((durationSeconds || 0) / 60) || Math.round(((distanceMeters || 0) / 1000) / 40 * 60);
+            travelMemo = `[자가용/렌트카] 약 ${travelMinutes}분 소요 (${distanceKm}km)`;
+        }
+
+        const updatedItem = {
+            ...item,
+            transportMode: actualMode,
+            memo: `${travelMemo}\n\n${item._userMemo || ''}`.trim(),
+            cost: addedCost > 0 ? String(addedCost) : ''
+        };
+
+        if (prevItem.time) {
+            const prevTimeMatch = prevItem.time.match(/^(\d{2}):(\d{2})$/);
+            if (prevTimeMatch) {
+                const date = new Date();
+                date.setHours(Number(prevTimeMatch[1]), Number(prevTimeMatch[2]), 0, 0);
+                date.setMinutes(date.getMinutes() + 60 + travelMinutes);
+                const newHour = String(date.getHours()).padStart(2, '0');
+                const newMinute = String(date.getMinutes()).padStart(2, '0');
+                updatedItem.time = `${newHour}:${newMinute}`;
+            }
+        }
+
+        set((state) => {
+            const newRoutes = [...(state.draftRoutes[day] || [])];
+            const targetIndex = newRoutes.findIndex(i => i.id === itemId);
+            if (targetIndex > -1) {
+                newRoutes[targetIndex] = updatedItem;
+            }
+            return {
+                draftRoutes: {
+                    ...state.draftRoutes,
+                    [day]: newRoutes
+                }
+            };
+        });
+    },
+
+    addPlaceToDraft: async (day, item) => {
+        const { draftRoutes } = get();
+        const currentDayRoutes = draftRoutes[day] || [];
+
+        const newItem: any = { ...item, _userMemo: item.memo || '' };
+
+        if (currentDayRoutes.length > 0) {
+            const previousItem = currentDayRoutes[currentDayRoutes.length - 1];
+
+            if (previousItem.latitude && previousItem.longitude && item.latitude && item.longitude) {
+                const routeInfo = await kakaoMobilityApi.getRouteInfo(
+                    { lat: Number(previousItem.latitude), lng: Number(previousItem.longitude) },
+                    { lat: Number(item.latitude), lng: Number(item.longitude) }
+                );
+
+                if (routeInfo) {
+                    newItem.routeInfo = routeInfo;
+                } else {
+                    const distanceMeters = getStraightDistance(
+                        Number(previousItem.latitude),
+                        Number(previousItem.longitude),
+                        Number(item.latitude),
+                        Number(item.longitude)
+                    );
+                    newItem.routeInfo = { distanceMeters, durationSeconds: 0, taxiFare: 0 };
+                }
+            }
+        } else {
+            if (!newItem.time) {
+                newItem.time = '10:00';
+            }
+        }
+
+        set((state) => ({
+            draftRoutes: {
+                ...state.draftRoutes,
+                [day]: [...(state.draftRoutes[day] || []), newItem]
+            }
+        }));
+
+        if (currentDayRoutes.length > 0) {
+            const mode = get().globalTransportModes[day] || 'auto';
+            await get().setTransportMode(day, newItem.id, mode);
+        }
+    },
 
     removePlaceFromDraft: (day, itemId) => set((state) => ({
         draftRoutes: {
@@ -132,7 +319,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         };
     }),
 
-    resetDraft: () => set({ draftRoutes: { 1: [] }, currentDraftDay: 1 }),
+    resetDraft: () => set({ draftRoutes: { 1: [] }, currentDraftDay: 1, globalTransportModes: {} }),
 
     fetchBranches: async (tripRoomId) => {
         set({ isLoading: true });
@@ -168,7 +355,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
 
                         const finalCreatedBy = (detail.createdBy && detail.createdBy !== 'user')
                             ? detail.createdBy
-                            : ((b.createdBy && b.createdBy !== 'user') ? b.createdBy : '팀원');
+                            : ((b.createdBy && b.createdBy !== 'user') ? b.createdBy : '사용자');
 
                         const finalCreatedUserId = detail.createdUserId || detail.userId || b.createdUserId || b.userId || null;
                         const finalIsAi = String(detail.createdBy).toLowerCase() === 'ai' || String(b.createdBy).toLowerCase() === 'ai' || b.source === 'ai';
@@ -177,7 +364,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             id: b.branchId || b.id,
                             title: b.name || detail.name,
                             name: b.name || detail.name,
-                            description: detail.aiReason || "직접 구성한 일정입니다.",
+                            description: detail.aiReason || "사용자가 구성한 일정입니다.",
                             proposer: finalCreatedBy,
                             isAI: finalIsAi,
                             status: detail.status || b.status,
@@ -195,13 +382,13 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                     } catch (detailError) {
                         console.error(`브랜치 상세 로드 실패:`, detailError);
                         const fallbackIsAi = String(b.createdBy).toLowerCase() === 'ai' || b.source === 'ai';
-                        const fallbackProposer = (b.createdBy && b.createdBy !== 'user') ? b.createdBy : '팀원';
+                        const fallbackProposer = (b.createdBy && b.createdBy !== 'user') ? b.createdBy : '사용자';
 
                         return {
                             id: b.branchId || b.id,
                             title: b.name,
                             name: b.name,
-                            description: b.aiReason || "직접 구성한 일정입니다..",
+                            description: b.aiReason || "사용자가 구성한 일정입니다.",
                             proposer: fallbackProposer,
                             isAI: fallbackIsAi,
                             status: b.status,
