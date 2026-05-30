@@ -628,7 +628,7 @@ export default function TripRoomHeader({
 
   return (
     <header className="relative border-b border-stone-300 bg-white">
-      <div className="mx-auto flex h-[76px] w-full max-w-[1200px] items-center justify-between gap-4 px-8">
+      <div className="flex h-[76px] w-full items-center justify-between gap-4 px-8">
         <div className="relative flex w-[220px] items-center gap-3">
           <button
             aria-expanded={isMenuOpen}

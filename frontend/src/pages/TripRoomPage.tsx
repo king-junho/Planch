@@ -140,15 +140,15 @@ function TripRoomMainSidebar({
   onChange: (view: MainPanelView) => void;
 }) {
   return (
-    <aside className="w-[260px] shrink-0 rounded-[24px] border border-stone-200 bg-white p-4 shadow-sm">
-      <div className="px-3 py-4">
+    <aside className="w-[280px] shrink-0 border-r border-stone-200 bg-white px-4 py-8 shadow-sm">
+      <div className="px-4">
         <h2 className="text-xl font-bold text-stone-900">여행방</h2>
         <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-stone-400">
           Room Pages
         </p>
       </div>
 
-      <div className="mt-2 flex flex-col gap-1">
+      <div className="mt-8 flex flex-col gap-1">
         <button
           className={`flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-bold transition-all ${
             activeView === "overview"
@@ -883,14 +883,15 @@ export default function TripRoomPage() {
         tripRoomId={tripRoomId}
       />
 
-      <main className="mx-auto flex w-full max-w-[1280px] gap-6 px-8 pb-16 pt-10">
+      <main className="flex min-h-[calc(100vh-76px)] w-full bg-stone-50">
         <TripRoomMainSidebar
           activeView={mainPanelView}
           canOpenSummary={canOpenConfirmedSummary}
           onChange={setMainPanelView}
         />
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 px-8 pb-16 pt-10">
+          <div className="mx-auto max-w-[1200px]">
           {mainPanelView === "overview" ? (
         <section className="relative overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
           <div className="relative overflow-hidden rounded-[32px] border border-stone-200 bg-stone-100">
@@ -973,7 +974,7 @@ export default function TripRoomPage() {
 
           <div className="grid gap-6 p-8 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
                     label: "참여 멤버",
@@ -1322,6 +1323,7 @@ export default function TripRoomPage() {
               tripRoomTitle={tripRoomDetail.title}
             />
           )}
+          </div>
         </div>
       </main>
 
