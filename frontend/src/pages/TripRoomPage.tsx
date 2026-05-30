@@ -18,11 +18,61 @@ import { TripRoomDetailResponse } from "../types/tripRoom";
 import { useConfirmStore } from "../features/store/useConfirmStore";
 import { resolveImageUrl } from "../utils/image";
 import {getDeadlineStatus} from "../utils/deadline";
-import {ImagePlus, LogOut, Trash2} from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  FileText,
+  ImagePlus,
+  LogOut,
+  MapPin,
+  Route as RouteIcon,
+  Trash2,
+  Wallet,
+} from "lucide-react";
 
 type BranchListItem = {
   branchId: number;
   name: string;
+};
+
+type MainPanelView = "overview" | "confirmedSummary";
+
+type ConfirmedBranchPlace = {
+  dayNo: number;
+  orderIndex: number;
+  startTime: string | null;
+  estimatedCost: number | null;
+  estimatedDuration: number | null;
+  distanceMeters: number | null;
+  durationSeconds: number | null;
+  memo: string | null;
+  place: {
+    id: number;
+    name: string;
+    address: string;
+    category: string;
+  };
+};
+
+type ConfirmedBranchDetail = {
+  branchId: number;
+  name: string;
+  status: string;
+  createdBy: string;
+  aiReason: string | null;
+  metrics: {
+    totalCost: number | null;
+    totalTravelTime: number | null;
+    preferenceScore: number | null;
+  };
+  voteSummary: {
+    agreeCount: number;
+    holdCount: number;
+    disagreeCount: number;
+  };
+  places: ConfirmedBranchPlace[];
 };
 
 function toDateTimeLocalValue(dateString?: string | null) {
@@ -58,6 +108,347 @@ function readCurrentUserId() {
   }
 }
 
+function formatWon(value?: number | null) {
+  if (!value) return "0원";
+  return `${value.toLocaleString("ko-KR")}원`;
+}
+
+function formatMinutes(value?: number | null) {
+  if (!value) return "0분";
+
+  const hours = Math.floor(value / 60);
+  const minutes = value % 60;
+
+  if (hours <= 0) return `${minutes}분`;
+  if (minutes === 0) return `${hours}시간`;
+  return `${hours}시간 ${minutes}분`;
+}
+
+function formatDistance(value?: number | null) {
+  if (!value) return null;
+  if (value < 1000) return `${value}m`;
+  return `${(value / 1000).toFixed(1)}km`;
+}
+
+function TripRoomMainSidebar({
+  activeView,
+  canOpenSummary,
+  onChange,
+}: {
+  activeView: MainPanelView;
+  canOpenSummary: boolean;
+  onChange: (view: MainPanelView) => void;
+}) {
+  return (
+    <aside className="w-[260px] shrink-0 rounded-[24px] border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="px-3 py-4">
+        <h2 className="text-xl font-bold text-stone-900">여행방</h2>
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-stone-400">
+          Room Pages
+        </p>
+      </div>
+
+      <div className="mt-2 flex flex-col gap-1">
+        <button
+          className={`flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-bold transition-all ${
+            activeView === "overview"
+              ? "bg-stone-900 text-white shadow-sm"
+              : "text-stone-600 hover:bg-stone-50"
+          }`}
+          onClick={() => onChange("overview")}
+          type="button"
+        >
+          <FileText size={18} />
+          메인 페이지
+        </button>
+
+        <button
+          className={`flex items-center gap-3 rounded-xl px-4 py-3.5 text-left text-sm font-bold transition-all ${
+            activeView === "confirmedSummary"
+              ? "bg-blue-50 text-blue-700"
+              : canOpenSummary
+              ? "text-stone-600 hover:bg-stone-50"
+              : "cursor-not-allowed bg-stone-50 text-stone-300"
+          }`}
+          disabled={!canOpenSummary}
+          onClick={() => onChange("confirmedSummary")}
+          title={
+            canOpenSummary
+              ? "확정 브랜치 요약 보기"
+              : "여행 일정이 확정되면 열 수 있습니다."
+          }
+          type="button"
+        >
+          <CheckCircle2 size={18} />
+          확정 브랜치 요약
+        </button>
+      </div>
+
+      {!canOpenSummary ? (
+        <p className="mt-5 rounded-xl bg-stone-50 px-4 py-3 text-xs leading-5 text-stone-400">
+          최종 브랜치가 확정되면 요약 페이지가 활성화됩니다.
+        </p>
+      ) : null}
+    </aside>
+  );
+}
+
+function ConfirmedBranchSummaryView({
+  branch,
+  isLoading,
+  error,
+  tripRoomTitle,
+  startDate,
+  endDate,
+}: {
+  branch: ConfirmedBranchDetail | null;
+  isLoading: boolean;
+  error: string;
+  tripRoomTitle: string;
+  startDate: string | null;
+  endDate: string | null;
+}) {
+  const [selectedSummaryDay, setSelectedSummaryDay] = useState<number | null>(null);
+  const [isSummaryDayMenuOpen, setIsSummaryDayMenuOpen] = useState(false);
+
+  if (isLoading) {
+    return (
+      <section className="rounded-[28px] border border-stone-200 bg-white p-10 text-center shadow-sm">
+        <p className="text-sm font-medium text-stone-500">
+          확정된 브랜치 요약을 불러오는 중입니다.
+        </p>
+      </section>
+    );
+  }
+
+  if (error || !branch) {
+    return (
+      <section className="rounded-[28px] border border-red-100 bg-white p-10 text-center shadow-sm">
+        <p className="text-sm font-semibold text-red-600">
+          {error || "확정된 브랜치 정보를 불러오지 못했습니다."}
+        </p>
+      </section>
+    );
+  }
+
+  const placesByDay = branch.places.reduce<Record<number, ConfirmedBranchPlace[]>>(
+    (result, place) => {
+      if (!result[place.dayNo]) result[place.dayNo] = [];
+      result[place.dayNo].push(place);
+      return result;
+    },
+    {}
+  );
+  const dayEntries = Object.entries(placesByDay).sort(
+    ([dayA], [dayB]) => Number(dayA) - Number(dayB)
+  );
+  const dayNumbers = dayEntries.map(([day]) => Number(day));
+  const activeDay =
+    selectedSummaryDay && dayNumbers.includes(selectedSummaryDay)
+      ? selectedSummaryDay
+      : dayNumbers[0] ?? 1;
+  const activeDayPlaces = placesByDay[activeDay] ?? [];
+  const totalVotes =
+    branch.voteSummary.agreeCount +
+    branch.voteSummary.holdCount +
+    branch.voteSummary.disagreeCount;
+
+  return (
+    <section className="overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
+      <div className="border-b border-blue-100 bg-blue-50 px-8 py-7">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+              <CheckCircle2 size={14} />
+              최종 확정 브랜치
+            </span>
+            <h1 className="mt-4 text-3xl font-bold text-stone-950">
+              {branch.name}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              {branch.aiReason || `${tripRoomTitle} 여행을 위해 확정된 최종 일정입니다.`}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white px-5 py-4 text-sm text-stone-600 ring-1 ring-blue-100">
+            <p className="font-semibold text-stone-900">{tripRoomTitle}</p>
+            <p className="mt-1">
+              {toDateInputText(startDate)} ~ {toDateInputText(endDate)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-8 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "방문 장소",
+            value: `${branch.places.length}곳`,
+            icon: MapPin,
+          },
+          {
+            label: "예상 비용",
+            value: formatWon(branch.metrics.totalCost),
+            icon: Wallet,
+          },
+          {
+            label: "예상 이동시간",
+            value: formatMinutes(branch.metrics.totalTravelTime),
+            icon: Clock,
+          },
+          {
+            label: "선호 일치율",
+            value: `${branch.metrics.preferenceScore ?? 0}%`,
+            icon: CheckCircle2,
+          },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <article
+              className="rounded-2xl border border-stone-200 bg-stone-50 p-5"
+              key={item.label}
+            >
+              <div className="flex items-center gap-2 text-stone-500">
+                <Icon size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  {item.label}
+                </span>
+              </div>
+              <p className="mt-3 text-xl font-bold text-stone-950">{item.value}</p>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-6 px-8 pb-8 lg:grid-cols-[0.75fr_1.25fr]">
+        <article className="rounded-3xl border border-stone-200 bg-white p-6">
+          <h2 className="text-lg font-bold text-stone-900">확정 근거</h2>
+          <div className="mt-5 space-y-4">
+            <div className="rounded-2xl bg-stone-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                작성자
+              </p>
+              <p className="mt-2 text-sm font-semibold text-stone-800">
+                {branch.createdBy === "ai" ? "Planch AI" : branch.createdBy}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-stone-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                투표 결과
+              </p>
+              <p className="mt-2 text-sm font-semibold text-stone-800">
+                찬성 {branch.voteSummary.agreeCount}명 · 보류{" "}
+                {branch.voteSummary.holdCount}명 · 반대{" "}
+                {branch.voteSummary.disagreeCount}명
+              </p>
+              <p className="mt-1 text-xs text-stone-500">
+                총 {totalVotes}명이 의견을 남겼습니다.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-stone-200 bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarDays size={20} className="text-blue-500" />
+              <h2 className="text-lg font-bold text-stone-900">일차별 코스</h2>
+            </div>
+            <div className="relative">
+              <button
+                className="inline-flex min-w-[112px] items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-bold text-stone-800 shadow-sm transition hover:bg-stone-50"
+                onClick={() => setIsSummaryDayMenuOpen((current) => !current)}
+                type="button"
+              >
+                {activeDay}일차
+                <ChevronDown
+                  size={16}
+                  className={`text-stone-400 transition-transform ${
+                    isSummaryDayMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {isSummaryDayMenuOpen ? (
+                <div className="absolute right-0 top-12 z-20 w-[140px] overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+                  {dayNumbers.map((day) => (
+                <button
+                  className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-bold transition-colors ${
+                    activeDay === day
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-stone-600 hover:bg-stone-50"
+                  }`}
+                  key={day}
+                  onClick={() => {
+                    setSelectedSummaryDay(day);
+                    setIsSummaryDayMenuOpen(false);
+                  }}
+                  type="button"
+                >
+                  {day}일차
+                  {activeDay === day ? <CheckCircle2 size={14} /> : null}
+                </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {activeDayPlaces.map((place, index) => {
+              const distance = formatDistance(place.distanceMeters);
+              const duration = place.estimatedDuration
+                ? formatMinutes(place.estimatedDuration)
+                : place.durationSeconds
+                ? formatMinutes(Math.round(place.durationSeconds / 60))
+                : null;
+
+              return (
+                <div className="relative flex gap-4" key={`${activeDay}-${place.orderIndex}-${place.place.id}`}>
+                  <div className="flex flex-col items-center">
+                    <div className="mt-1.5 h-2.5 w-2.5 rounded-full bg-blue-500" />
+                    {index !== activeDayPlaces.length - 1 ? (
+                      <div className="mt-1 h-full w-0.5 bg-blue-100" />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1 pb-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {place.startTime ? (
+                        <span className="rounded bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-600">
+                          {place.startTime}
+                        </span>
+                      ) : null}
+                      <span className="rounded bg-stone-100 px-2 py-0.5 text-[11px] font-bold text-stone-500">
+                        {place.place.category}
+                      </span>
+                      {duration || distance ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-0.5 text-[11px] font-bold text-stone-500">
+                          <RouteIcon size={11} />
+                          {[duration, distance].filter(Boolean).join(" · ")}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-stone-950">
+                      {place.place.name}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-stone-500">
+                      {place.place.address}
+                    </p>
+                    {place.memo ? (
+                      <p className="mt-2 rounded-xl bg-stone-50 px-3 py-2 text-xs leading-5 text-stone-600">
+                        {place.memo}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export default function TripRoomPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,6 +476,10 @@ export default function TripRoomPage() {
   const [isLeavingTripRoom, setIsLeavingTripRoom] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [branchNameById, setBranchNameById] = useState<Record<number, string>>({});
+  const [mainPanelView, setMainPanelView] = useState<MainPanelView>("overview");
+  const [confirmedBranch, setConfirmedBranch] = useState<ConfirmedBranchDetail | null>(null);
+  const [isConfirmedBranchLoading, setIsConfirmedBranchLoading] = useState(false);
+  const [confirmedBranchError, setConfirmedBranchError] = useState("");
   const [deadlineNow, setDeadlineNow] = useState(Date.now());
   const authUser = getAuthUser();
   const currentUserId = readCurrentUserId() ?? authUser?.id ?? null;
@@ -230,6 +625,9 @@ export default function TripRoomPage() {
   },[tripRoomDetail,currentUserId]);
   const isTripRoomLocked = tripRoomDetail?.status === "locked";
   const isTripInfoDisabled = !isHost || isTripRoomLocked;
+  const canOpenConfirmedSummary = Boolean(
+    isTripRoomLocked && tripRoomDetail?.summary.selectedBranchId
+  );
 
   const selectedBranchName = tripRoomDetail?.summary.selectedBranchId
     ? branchNameById[tripRoomDetail.summary.selectedBranchId] ?? null
@@ -237,6 +635,57 @@ export default function TripRoomPage() {
   const selectedBranchLabel = tripRoomDetail?.summary.selectedBranchId
     ? selectedBranchName ?? "이름 확인 중"
     : null;
+
+  useEffect(() => {
+    if (!canOpenConfirmedSummary && mainPanelView === "confirmedSummary") {
+      setMainPanelView("overview");
+    }
+  }, [canOpenConfirmedSummary, mainPanelView]);
+
+  useEffect(() => {
+    const selectedBranchId = tripRoomDetail?.summary.selectedBranchId;
+
+    if (!canOpenConfirmedSummary || !selectedBranchId) {
+      setConfirmedBranch(null);
+      setConfirmedBranchError("");
+      setIsConfirmedBranchLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadConfirmedBranch() {
+      setIsConfirmedBranchLoading(true);
+      setConfirmedBranchError("");
+
+      try {
+        const response = await branchApi.getBranchDetail(selectedBranchId);
+        if (!isMounted) return;
+
+        setConfirmedBranch(response.data as ConfirmedBranchDetail);
+      } catch (caughtError) {
+        if (!isMounted) return;
+
+        const message =
+          caughtError instanceof Error && caughtError.message.trim()
+            ? caughtError.message
+            : "확정된 브랜치 정보를 불러오지 못했습니다.";
+
+        setConfirmedBranch(null);
+        setConfirmedBranchError(message);
+      } finally {
+        if (isMounted) {
+          setIsConfirmedBranchLoading(false);
+        }
+      }
+    }
+
+    loadConfirmedBranch();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [canOpenConfirmedSummary, tripRoomDetail?.summary.selectedBranchId]);
 
   function handleTripInfoChange(
     field: "destination" | "startDate" | "endDate" | "decisionDeadline",
@@ -434,7 +883,15 @@ export default function TripRoomPage() {
         tripRoomId={tripRoomId}
       />
 
-      <main className="mx-auto max-w-[1200px] px-8 pb-16 pt-10">
+      <main className="mx-auto flex w-full max-w-[1280px] gap-6 px-8 pb-16 pt-10">
+        <TripRoomMainSidebar
+          activeView={mainPanelView}
+          canOpenSummary={canOpenConfirmedSummary}
+          onChange={setMainPanelView}
+        />
+
+        <div className="min-w-0 flex-1">
+          {mainPanelView === "overview" ? (
         <section className="relative overflow-hidden rounded-[28px] border border-stone-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.05)]">
           <div className="relative overflow-hidden rounded-[32px] border border-stone-200 bg-stone-100">
             <input
@@ -516,7 +973,7 @@ export default function TripRoomPage() {
 
           <div className="grid gap-6 p-8 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 {[
                   {
                     label: "참여 멤버",
@@ -855,6 +1312,17 @@ export default function TripRoomPage() {
             </button>
           )}
         </section>
+          ) : (
+            <ConfirmedBranchSummaryView
+              branch={confirmedBranch}
+              endDate={tripRoomDetail.endDate}
+              error={confirmedBranchError}
+              isLoading={isConfirmedBranchLoading}
+              startDate={tripRoomDetail.startDate}
+              tripRoomTitle={tripRoomDetail.title}
+            />
+          )}
+        </div>
       </main>
 
       {toast ? (
