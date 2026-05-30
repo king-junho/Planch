@@ -53,6 +53,22 @@ function formatDisplayValue(value: string) {
   )}:${padDateTimePart(date.getMinutes())}`;
 }
 
+function getTodayStart() {
+  const today = new Date();
+
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+function isSameDate(left: Date | null, right: Date | null) {
+  if (!left || !right) return false;
+
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
 function DatePickerHeader({
   date,
   decreaseMonth,
@@ -98,6 +114,7 @@ export default function TripDeadlinePicker({
 }: TripDeadlinePickerProps) {
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const minSelectableDate = getTodayStart();
   const selectedDate = parseDateTimeLocalValue(value);
   const displayValue = formatDisplayValue(value);
 
@@ -119,17 +136,14 @@ export default function TripDeadlinePicker({
   }, [isOpen]);
 
   function handleChange(date: Date | null) {
-    const previousHours = selectedDate?.getHours();
-    const previousMinutes = selectedDate?.getMinutes();
-    const nextHours = date?.getHours();
-    const nextMinutes = date?.getMinutes();
+    const isTimeChanged =
+      isSameDate(selectedDate, date) &&
+      (selectedDate?.getHours() !== date?.getHours() ||
+        selectedDate?.getMinutes() !== date?.getMinutes());
 
     onChange(formatDateTimeLocalValue(date));
 
-    if (
-      date &&
-      (previousHours !== nextHours || previousMinutes !== nextMinutes)
-    ) {
+    if (date && isTimeChanged) {
       setIsOpen(false);
     }
   }
@@ -166,6 +180,7 @@ export default function TripDeadlinePicker({
             calendarClassName="planch-date-range-calendar planch-deadline-calendar"
             dateFormat="yyyy.MM.dd HH:mm"
             inline
+            minDate={minSelectableDate}
             onChange={handleChange}
             renderCustomHeader={(props) => <DatePickerHeader {...props} />}
             selected={selectedDate}

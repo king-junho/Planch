@@ -45,6 +45,12 @@ function formatDisplayDate(value: string) {
   return value.replaceAll("-", ".");
 }
 
+function getTodayStart() {
+  const today = new Date();
+
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
 function DatePickerHeader({
   date,
   decreaseMonth,
@@ -92,6 +98,7 @@ export default function TripDateRangePicker({
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
+  const minSelectableDate = getTodayStart();
   const parsedStartDate = parseDateInput(startDate);
   const parsedEndDate = parseDateInput(endDate);
   const displayValue =
@@ -154,6 +161,7 @@ export default function TripDateRangePicker({
             calendarClassName="planch-date-range-calendar"
             endDate={parsedEndDate}
             inline
+            minDate={minSelectableDate}
             onChange={handleChange}
             renderCustomHeader={(props) => <DatePickerHeader {...props} />}
             selected={parsedStartDate}

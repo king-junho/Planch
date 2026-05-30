@@ -158,6 +158,16 @@ body {
   background: #ecfdf5;
 }
 
+.planch-date-range-calendar .react-datepicker__day--disabled {
+  pointer-events: none;
+  color: #d6d3d1;
+}
+
+.planch-date-range-calendar .react-datepicker__day--disabled:hover {
+  border-radius: 0;
+  background: transparent;
+}
+
 .planch-date-range-calendar .react-datepicker__day--in-selecting-range,
 .planch-date-range-calendar .react-datepicker__day--in-range {
   background: #d1fae5;
