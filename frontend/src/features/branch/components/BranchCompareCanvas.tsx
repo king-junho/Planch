@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Clock, Wallet, MapPin, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Clock, Wallet, MapPin, ChevronLeft, ChevronRight, Eye, EyeOff, Heart, ThumbsUp, Activity } from 'lucide-react';
 import { Branch } from '../../../types/branch';
 import BranchMap from './BranchMap';
 import { useBranchStore } from '../store/useBranchStore';
@@ -11,11 +11,14 @@ interface BranchCompareCanvasProps {
 
 const THEME_COLORS = ['text-blue-600 bg-blue-50 border-blue-200', 'text-red-600 bg-red-50 border-red-200', 'text-green-600 bg-green-50 border-green-200'];
 const DOT_COLORS = ['bg-blue-500', 'bg-red-500', 'bg-green-500'];
+const PROGRESS_COLORS = ['bg-blue-500', 'bg-red-500', 'bg-green-500'];
 
 export default function BranchCompareCanvas({ compareBranches, onBack }: BranchCompareCanvasProps) {
     const [compareDay, setCompareDay] = useState(1);
-
     const [visibleBranchIds, setVisibleBranchIds] = useState<number[]>([]);
+
+    const [hoveredPlaceId, setHoveredPlaceId] = useState<number | null>(null);
+    const placeRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     const { tripDuration, tripStartDate } = useBranchStore();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -67,16 +70,40 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
         return `${hours}시간 ${minutes}분`;
     };
 
+    const handleMarkerClick = (branchId: number, placeId: number) => {
+        compareBranches.forEach(branch => {
+            const element = placeRefs.current[`${branch.id}-${placeId}`];
+            if (element) {
+                const container = element.closest('.overflow-y-auto');
+                if (container) {
+                    const containerRect = container.getBoundingClientRect();
+                    const elementRect = element.getBoundingClientRect();
+
+                    const relativeTop = elementRect.top - containerRect.top + container.scrollTop;
+                    const targetScrollTop = relativeTop - (containerRect.height / 2) + (elementRect.height / 2);
+
+                    container.scrollTo({
+                        top: targetScrollTop,
+                        behavior: 'smooth'
+                    });
+                }
+            }
+        });
+
+        setHoveredPlaceId(placeId);
+        setTimeout(() => setHoveredPlaceId(null), 2000);
+    };
+
     return (
         <div className="flex w-full h-full bg-white relative z-50 animate-in fade-in">
-            <div className="w-[40%] min-w-[500px] max-w-[600px] flex flex-col h-full border-r border-gray-200 bg-gray-50/50 shadow-xl z-10 shrink-0">
+            <div className="w-[45%] min-w-[500px] max-w-[750px] flex flex-col h-full border-r border-gray-200 bg-gray-50/50 shadow-xl z-10 shrink-0">
                 <div className="flex items-center gap-4 p-5 border-b border-gray-200 bg-white shrink-0">
                     <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                         <ArrowLeft size={24} className="text-gray-700" />
                     </button>
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">브랜치 상세 비교</h2>
-                        <p className="text-xs text-gray-500 mt-1">지도의 동선과 상세 일정을 비교해 보세요.</p>
+                        <p className="text-xs text-gray-500 mt-1">핵심 지표와 세부 동선을 한눈에 비교해 보세요.</p>
                     </div>
                 </div>
 
@@ -98,8 +125,8 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                 key={i + 1}
                                 onClick={() => setCompareDay(i + 1)}
                                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${compareDay === i + 1
-                                        ? 'bg-gray-900 text-white shadow-md'
-                                        : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-50'
+                                    ? 'bg-gray-900 text-white shadow-md'
+                                    : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-50'
                                     }`}
                             >
                                 {getDateTabLabel(i + 1)}
@@ -115,10 +142,9 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                     </button>
                 </div>
 
-                <div className="flex-1 flex overflow-hidden p-4 gap-4">
+                <div className="flex-1 flex overflow-x-auto overflow-y-hidden p-4 gap-4 custom-scrollbar">
                     {compareBranches.map((branch, index) => {
                         const isConfirmed = branch.status === 'confirmed';
-
                         const isVisible = visibleBranchIds.includes(branch.id);
 
                         const theme = isConfirmed
@@ -127,22 +153,25 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                         const dotColor = isConfirmed
                             ? 'bg-green-500'
                             : DOT_COLORS[index % DOT_COLORS.length];
+                        const progressColor = isConfirmed
+                            ? 'bg-green-500'
+                            : PROGRESS_COLORS[index % PROGRESS_COLORS.length];
                         const cardBorder = isConfirmed
                             ? 'border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] ring-1 ring-green-500'
                             : 'border border-gray-200 shadow-sm';
 
                         const placesForDay = branch?.routes?.[compareDay] || [];
+                        const matchRate = branch.matchRate || 0;
 
                         return (
-                            <div key={`compare-${branch.id}`} className={`flex-1 flex flex-col bg-white rounded-2xl overflow-hidden relative min-w-[150px] transition-opacity duration-300 ${cardBorder} ${!isVisible ? 'opacity-40 grayscale-[20%]' : ''}`}>
-                                <div className={`h-1.5 w-full ${dotColor}`} />
+                            <div key={`compare-${branch.id}`} className={`flex-1 flex flex-col bg-white rounded-2xl h-full relative min-w-[260px] shrink-0 transition-opacity duration-300 ${cardBorder} ${!isVisible ? 'opacity-40 grayscale-[20%]' : ''}`}>
+                                <div className={`h-1.5 w-full ${dotColor} shrink-0 rounded-t-2xl`} />
 
-                                <div className="p-4 border-b border-gray-100 bg-white shrink-0">
-                                    {/* ✨ 헤더 부분에 눈 모양 토글 버튼 추가 */}
+                                <div className="p-4 border-b border-gray-100 bg-white shrink-0 flex flex-col relative z-10 shadow-[0_4px_10px_rgba(0,0,0,0.03)]">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex flex-col gap-1.5">
                                             <span className={`text-[10px] font-bold px-2 py-1 rounded border ${theme} whitespace-nowrap self-start`}>
-                                                {isConfirmed ? '최종 확정 플랜' : `플랜 ${index + 1}`}
+                                                {isConfirmed ? '최종 확정 브랜치' : `브랜치 ${index + 1}`}
                                             </span>
                                             <span className="text-[10px] text-gray-400 whitespace-nowrap">
                                                 제안: {branch.proposer || '익명'}
@@ -156,42 +185,98 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                             {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
                                         </button>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 text-base line-clamp-2 leading-tight h-10 mt-1">
+
+                                    <h3 className="font-bold text-gray-900 text-base line-clamp-2 leading-tight min-h-[40px] mt-1 mb-4">
                                         {branch.title || branch.name}
                                     </h3>
-                                    <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-gray-50">
-                                        <div className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
-                                            <Wallet size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{formatCost(branch.cost)}</span>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 mb-1">
+                                                <Wallet size={12} /> 총 비용
+                                            </span>
+                                            <span className="text-xs font-bold text-gray-800 truncate">
+                                                {formatCost(branch.cost)}
+                                            </span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap">
-                                            <Clock size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{formatTime(branch.time)}</span>
+
+                                        <div className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 mb-1">
+                                                <Clock size={12} /> 이동 시간
+                                            </span>
+                                            <span className="text-xs font-bold text-gray-800 truncate">
+                                                {formatTime(branch.time)}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100 col-span-2">
+                                            <div className="flex justify-between items-center mb-1.5">
+                                                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                                                    <Heart size={12} className="text-red-400" /> 취향 매칭률
+                                                </span>
+                                                <span className="text-xs font-bold text-gray-900">{matchRate}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                                <div className={`h-1.5 rounded-full ${progressColor} transition-all duration-500`} style={{ width: `${matchRate}%` }} />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100 col-span-2">
+                                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 mb-1.5">
+                                                <ThumbsUp size={12} /> 팀원 투표 현황
+                                            </span>
+                                            <div className="flex items-center gap-3 text-[11px] font-bold">
+                                                <span className="text-blue-600">찬성 {branch.agreeCount || 0}</span>
+                                                <span className="text-gray-500">보류 {branch.holdCount || 0}</span>
+                                                <span className="text-red-500">반대 {branch.disagreeCount || 0}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-gray-50/30 rounded-b-2xl">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Activity size={14} className="text-gray-400" />
+                                        <span className="text-xs font-bold text-gray-600">상세 동선</span>
+                                    </div>
+
                                     {placesForDay.length === 0 ? (
-                                        <div className="flex items-center justify-center h-full text-xs text-gray-400 text-center">
+                                        <div className="flex items-center justify-center h-32 text-xs text-gray-400 text-center border-2 border-dashed border-gray-200 rounded-xl bg-white">
                                             해당 일차의 일정이 없습니다.
                                         </div>
                                     ) : (
-                                        <div className="relative border-l-2 border-gray-100 ml-3 pl-5 py-2 flex flex-col gap-6">
-                                            {placesForDay.map((place: any, pIndex: number) => (
-                                                <div key={`place-${pIndex}`} className="relative group">
-                                                    <div className={`absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm ${dotColor}`} />
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-[10px] font-bold text-blue-500">
-                                                            {place.time || '시간 미정'}
-                                                        </span>
-                                                        <span className="text-sm font-bold text-gray-800 line-clamp-2">
-                                                            {place.place || place.title || '장소명 없음'}
-                                                        </span>
-                                                        {place.desc && (
-                                                            <span className="text-[10px] text-gray-400 line-clamp-1">{place.desc}</span>
-                                                        )}
+                                        <div className="relative border-l-2 border-gray-200 ml-3 pl-5 py-2 flex flex-col gap-6">
+                                            {placesForDay.map((place: any, pIndex: number) => {
+                                                const isHovered = hoveredPlaceId === place.id;
+
+                                                return (
+                                                    <div
+                                                        key={`place-${pIndex}`}
+                                                        ref={(el) => { placeRefs.current[`${branch.id}-${place.id}`] = el; }}
+                                                        onMouseEnter={() => setHoveredPlaceId(place.id)}
+                                                        onMouseLeave={() => setHoveredPlaceId(null)}
+                                                        className={`relative group cursor-pointer transition-all duration-300 ${hoveredPlaceId && !isHovered ? 'opacity-30' : 'opacity-100'}`}
+                                                    >
+                                                        <div className={`absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm transition-transform duration-300 ${dotColor} ${isHovered ? 'scale-150 ring-4 ring-blue-50' : ''}`} />
+                                                        <div className={`flex flex-col gap-1.5 transition-transform duration-300 origin-left ${isHovered ? 'scale-[1.02] translate-x-1' : ''}`}>
+                                                            <span className="text-[10px] font-bold text-blue-500">
+                                                                {place.time || '시간 미정'}
+                                                            </span>
+                                                            <span className="text-sm font-bold text-gray-800 line-clamp-2">
+                                                                {place.place || place.title || '장소명 없음'}
+                                                            </span>
+                                                            {place.desc && (
+                                                                <span className="text-[10px] text-gray-500 line-clamp-2 leading-relaxed">{place.desc}</span>
+                                                            )}
+                                                            {place.cost && place.cost !== '0' && (
+                                                                <span className="text-[10px] font-bold text-stone-500 bg-white border border-stone-100 px-2 py-1 rounded-md flex items-center gap-1 w-fit mt-0.5">
+                                                                    <Wallet size={10} /> {Number(place.cost).toLocaleString()}원
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
@@ -206,6 +291,8 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                     compareBranches={compareBranches}
                     compareDay={compareDay}
                     visibleBranchIds={visibleBranchIds}
+                    hoveredPlaceId={hoveredPlaceId}
+                    onMarkerClick={handleMarkerClick}
                 />
 
                 <div className="absolute top-6 left-6 z-10 bg-white/90 backdrop-blur px-4 py-2 rounded-xl shadow-md border border-gray-100">

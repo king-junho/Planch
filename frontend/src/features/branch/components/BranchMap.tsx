@@ -2,23 +2,26 @@ import { useEffect, useState } from 'react';
 import { Map as KakaoMap, Polyline, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
-import { Route } from 'lucide-react';
 
 interface BranchMapProps {
     compareBranches?: Branch[];
     compareDay?: number;
     visibleBranchIds?: number[];
+    hoveredPlaceId?: number | null;
+    onMarkerClick?: (branchId: number, placeId: number) => void;
 }
 
 const PATH_COLORS = ['#2563eb', '#dc2626', '#16a34a'];
 const MARKER_COLORS = ['bg-blue-600', 'bg-red-600', 'bg-green-600'];
 
-export default function BranchMap({ compareBranches, compareDay, visibleBranchIds }: BranchMapProps) {
-    const {
-        selectedBranch, selectedDay, draftRoutes, currentDraftDay,
-        globalTransportModes, setGlobalTransportMode
-    } = useBranchStore();
-
+export default function BranchMap({
+    compareBranches,
+    compareDay,
+    visibleBranchIds,
+    hoveredPlaceId,
+    onMarkerClick
+}: BranchMapProps) {
+    const { selectedBranch, selectedDay, draftRoutes, currentDraftDay } = useBranchStore();
     const [map, setMap] = useState<any>(null);
 
     const [singleRoadPath, setSingleRoadPath] = useState<{ lat: number, lng: number }[]>([]);
@@ -27,7 +30,6 @@ export default function BranchMap({ compareBranches, compareDay, visibleBranchId
     const isCreating = Object.values(draftRoutes).some(r => r.length > 0);
     const isCompareMode = compareBranches && compareBranches.length > 0;
 
-    const currentMode = globalTransportModes?.[currentDraftDay] || 'auto';
     const defaultCenter = { lat: 37.5546, lng: 126.9706 };
 
     const updateBounds = (paths: { lat: number, lng: number }[][]) => {
@@ -64,44 +66,61 @@ export default function BranchMap({ compareBranches, compareDay, visibleBranchId
         ? getPathFromRoute(draftRoutes[currentDraftDay] || [])
         : getPathFromRoute(selectedBranch?.routes?.[selectedDay] || []);
 
-    const getOffsetComparePaths = () => {
-        const coordMap = new Map<string, number>();
+    const getProcessedComparePaths = () => {
         const locationCount = new Map<string, number>();
+        const coordMap = new Map<string, number>();
 
         const getKey = (pos: any) => pos.placeId ? `place_${pos.placeId}` : `${pos.lat.toFixed(4)},${pos.lng.toFixed(4)}`;
 
         rawComparePaths.forEach((branchPath, idx) => {
             if (visibleBranchIds && compareBranches && !visibleBranchIds.includes(compareBranches[idx].id)) return;
 
-            branchPath.forEach(pos => {
-                const key = getKey(pos);
+            const uniqueKeys = new Set(branchPath.map(getKey));
+            uniqueKeys.forEach(key => {
                 locationCount.set(key, (locationCount.get(key) || 0) + 1);
             });
         });
 
+        const visibleCount = visibleBranchIds ? visibleBranchIds.length : 0;
+        const firstVisibleIdx = compareBranches ? compareBranches.findIndex(b => visibleBranchIds?.includes(b.id)) : 0;
+
         return rawComparePaths.map((branchPath, idx) => {
+            const isVisible = visibleBranchIds && compareBranches && visibleBranchIds.includes(compareBranches[idx].id);
+
             return branchPath.map(pos => {
-                if (visibleBranchIds && compareBranches && !visibleBranchIds.includes(compareBranches[idx].id)) {
-                    return { ...pos, offsetX: 0, offsetY: 0 };
+                if (!isVisible) {
+                    return { ...pos, offsetX: 0, offsetY: 0, isCommon: false, hideMarker: true };
                 }
 
                 const key = getKey(pos);
-                const total = locationCount.get(key) || 1;
+                const totalSharing = locationCount.get(key) || 1;
 
-                if (total === 1) return { ...pos, offsetX: 0, offsetY: 0 };
+                const isCommon = visibleCount > 1 && totalSharing === visibleCount;
+                const isShared = totalSharing > 1;
 
-                const currentIdx = coordMap.get(key) || 0;
-                coordMap.set(key, currentIdx + 1);
+                let offsetX = 0;
+                let offsetY = 0;
+                let hideMarker = false;
 
-                const offsetX = (currentIdx - (total - 1) / 2) * 32;
-                const offsetY = (currentIdx - (total - 1) / 2) * -12;
+                if (isCommon) {
+                    if (idx !== firstVisibleIdx) {
+                        hideMarker = true;
+                    }
+                }
+                else if (isShared) {
+                    const currentIdx = coordMap.get(key) || 0;
+                    coordMap.set(key, currentIdx + 1);
 
-                return { ...pos, offsetX, offsetY };
+                    offsetX = (currentIdx - (totalSharing - 1) / 2) * 32;
+                    offsetY = (currentIdx - (totalSharing - 1) / 2) * -12;
+                }
+
+                return { ...pos, offsetX, offsetY, isCommon, hideMarker };
             });
         });
     };
 
-    const offsetComparePaths = isCompareMode ? getOffsetComparePaths() : [];
+    const processedComparePaths = isCompareMode ? getProcessedComparePaths() : [];
 
     const fetchRealRoadPath = async (points: { lat: number, lng: number }[]) => {
         if (points.length < 2) return points;
@@ -178,105 +197,102 @@ export default function BranchMap({ compareBranches, compareDay, visibleBranchId
     }, [map, rawComparePaths, compareRoadPaths, rawSinglePath, singleRoadPath, isCompareMode, visibleBranchIds, compareBranches]);
 
     return (
-        <div className="w-full h-full relative">
-            <KakaoMap
-                center={defaultCenter}
-                style={{ width: '100%', height: '100%' }}
-                level={3}
-                onCreate={setMap}
-            >
-                {isCompareMode ? (
-                    compareBranches!.map((branch, bIdx) => {
-                        if (visibleBranchIds && !visibleBranchIds.includes(branch.id)) return null;
+        <KakaoMap
+            center={defaultCenter}
+            style={{ width: '100%', height: '100%' }}
+            level={3}
+            onCreate={setMap}
+        >
+            {isCompareMode ? (
+                compareBranches!.map((branch, bIdx) => {
+                    if (visibleBranchIds && !visibleBranchIds.includes(branch.id)) return null;
 
-                        return (
-                            <div key={`compare-group-${branch.id}`}>
-                                <Polyline
-                                    path={compareRoadPaths[bIdx] || []}
-                                    strokeWeight={5}
-                                    strokeColor={PATH_COLORS[bIdx % PATH_COLORS.length]}
-                                    strokeOpacity={0.8}
-                                    strokeStyle="solid"
-                                />
-                                {(offsetComparePaths[bIdx] || []).map((pos, pIdx) => (
+                    return (
+                        <div key={`compare-group-${branch.id}`}>
+                            <Polyline
+                                path={compareRoadPaths[bIdx] || []}
+                                strokeWeight={5}
+                                strokeColor={PATH_COLORS[bIdx % PATH_COLORS.length]}
+                                strokeOpacity={0.8}
+                                strokeStyle="solid"
+                            />
+                            {(processedComparePaths[bIdx] || []).map((pos, pIdx) => {
+                                if (pos.hideMarker) return null;
+
+                                const isHovered = pos.placeId === hoveredPlaceId;
+                                const markerClass = pos.isCommon
+                                    ? 'bg-gray-500 border-gray-200'
+                                    : `${MARKER_COLORS[bIdx % MARKER_COLORS.length]} border-white`;
+
+                                const labelText = pos.isCommon
+                                    ? `공통 장소: ${pos.title}`
+                                    : `플랜 ${bIdx + 1} - ${pIdx + 1}번째: ${pos.title}`;
+
+                                return (
                                     <CustomOverlayMap
                                         key={`compare-marker-${branch.id}-${pIdx}`}
                                         position={pos}
                                         yAnchor={1}
-                                        zIndex={10 + pIdx}
+                                        zIndex={isHovered ? 50 : (pos.isCommon ? 5 : 10 + pIdx)}
                                     >
                                         <div
-                                            className="relative group cursor-pointer transition-transform z-10 hover:z-50 hover:scale-110"
-                                            style={{ transform: `translate(${pos.offsetX}px, ${pos.offsetY}px)` }}
+                                            onClick={() => onMarkerClick?.(branch.id, pos.placeId)}
+                                            className={`relative group cursor-pointer transition-all duration-300 ${isHovered ? 'scale-[1.3] -translate-y-2' : 'hover:scale-110 hover:-translate-y-1'}`}
+                                            style={{ transform: `translate(${pos.offsetX || 0}px, ${pos.offsetY || 0}px)` }}
                                         >
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
-                                                플랜 {bIdx + 1} - {pIdx + 1}번째: {pos.title}
+                                            <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap transition-opacity shadow-lg pointer-events-none ${isHovered ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                                {labelText}
                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                                             </div>
 
-                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md ${MARKER_COLORS[bIdx % MARKER_COLORS.length]} border-white`}>
-                                                {pIdx + 1}
+                                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md ${markerClass} ${isHovered ? 'ring-4 ring-blue-400/40' : ''}`}>
+                                                {pos.isCommon ? '공통' : pIdx + 1}
                                             </div>
-                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
+                                            <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10 transition-transform ${isHovered ? 'scale-[2.0]' : ''}`} />
                                         </div>
                                     </CustomOverlayMap>
-                                ))}
-                            </div>
-                        );
-                    })
-                ) : (
-                    <>
-                        <Polyline
-                            path={singleRoadPath}
-                            strokeWeight={5}
-                            strokeColor="#2563eb"
-                            strokeOpacity={0.7}
-                            strokeStyle="solid"
-                        />
-                        {rawSinglePath.map((pos, idx) => (
+                                );
+                            })}
+                        </div>
+                    );
+                })
+            ) : (
+                <>
+                    <Polyline
+                        path={singleRoadPath}
+                        strokeWeight={5}
+                        strokeColor="#2563eb"
+                        strokeOpacity={0.7}
+                        strokeStyle="solid"
+                    />
+                    {rawSinglePath.map((pos, idx) => {
+                        const isHovered = pos.placeId === hoveredPlaceId;
+
+                        return (
                             <CustomOverlayMap
                                 key={`single-marker-${idx}`}
                                 position={pos}
                                 yAnchor={1}
+                                zIndex={isHovered ? 50 : 10}
                             >
-                                <div className="relative group cursor-pointer transform hover:scale-110 transition-transform z-10 hover:z-50">
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
+                                <div
+                                    onClick={() => onMarkerClick?.(0, pos.placeId)}
+                                    className={`relative group cursor-pointer transition-all duration-300 ${isHovered ? 'scale-[1.3] -translate-y-2' : 'hover:scale-110 hover:-translate-y-1'}`}
+                                >
+                                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg whitespace-nowrap transition-opacity shadow-lg pointer-events-none ${isHovered ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                         {idx + 1}번째: {pos.title}
                                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                                     </div>
-                                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md bg-blue-600 border-white">
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 shadow-md bg-blue-600 border-white ${isHovered ? 'ring-4 ring-blue-400/40' : ''}`}>
                                         {idx + 1}
                                     </div>
-                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10" />
+                                    <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black/30 rounded-full blur-[1px] -z-10 transition-transform ${isHovered ? 'scale-[2.0]' : ''}`} />
                                 </div>
                             </CustomOverlayMap>
-                        ))}
-                    </>
-                )}
-            </KakaoMap>
-
-            {isCreating && (
-                <div className="absolute top-4 right-4 z-50 flex items-center bg-white rounded-xl shadow-sm border border-gray-200 p-1.5 transition-all">
-                    <div className="flex items-center justify-center w-8 h-8 bg-gray-50 text-gray-600 rounded-lg mr-2">
-                        <Route size={16} />
-                    </div>
-                    <div className="flex flex-col pr-2">
-                        <span className="text-[10px] text-gray-400 font-bold leading-none mb-1">추가 장소 이동 수단</span>
-                        <select
-                            value={currentMode}
-                            onChange={(e) => setGlobalTransportMode(currentDraftDay, e.target.value as any)}
-                            className="text-xs font-bold text-gray-700 bg-transparent outline-none cursor-pointer"
-                        >
-                            <option value="auto">🌟 거리 비례 자동 추천</option>
-                            <option value="walk">🚶 도보 이동</option>
-                            <option value="transit">🚌 대중교통</option>
-                            <option value="taxi">🚕 택시 탑승</option>
-                            <option value="car">🚗 자가용/렌터카</option>
-                            <option value="flight">✈️ 항공/KTX</option>
-                        </select>
-                    </div>
-                </div>
+                        );
+                    })}
+                </>
             )}
-        </div>
+        </KakaoMap>
     );
 }
