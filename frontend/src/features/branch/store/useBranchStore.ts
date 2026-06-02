@@ -364,7 +364,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             id: b.branchId || b.id,
                             title: b.name || detail.name,
                             name: b.name || detail.name,
-                            description: detail.aiReason || "사용자가 구성한 일정입니다.",
+                            description: detail.aiReason || "직접 구성한 일정입니다.",
                             proposer: finalCreatedBy,
                             isAI: finalIsAi,
                             status: detail.status || b.status,
@@ -388,7 +388,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
                             id: b.branchId || b.id,
                             title: b.name,
                             name: b.name,
-                            description: b.aiReason || "사용자가 구성한 일정입니다.",
+                            description: b.aiReason || "직접 구성한 일정입니다.",
                             proposer: fallbackProposer,
                             isAI: fallbackIsAi,
                             status: b.status,
@@ -617,7 +617,7 @@ export const useBranchStore = create<BranchState>((set, get) => ({
         } catch (error: any) {
             console.error("AI 브랜치 생성 실패:", error);
             if (error.response?.status === 403) {
-                useToastStore.getState().showToast('error', "방장만 AI 추천 일정을 생성할 수 있습니다.");
+                useToastStore.getState().showToast('error', "여행방에 참여한 멤버만 AI 추천 일정을 생성할 수 있습니다.");
             } else if (error.response?.status === 400) {
                 useToastStore.getState().showToast('error', error.response?.data?.message || "AI가 일정을 구성하기 위해서는 먼저 장소를 제안해 주세요.");
             } else {
