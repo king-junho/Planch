@@ -27,6 +27,8 @@ export default function BranchSection() {
 
     const [hasNewUpdates, setHasNewUpdates] = useState(false);
 
+    const [hoveredPlaceId, setHoveredPlaceId] = useState<number | null>(null);
+
     const { toast, showToast } = useToastStore();
 
     const toggleCompareSelection = (branchId: number) => {
@@ -151,6 +153,8 @@ export default function BranchSection() {
                         branch={activeBranch}
                         isLocked={isLocked}
                         onBack={() => setSelectedBranch(null)}
+                        hoveredPlaceId={hoveredPlaceId}
+                        onPlaceHover={setHoveredPlaceId}
                     />
                 ) : (
                     <BranchListView
@@ -166,7 +170,7 @@ export default function BranchSection() {
             </div>
 
             <div className="flex-1 min-w-[500px] relative z-0">
-                <BranchMap />
+                <BranchMap hoveredPlaceId={hoveredPlaceId} />
             </div>
 
             <CreateBranchModal

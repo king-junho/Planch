@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Map as KakaoMap, Polyline, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { useBranchStore } from '../store/useBranchStore';
 import { Branch } from '../../../types/branch';
@@ -45,7 +45,7 @@ export default function BranchMap({
         });
 
         if (hasPoint) {
-            map.setBounds(bounds);
+            map.setBounds(bounds, 50, 50, 50, 50);
         }
     };
 
@@ -58,15 +58,21 @@ export default function BranchMap({
         }));
     };
 
-    const rawComparePaths = isCompareMode
-        ? compareBranches.map(branch => getPathFromRoute(branch.routes?.[compareDay || 1] || []))
-        : [];
+    const rawComparePaths = useMemo(() => {
+        return isCompareMode && compareBranches
+            ? compareBranches.map(branch => getPathFromRoute(branch.routes?.[compareDay || 1] || []))
+            : [];
+    }, [isCompareMode, compareBranches, compareDay]);
 
-    const rawSinglePath = isCreating
-        ? getPathFromRoute(draftRoutes[currentDraftDay] || [])
-        : getPathFromRoute(selectedBranch?.routes?.[selectedDay] || []);
+    const rawSinglePath = useMemo(() => {
+        return isCreating
+            ? getPathFromRoute(draftRoutes[currentDraftDay] || [])
+            : getPathFromRoute(selectedBranch?.routes?.[selectedDay || 1] || []);
+    }, [isCreating, draftRoutes, currentDraftDay, selectedBranch, selectedDay]);
 
-    const getProcessedComparePaths = () => {
+    const processedComparePaths = useMemo(() => {
+        if (!isCompareMode) return [];
+
         const locationCount = new Map<string, number>();
         const coordMap = new Map<string, number>();
 
@@ -118,9 +124,7 @@ export default function BranchMap({
                 return { ...pos, offsetX, offsetY, isCommon, hideMarker };
             });
         });
-    };
-
-    const processedComparePaths = isCompareMode ? getProcessedComparePaths() : [];
+    }, [isCompareMode, rawComparePaths, visibleBranchIds, compareBranches]);
 
     const fetchRealRoadPath = async (points: { lat: number, lng: number }[]) => {
         if (points.length < 2) return points;
@@ -184,17 +188,55 @@ export default function BranchMap({
         };
         loadPaths();
         return () => { isMounted = false; };
-    }, [isCompareMode, compareBranches, compareDay, isCreating, draftRoutes, currentDraftDay, selectedBranch, selectedDay]);
+    }, [isCompareMode, rawComparePaths, rawSinglePath]);
 
     useEffect(() => {
+        if (!map) return;
+
         if (isCompareMode && compareBranches) {
             const visibleRawPaths = rawComparePaths.filter((_, i) => visibleBranchIds?.includes(compareBranches[i].id));
             const visibleRoadPaths = compareRoadPaths.filter((_, i) => visibleBranchIds?.includes(compareBranches[i].id));
             updateBounds([...visibleRawPaths, ...visibleRoadPaths]);
         } else {
-            updateBounds([rawSinglePath, singleRoadPath]);
+            if (isCreating && rawSinglePath.length >= 2) {
+                const lastTwoPlaces = rawSinglePath.slice(-2);
+                updateBounds([lastTwoPlaces]);
+            } else {
+                updateBounds([rawSinglePath, singleRoadPath]);
+            }
         }
-    }, [map, rawComparePaths, compareRoadPaths, rawSinglePath, singleRoadPath, isCompareMode, visibleBranchIds, compareBranches]);
+    }, [map, rawComparePaths, compareRoadPaths, rawSinglePath, singleRoadPath, isCompareMode, visibleBranchIds, compareBranches, isCreating]);
+
+    useEffect(() => {
+        if (!map || !hoveredPlaceId) return;
+
+        let targetLat: number | null = null;
+        let targetLng: number | null = null;
+
+        if (isCompareMode) {
+            for (const path of rawComparePaths) {
+                const place = path.find((p: any) => p.placeId === hoveredPlaceId);
+                if (place) {
+                    targetLat = place.lat;
+                    targetLng = place.lng;
+                    break;
+                }
+            }
+        } else {
+            const place = rawSinglePath.find((p: any) => p.placeId === hoveredPlaceId);
+            if (place) {
+                targetLat = place.lat;
+                targetLng = place.lng;
+            }
+        }
+
+        if (targetLat !== null && targetLng !== null) {
+            const moveLatLon = new window.kakao.maps.LatLng(targetLat, targetLng);
+
+            map.setLevel(4);
+            map.panTo(moveLatLon);
+        }
+    }, [map, hoveredPlaceId, rawComparePaths, rawSinglePath, isCompareMode]);
 
     return (
         <KakaoMap

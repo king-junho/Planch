@@ -255,6 +255,10 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                                         ref={(el) => { placeRefs.current[`${branch.id}-${place.id}`] = el; }}
                                                         onMouseEnter={() => setHoveredPlaceId(place.id)}
                                                         onMouseLeave={() => setHoveredPlaceId(null)}
+                                                        onClick={() => {
+                                                            setHoveredPlaceId(place.id);
+                                                            setTimeout(() => setHoveredPlaceId(null), 3000);
+                                                        }}
                                                         className={`relative group cursor-pointer transition-all duration-300 ${hoveredPlaceId && !isHovered ? 'opacity-30' : 'opacity-100'}`}
                                                     >
                                                         <div className={`absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm transition-transform duration-300 ${dotColor} ${isHovered ? 'scale-150 ring-4 ring-blue-50' : ''}`} />
@@ -286,7 +290,7 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                 </div>
             </div>
 
-            <div className="flex-1 min-w-[500px] h-full relative z-0 bg-gray-100 shrink-0">
+            <div className="flex-1 min-w-[400px] h-full relative z-0 bg-gray-100 shrink-0">
                 <BranchMap
                     compareBranches={compareBranches}
                     compareDay={compareDay}

@@ -14,9 +14,17 @@ interface BranchDetailSectionProps {
     branch: Branch | null | undefined;
     isLocked?: boolean;
     onBack: () => void;
+    hoveredPlaceId?: number | null;
+    onPlaceHover?: (placeId: number | null) => void;
 }
 
-export default function BranchDetailSection({ branch, isLocked = false, onBack }: BranchDetailSectionProps) {
+export default function BranchDetailSection({
+    branch,
+    isLocked = false,
+    onBack,
+    hoveredPlaceId,
+    onPlaceHover
+}: BranchDetailSectionProps) {
     const { selectedDay, setSelectedDay, voteBranch, finalizeBranch, deleteBranch, isLoading, fetchBranches, tripDuration, tripStartDate } = useBranchStore();
     const navigate = useNavigate();
     const { tripRoomId } = useParams();
@@ -329,16 +337,26 @@ export default function BranchDetailSection({ branch, isLocked = false, onBack }
                 ) : (
                     currentRoute.map((item, index) => {
                         const costValue = item.cost || (item as any).estimatedCost;
+                        const isHovered = hoveredPlaceId === item.id;
 
                         return (
-                            <div key={`route-item-${item.id}-${index}`} className="relative flex gap-5">
+                            <div
+                                key={`route-item-${item.id}-${index}`}
+                                className={`relative flex gap-5 group cursor-pointer transition-all duration-300 ${hoveredPlaceId && !isHovered ? 'opacity-30' : 'opacity-100'}`}
+                                onMouseEnter={() => onPlaceHover?.(item.id)}
+                                onMouseLeave={() => onPlaceHover?.(null)}
+                                onClick={() => {
+                                    onPlaceHover?.(item.id);
+                                    setTimeout(() => onPlaceHover?.(null), 3000);
+                                }}
+                            >
                                 <div className="flex flex-col items-center">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 z-10" />
+                                    <div className={`w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 z-10 transition-all duration-300 ${isHovered ? 'scale-150 ring-4 ring-blue-100' : ''}`} />
                                     {index !== currentRoute.length - 1 && (
                                         <div className="w-0.5 h-full bg-blue-100 -mt-1" />
                                     )}
                                 </div>
-                                <div className="flex-1 pb-4">
+                                <div className={`flex-1 pb-4 transition-transform duration-300 origin-left ${isHovered ? 'scale-[1.02] translate-x-1' : ''}`}>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                                             {item.time}
