@@ -226,6 +226,7 @@ ${preferences
 
 Respond only as JSON. Do not include markdown code fences or explanation text.
 The recommendations array must contain exactly ${AI_PROPOSAL_CANDIDATE_COUNT} items.
+Recommend only places located within the region or destination written in the Trip title. If the Trip title indicates a specific region, do not recommend places outside that region.
 placeId is a random integer used only as a temporary identifier.
 name and address must be specific enough for Kakao Map keyword search.
 category must describe the real place type, not the reason for recommendation.
