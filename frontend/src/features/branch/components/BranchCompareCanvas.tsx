@@ -212,7 +212,7 @@ export default function BranchCompareCanvas({ compareBranches, onBack }: BranchC
                                         <div className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100 col-span-2">
                                             <div className="flex justify-between items-center mb-1.5">
                                                 <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
-                                                    <Heart size={12} className="text-red-400" /> 취향 매칭률
+                                                    <Heart size={12} className="text-red-400" /> 멤버 선호도 일치율
                                                 </span>
                                                 <span className="text-xs font-bold text-gray-900">{matchRate}%</span>
                                             </div>

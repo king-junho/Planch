@@ -93,7 +93,7 @@ export default function BranchCard({ branch, onViewDetail }: BranchCardProps) {
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1 text-blue-600">
                             <TrendingUp size={12} />
-                            <span className="text-[11px] font-bold">팀원 선호도 일치율</span>
+                            <span className="text-[11px] font-bold">멤버 선호도 일치율</span>
                         </div>
                         <span className="text-blue-600 text-xs font-bold">{branch.matchRate}%</span>
                     </div>
